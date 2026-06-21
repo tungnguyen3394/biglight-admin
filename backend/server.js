@@ -20,9 +20,16 @@ const SMTP_USER = process.env.SMTP_USER || '';
 const SMTP_PASS = process.env.SMTP_PASS || '';
 const MAIL_FROM = process.env.MAIL_FROM || ('BIGLIGHT <' + SMTP_USER + '>');
 const ADMIN_NOTIFY_TO = process.env.ADMIN_NOTIFY_TO || SMTP_USER;
-const transporter = (SMTP_USER && SMTP_PASS)
-  ? nodemailer.createTransport({ host: 'smtp.gmail.com', port: 465, secure: true, auth: { user: SMTP_USER, pass: SMTP_PASS } })
-  : null;
+const SMTP_HOST = process.env.SMTP_HOST || 'smtp.gmail.com';
+const SMTP_PORT = parseInt(process.env.SMTP_PORT || '465', 10);
+const SMTP_SECURE = process.env.SMTP_SECURE ? (process.env.SMTP_SECURE === 'true') : (SMTP_PORT === 465);
+const SMTP_NOAUTH = process.env.SMTP_NOAUTH === 'true';   // true = SMTP relay xác thực bằng IP (không cần mật khẩu)
+let transporter = null;
+if (SMTP_HOST && (SMTP_PASS || SMTP_NOAUTH)) {
+  const opt = { host: SMTP_HOST, port: SMTP_PORT, secure: SMTP_SECURE };
+  if (SMTP_PASS) opt.auth = { user: SMTP_USER, pass: SMTP_PASS };
+  transporter = nodemailer.createTransport(opt);
+}
 async function sendInquiryMails(q) {
   if (!transporter) return;
   const sep = '\n――――――――――――――――――\n';
