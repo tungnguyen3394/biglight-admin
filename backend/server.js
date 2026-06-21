@@ -26,7 +26,7 @@ const SMTP_SECURE = process.env.SMTP_SECURE ? (process.env.SMTP_SECURE === 'true
 const SMTP_NOAUTH = process.env.SMTP_NOAUTH === 'true';   // true = SMTP relay xác thực bằng IP (không cần mật khẩu)
 let transporter = null;
 if (SMTP_HOST && (SMTP_PASS || SMTP_NOAUTH)) {
-  const opt = { host: SMTP_HOST, port: SMTP_PORT, secure: SMTP_SECURE };
+  const opt = { host: SMTP_HOST, port: SMTP_PORT, secure: SMTP_SECURE, family: 4, requireTLS: !SMTP_SECURE };
   if (SMTP_PASS) opt.auth = { user: SMTP_USER, pass: SMTP_PASS };
   transporter = nodemailer.createTransport(opt);
 }
