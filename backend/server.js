@@ -11,6 +11,7 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '')
   .split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+const SITE_ORIGIN = process.env.SITE_ORIGIN || 'https://biglight.jp';
 const oauth = new OAuth2Client(GOOGLE_CLIENT_ID);
 
 async function init() {
@@ -34,7 +35,49 @@ app.use(session({
   },
 }));
 
-// ---- public ----
+// ================= PUBLIC: nhận form 問い合わせ từ website =================
+function setCors(res) {
+  res.set('Access-Control-Allow-Origin', SITE_ORIGIN);
+  res.set('Vary', 'Origin');
+  res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type');
+}
+app.options('/api/inquiry', (_q, res) => { setCors(res); res.sendStatus(204); });
+
+const rl = new Map();                      // chống spam đơn giản theo IP
+function rateOk(ip) {
+  const now = Date.now(), win = 10 * 60 * 1000, max = 8;
+  const arr = (rl.get(ip) || []).filter(t => now - t < win);
+  if (arr.length >= max) { rl.set(ip, arr); return false; }
+  arr.push(now); rl.set(ip, arr); return true;
+}
+
+app.post('/api/inquiry', async (req, res) => {
+  setCors(res);
+  try {
+    const b = req.body || {};
+    if (b.website) return res.json({ ok: true });           // honeypot: bot điền -> giả thành công
+    const company = String(b.company || '').trim().slice(0, 200);
+    const name = String(b.name || '').trim().slice(0, 120);
+    const email = String(b.email || '').trim().slice(0, 200);
+    const tel = String(b.tel || '').trim().slice(0, 60);
+    const message = String(b.message || '').trim().slice(0, 5000);
+    if (!name || !email || !tel || !message) return res.status(400).json({ error: '必須項目が未入力です' });
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'メールアドレスが不正です' });
+    const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.ip || '';
+    if (!rateOk(ip)) return res.status(429).json({ error: 'しばらくしてから再度お試しください' });
+    await pool.query(
+      'INSERT INTO inquiries(company,name,email,tel,message,ip,user_agent) VALUES($1,$2,$3,$4,$5,$6,$7)',
+      [company, name, email, tel, message, ip, String(req.headers['user-agent'] || '').slice(0, 300)]
+    );
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('POST /api/inquiry:', e.message);
+    res.status(500).json({ error: 'server error' });
+  }
+});
+
+// ================= AUTH =================
 app.get('/healthz', (_q, res) => res.json({ ok: true }));
 app.get('/api/config', (_q, res) => res.json({ googleClientId: GOOGLE_CLIENT_ID }));
 app.get('/api/me', (req, res) => res.json({ user: req.session.user || null }));
@@ -56,7 +99,6 @@ app.post('/auth/google', async (req, res) => {
     res.status(401).json({ error: 'invalid token' });
   }
 });
-
 app.post('/api/logout', (req, res) => req.session.destroy(() => res.json({ ok: true })));
 
 function requireAuth(req, res, next) {
@@ -64,7 +106,7 @@ function requireAuth(req, res, next) {
   res.status(401).json({ error: 'unauthorized' });
 }
 
-// ---- API (Phase 2/3 sẽ mở rộng) ----
+// ================= ADMIN API =================
 app.get('/api/stats', requireAuth, async (_q, res) => {
   try {
     const a = await pool.query("SELECT COUNT(*)::int n FROM inquiries WHERE status='new'");
@@ -74,16 +116,28 @@ app.get('/api/stats', requireAuth, async (_q, res) => {
     res.json({ inquiriesNew: a.rows[0].n, inquiriesTotal: b.rows[0].n, postsPublished: c.rows[0].n, postsTotal: d.rows[0].n });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
+
 app.get('/api/inquiries', requireAuth, async (_q, res) => {
-  const r = await pool.query('SELECT * FROM inquiries ORDER BY created_at DESC LIMIT 300');
+  const r = await pool.query('SELECT * FROM inquiries ORDER BY created_at DESC LIMIT 500');
   res.json({ items: r.rows });
 });
+app.patch('/api/inquiries/:id', requireAuth, async (req, res) => {
+  const st = String((req.body || {}).status || '').trim();
+  if (!['new', 'replied', 'done'].includes(st)) return res.status(400).json({ error: 'bad status' });
+  await pool.query('UPDATE inquiries SET status=$1 WHERE id=$2', [st, req.params.id]);
+  res.json({ ok: true });
+});
+app.delete('/api/inquiries/:id', requireAuth, async (req, res) => {
+  await pool.query('DELETE FROM inquiries WHERE id=$1', [req.params.id]);
+  res.json({ ok: true });
+});
+
 app.get('/api/posts', requireAuth, async (_q, res) => {
   const r = await pool.query('SELECT id,slug,title,category,status,published_at,updated_at FROM posts ORDER BY created_at DESC');
   res.json({ items: r.rows });
 });
 
-// ---- admin UI (tĩnh) ----
+// ================= admin UI (tĩnh) =================
 app.use(express.static(path.join(__dirname, 'public')));
 
 const PORT = process.env.PORT || 3000;
