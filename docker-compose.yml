@@ -5,6 +5,8 @@ services:
     container_name: biglight-admin
     restart: unless-stopped
     env_file: .env
+    volumes:
+      - /var/www/biglight:/site          # ghi trang お知らせ tĩnh vào web (biglight.jp/news/)
     labels:
       caddy: admin.biglight.jp
       caddy.reverse_proxy: "{{upstreams 3000}}"

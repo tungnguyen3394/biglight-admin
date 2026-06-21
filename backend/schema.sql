@@ -26,6 +26,8 @@ CREATE TABLE IF NOT EXISTS downloads (
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_dl_created ON downloads(created_at DESC);
+ALTER TABLE downloads ADD COLUMN IF NOT EXISTS interest TEXT;
+ALTER TABLE downloads ADD COLUMN IF NOT EXISTS note TEXT;
 
 -- お知らせ・HR Magazine (bài viết)
 CREATE TABLE IF NOT EXISTS posts (

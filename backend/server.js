@@ -6,6 +6,7 @@ const { Pool } = require('pg');
 const { OAuth2Client } = require('google-auth-library');
 const path = require('path');
 const fs = require('fs');
+const news = require('./news');
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
@@ -154,7 +155,9 @@ app.post('/api/download', async (req, res) => {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'メールアドレスが不正です' });
     const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.ip || '';
     if (!rateOk(ip)) return res.status(429).json({ error: 'しばらくしてから再度お試しください' });
-    await pool.query('INSERT INTO downloads(company,name,email,ip) VALUES($1,$2,$3,$4)', [company, name, email, ip]);
+    const interest = (Array.isArray(b.interest) ? b.interest.join(' / ') : String(b.interest || '')).slice(0, 500);
+    const note = String(b.note || '').trim().slice(0, 2000);
+    await pool.query('INSERT INTO downloads(company,name,email,interest,note,ip) VALUES($1,$2,$3,$4,$5,$6)', [company, name, email, interest, note, ip]);
     res.json({ ok: true });
   } catch (e) {
     console.error('POST /api/download:', e.message);
@@ -259,6 +262,7 @@ app.post('/api/posts', requireAuth, async (req, res) => {
        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,now()) RETURNING *`,
       [slug, title, b.category || 'news', b.excerpt || null, b.body || null, b.cover_image || null, b.meta_description || null, status, pub, (req.session.user && req.session.user.email) || null]);
     res.json({ item: r.rows[0] });
+    news.regenerate(pool).catch(() => {});
   } catch (e) { console.error('POST /api/posts:', e.message); res.status(500).json({ error: e.message }); }
 });
 app.put('/api/posts/:id', requireAuth, async (req, res) => {
@@ -282,11 +286,21 @@ app.put('/api/posts/:id', requireAuth, async (req, res) => {
       `UPDATE posts SET slug=$1,title=$2,category=$3,excerpt=$4,body=$5,cover_image=$6,meta_description=$7,status=$8,published_at=$9,updated_at=now() WHERE id=$10 RETURNING *`,
       [slug, title, b.category || old.category, b.excerpt != null ? b.excerpt : old.excerpt, b.body != null ? b.body : old.body, b.cover_image != null ? b.cover_image : old.cover_image, b.meta_description != null ? b.meta_description : old.meta_description, status, pub, req.params.id]);
     res.json({ item: r.rows[0] });
+    if (old.slug !== slug) news.removeSlug(old.slug);
+    if (r.rows[0].status !== 'published') news.removeSlug(slug);
+    news.regenerate(pool).catch(() => {});
   } catch (e) { console.error('PUT /api/posts:', e.message); res.status(500).json({ error: e.message }); }
 });
 app.delete('/api/posts/:id', requireAuth, async (req, res) => {
+  const c = await pool.query('SELECT slug FROM posts WHERE id=$1', [req.params.id]);
   await pool.query('DELETE FROM posts WHERE id=$1', [req.params.id]);
   res.json({ ok: true });
+  if (c.rows[0]) news.removeSlug(c.rows[0].slug);
+  news.regenerate(pool).catch(() => {});
+});
+app.post('/api/news/regenerate', requireAuth, async (_q, res) => {
+  try { const n = await news.regenerate(pool); res.json({ ok: true, count: n }); }
+  catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // ================= admin UI (tĩnh) =================
@@ -294,5 +308,8 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 const PORT = process.env.PORT || 3000;
 init()
-  .then(() => app.listen(PORT, () => console.log('BIGLIGHT admin listening on ' + PORT)))
+  .then(() => {
+    app.listen(PORT, () => console.log('BIGLIGHT admin listening on ' + PORT));
+    news.regenerate(pool).then(n => console.log('news regenerated: ' + n)).catch(e => console.error('news regen:', e.message));
+  })
   .catch(e => { console.error('init failed:', e); process.exit(1); });
