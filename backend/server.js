@@ -27,10 +27,38 @@ async function sendInquiryMails(q) {
   if (!transporter) return;
   const sep = '\n――――――――――――――――――\n';
   const detail = `会社名：${q.company || '-'}\nお名前：${q.name}\nメール：${q.email}\n電話：${q.tel}\nお問い合わせ内容：\n${q.message}`;
+  const greet = (q.company ? q.company + '\n' : '') + `${q.name} 様`;
   const autoReply = {
     from: MAIL_FROM, to: q.email,
-    subject: '【BIGLIGHT】お問い合わせありがとうございます',
-    text: `${q.name} 様${sep}この度はBIGLIGHT株式会社へお問い合わせいただき、誠にありがとうございます。\n下記の内容で承りました。内容を確認のうえ、3営業日以内に担当者よりご連絡いたします。${sep}${detail}${sep}※本メールは自動送信です。お心当たりのない場合は破棄してください。\n\nBIGLIGHT株式会社\nTEL 052-908-7944 ／ https://biglight.jp`,
+    subject: '【BIGLIGHT株式会社】お問い合わせありがとうございます（自動返信）',
+    text:
+`${greet}
+
+この度は、BIGLIGHT株式会社へお問い合わせいただき、誠にありがとうございます。
+下記の内容にてお問い合わせを承りました。
+内容を確認のうえ、担当者より3営業日以内にご連絡いたします。
+今しばらくお待ちくださいますようお願い申し上げます。
+
+──────────────────────────
+■ お問い合わせ内容
+会社名：${q.company || '（未入力）'}
+お名前：${q.name}
+メールアドレス：${q.email}
+電話番号：${q.tel}
+お問い合わせ内容：
+${q.message}
+──────────────────────────
+
+※本メールは送信専用アドレスからの自動返信です。
+※お心当たりのない場合は、お手数ですが本メールを破棄してください。
+※3営業日を過ぎても返信がない場合は、誠に恐れ入りますが下記までお電話ください。
+
+──────────────────────────
+BIGLIGHT株式会社
+〒462-0007 愛知県名古屋市北区如意一丁目112 A
+TEL：052-908-7944 ／ FAX：052-908-7267
+URL：https://biglight.jp
+──────────────────────────`,
   };
   const notify = {
     from: MAIL_FROM, to: ADMIN_NOTIFY_TO, replyTo: q.email,
