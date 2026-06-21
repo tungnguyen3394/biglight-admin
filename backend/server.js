@@ -14,6 +14,33 @@ const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '')
 const SITE_ORIGIN = process.env.SITE_ORIGIN || 'https://biglight.jp';
 const oauth = new OAuth2Client(GOOGLE_CLIENT_ID);
 
+// ----- Email tự động (Gmail/Workspace SMTP) -----
+const nodemailer = require('nodemailer');
+const SMTP_USER = process.env.SMTP_USER || '';
+const SMTP_PASS = process.env.SMTP_PASS || '';
+const MAIL_FROM = process.env.MAIL_FROM || ('BIGLIGHT <' + SMTP_USER + '>');
+const ADMIN_NOTIFY_TO = process.env.ADMIN_NOTIFY_TO || SMTP_USER;
+const transporter = (SMTP_USER && SMTP_PASS)
+  ? nodemailer.createTransport({ host: 'smtp.gmail.com', port: 465, secure: true, auth: { user: SMTP_USER, pass: SMTP_PASS } })
+  : null;
+async function sendInquiryMails(q) {
+  if (!transporter) return;
+  const sep = '\n――――――――――――――――――\n';
+  const detail = `会社名：${q.company || '-'}\nお名前：${q.name}\nメール：${q.email}\n電話：${q.tel}\nお問い合わせ内容：\n${q.message}`;
+  const autoReply = {
+    from: MAIL_FROM, to: q.email,
+    subject: '【BIGLIGHT】お問い合わせありがとうございます',
+    text: `${q.name} 様${sep}この度はBIGLIGHT株式会社へお問い合わせいただき、誠にありがとうございます。\n下記の内容で承りました。内容を確認のうえ、3営業日以内に担当者よりご連絡いたします。${sep}${detail}${sep}※本メールは自動送信です。お心当たりのない場合は破棄してください。\n\nBIGLIGHT株式会社\nTEL 052-908-7944 ／ https://biglight.jp`,
+  };
+  const notify = {
+    from: MAIL_FROM, to: ADMIN_NOTIFY_TO, replyTo: q.email,
+    subject: `【新規問い合わせ】${q.company || ''} ${q.name}`,
+    text: `新しいお問い合わせが届きました。${sep}${detail}${sep}管理画面：https://admin.biglight.jp`,
+  };
+  try { await transporter.sendMail(autoReply); } catch (e) { console.error('mail autoReply:', e.message); }
+  try { await transporter.sendMail(notify); } catch (e) { console.error('mail notify:', e.message); }
+}
+
 async function init() {
   const sql = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8');
   await pool.query(sql);
@@ -71,6 +98,7 @@ app.post('/api/inquiry', async (req, res) => {
       [company, name, email, tel, message, ip, String(req.headers['user-agent'] || '').slice(0, 300)]
     );
     res.json({ ok: true });
+    sendInquiryMails({ company, name, email, tel, message }).catch(() => {});
   } catch (e) {
     console.error('POST /api/inquiry:', e.message);
     res.status(500).json({ error: 'server error' });
