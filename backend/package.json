@@ -1,0 +1,16 @@
+{
+  "name": "biglight-admin",
+  "version": "1.0.0",
+  "description": "Admin quản trị biglight.jp — 問い合わせ + お知らせ (PostgreSQL)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "connect-pg-simple": "^9.0.1",
+    "express": "^4.19.2",
+    "express-session": "^1.18.0",
+    "google-auth-library": "^9.11.0",
+    "pg": "^8.12.0"
+  }
+}

@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>BIGLIGHT 管理画面</title>
+<script src="https://accounts.google.com/gsi/client" async></script>
+<style>
+  :root{--navy:#0b3d91;--blue:#1e6fd6;--gold:#f5a623;--ink:#1f2a3a;--muted:#64748b;--line:rgba(0,0,0,.08);--bg:#f4f6f9}
+  *{margin:0;box-sizing:border-box}
+  body{font-family:"Helvetica Neue","Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif;color:var(--ink);background:var(--bg)}
+  a{color:var(--blue);text-decoration:none}
+  /* LOGIN */
+  #login{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#071e46,#0b3d91)}
+  .lcard{background:#fff;border-radius:16px;padding:44px 40px;width:100%;max-width:380px;text-align:center;box-shadow:0 24px 70px rgba(0,0,0,.3)}
+  .lcard .mark{font-size:22px;font-weight:800;color:var(--navy);letter-spacing:4px}
+  .lcard .sub{font-size:13px;color:var(--muted);margin:6px 0 28px}
+  #gbtn{display:flex;justify-content:center}
+  .lerr{color:#e23b3b;font-size:13px;margin-top:16px;min-height:18px}
+  /* APP */
+  #app{display:none;min-height:100vh;grid-template-columns:230px 1fr}
+  .side{background:#071e46;color:#cfe0f7;padding:22px 16px;display:flex;flex-direction:column}
+  .side .brand{color:#fff;font-weight:800;letter-spacing:3px;font-size:18px;padding:6px 10px 22px}
+  .side .brand small{display:block;font-size:11px;color:var(--gold);letter-spacing:2px;font-weight:600;margin-top:2px}
+  .nav a{display:flex;align-items:center;gap:10px;color:#cfe0f7;padding:12px 14px;border-radius:10px;font-size:14px;cursor:pointer;margin-bottom:4px}
+  .nav a:hover,.nav a.active{background:#ffffff14;color:#fff}
+  .nav a .badge{margin-left:auto;background:var(--gold);color:#3d2b00;font-size:11px;font-weight:700;border-radius:20px;padding:1px 8px}
+  .side .me{margin-top:auto;border-top:1px solid #ffffff1f;padding-top:16px;font-size:12.5px;color:#aec6ee}
+  .side .me img{width:30px;height:30px;border-radius:50%;vertical-align:middle;margin-right:8px}
+  .side .logout{display:inline-block;margin-top:12px;color:#9db8e0;font-size:12.5px;cursor:pointer}
+  .main{padding:28px 34px;overflow:auto}
+  .h1{font-size:22px;color:var(--navy);font-weight:700;margin-bottom:4px}
+  .crumb{font-size:12.5px;color:var(--muted);margin-bottom:24px}
+  .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:30px}
+  .stat{background:#fff;border:1px solid var(--line);border-radius:14px;padding:20px}
+  .stat .n{font-size:30px;font-weight:800;color:var(--navy)}
+  .stat .l{font-size:12.5px;color:var(--muted);margin-top:4px}
+  .panel{background:#fff;border:1px solid var(--line);border-radius:14px;padding:26px}
+  .panel h3{font-size:16px;color:var(--navy);margin-bottom:6px}
+  .panel p{font-size:13.5px;color:var(--muted);line-height:1.8}
+  .soon{display:inline-block;margin-top:10px;font-size:12px;color:#9a5b00;background:#fdeccb;border-radius:20px;padding:4px 12px}
+  @media(max-width:760px){#app{grid-template-columns:1fr}.side{flex-direction:row;flex-wrap:wrap;align-items:center}.side .me{margin:0 0 0 auto;border:0;padding:0}.cards{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+
+<div id="login">
+  <div class="lcard">
+    <div class="mark">BIGLIGHT</div>
+    <div class="sub">管理画面 / Admin</div>
+    <div id="gbtn"></div>
+    <div class="lerr" id="lerr"></div>
+  </div>
+</div>
+
+<div id="app">
+  <aside class="side">
+    <div class="brand">BIGLIGHT<small>ADMIN</small></div>
+    <nav class="nav">
+      <a class="active" data-page="dashboard">📊 ダッシュボード</a>
+      <a data-page="inquiries">✉️ お問い合わせ <span class="badge" id="nbInq" style="display:none">0</span></a>
+      <a data-page="posts">📝 お知らせ・Magazine</a>
+    </nav>
+    <div class="me" id="me"></div>
+  </aside>
+  <main class="main" id="main"></main>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+async function api(p,opt){ const r = await fetch(p,Object.assign({headers:{'Content-Type':'application/json'}},opt)); return r; }
+
+async function boot(){
+  const me = await (await api('/api/me')).json();
+  if(me.user) showApp(me.user); else showLogin();
+}
+async function showLogin(){
+  $('#app').style.display='none'; $('#login').style.display='flex';
+  const cfg = await (await api('/api/config')).json();
+  if(!cfg.googleClientId){ $('#lerr').textContent='GOOGLE_CLIENT_ID chưa cấu hình (.env)'; return; }
+  const tryInit = ()=>{
+    if(!window.google||!google.accounts){ return setTimeout(tryInit,200); }
+    google.accounts.id.initialize({ client_id: cfg.googleClientId, callback: onCred });
+    google.accounts.id.renderButton($('#gbtn'),{ theme:'filled_blue', size:'large', text:'signin_with', shape:'pill', width:280 });
+  };
+  tryInit();
+}
+async function onCred(resp){
+  $('#lerr').textContent='';
+  const r = await api('/auth/google',{method:'POST',body:JSON.stringify({credential:resp.credential})});
+  const d = await r.json();
+  if(r.ok) showApp(d.user); else $('#lerr').textContent = d.error || 'ログインに失敗しました';
+}
+function showApp(user){
+  $('#login').style.display='none'; $('#app').style.display='grid';
+  $('#me').innerHTML = (user.picture?`<img src="${user.picture}" referrerpolicy="no-referrer">`:'') +
+    `<span>${user.name||user.email}</span><div class="logout" id="logout">ログアウト</div>`;
+  $('#logout').onclick = async ()=>{ await api('/api/logout',{method:'POST'}); location.reload(); };
+  document.querySelectorAll('.nav a').forEach(a=>a.onclick=()=>go(a.dataset.page));
+  go('dashboard');
+}
+function setActive(page){ document.querySelectorAll('.nav a').forEach(a=>a.classList.toggle('active',a.dataset.page===page)); }
+async function go(page){
+  setActive(page);
+  if(page==='dashboard') return renderDashboard();
+  if(page==='inquiries') return renderSoon('お問い合わせ管理','フォームからの問い合わせ一覧・対応状況の管理','Phase 2 で実装');
+  if(page==='posts') return renderSoon('お知らせ・HR Magazine','記事の作成・公開（biglight.jp/news/ にSEO最適化で表示）','Phase 3 で実装');
+}
+async function renderDashboard(){
+  let s={inquiriesNew:0,inquiriesTotal:0,postsPublished:0,postsTotal:0};
+  try{ s = await (await api('/api/stats')).json(); }catch(e){}
+  const nb=$('#nbInq'); if(s.inquiriesNew>0){nb.style.display='inline-block';nb.textContent=s.inquiriesNew;}
+  $('#main').innerHTML = `
+    <div class="h1">ダッシュボード</div>
+    <div class="crumb">ようこそ、BIGLIGHT 管理画面へ</div>
+    <div class="cards">
+      <div class="stat"><div class="n">${s.inquiriesNew}</div><div class="l">未対応の問い合わせ</div></div>
+      <div class="stat"><div class="n">${s.inquiriesTotal}</div><div class="l">問い合わせ 合計</div></div>
+      <div class="stat"><div class="n">${s.postsPublished}</div><div class="l">公開中の記事</div></div>
+      <div class="stat"><div class="n">${s.postsTotal}</div><div class="l">記事 合計</div></div>
+    </div>
+    <div class="panel">
+      <h3>✅ Phase 1 完了：ログイン基盤が動作しています</h3>
+      <p>次は <b>Phase 2（お問い合わせ）</b> と <b>Phase 3（お知らせ・Magazine）</b> を追加します。<br>
+      データは PostgreSQL（biglight_web）に保存されます。</p>
+    </div>`;
+}
+function renderSoon(title,desc,tag){
+  $('#main').innerHTML = `<div class="h1">${title}</div><div class="crumb">${desc}</div>
+    <div class="panel"><h3>準備中</h3><p>${desc}</p><span class="soon">🚧 ${tag}</span></div>`;
+}
+boot();
+</script>
+</body>
+</html>

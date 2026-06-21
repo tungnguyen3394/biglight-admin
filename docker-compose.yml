@@ -1,0 +1,15 @@
+# Admin biglight.jp — chạy sau Caddy (mạng "web" dùng chung ở ~/infra)
+services:
+  admin:
+    build: ./backend
+    container_name: biglight-admin
+    restart: unless-stopped
+    env_file: .env
+    labels:
+      caddy: admin.biglight.jp
+      caddy.reverse_proxy: "{{upstreams 3000}}"
+    networks: [web]
+
+networks:
+  web:
+    external: true
