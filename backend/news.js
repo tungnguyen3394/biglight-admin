@@ -1,14 +1,18 @@
-// Sinh trang tĩnh cho お知らせ vào thư mục web (biglight.jp/news/...) — chuẩn SEO
+// Sinh trang tĩnh cho お知らせ (biglight.jp/news/...) — chuẩn SEO (CMS nâng cấp)
 const fs = require('fs');
 const path = require('path');
 
 const SITE = process.env.SITE_DIR || '/site';   // mount /var/www/biglight
+const ADMIN = process.env.ADMIN_ORIGIN || 'https://admin.biglight.jp';
 const BASE = 'https://biglight.jp';
-const CAT = { news: 'お知らせ', magazine: 'HR Magazine', press: 'プレス' };
+const FALLBACK_CAT = { news: 'お知らせ', magazine: 'HR Magazine', seido: '制度・法改正情報', press: 'プレス' };
 
 const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 function ymd(d) { if (!d) return ''; const t = new Date(d); const p = n => String(n).padStart(2, '0'); return `${t.getFullYear()}.${p(t.getMonth() + 1)}.${p(t.getDate())}`; }
 function iso(d) { return d ? new Date(d).toISOString() : ''; }
+function tagsOf(p) { return String(p.tags || '').split(',').map(s => s.trim()).filter(Boolean); }
+function readingMin(html) { const n = String(html || '').replace(/<[^>]*>/g, '').replace(/\s+/g, '').length; return Math.max(1, Math.round(n / 500)); }
+function catName(map, slug) { return map[slug] || FALLBACK_CAT[slug] || slug; }
 
 function head(opts) {
   const img = opts.image || (BASE + '/assets/og-image.jpg');
@@ -77,18 +81,37 @@ const FOOTER = `
 <script src="/assets/main.js"></script>
 </body></html>`;
 
-function articleHTML(p) {
+function card(p, map) {
+  const rt = readingMin(p.body);
+  return `
+    <a class="ncard" href="/news/${esc(p.slug)}/">
+      ${p.cover_image ? `<div class="ncard-img" style="background-image:url('${esc(p.cover_image)}')"></div>` : '<div class="ncard-img noimg">BIGLIGHT</div>'}
+      <div class="ncard-b">
+        <div class="ncard-meta"><span class="ncat ${esc(p.category)}">${esc(catName(map, p.category))}</span><span class="ndate">${ymd(p.published_at)}</span></div>
+        <h3>${esc(p.title)}</h3>
+        <p>${esc((p.excerpt || '').slice(0, 90))}</p>
+        <div class="ncard-foot"><span>📖 約${rt}分</span><span>✍ ${esc(p.author || 'BIGLIGHT編集部')}</span></div>
+      </div>
+    </a>`;
+}
+
+function articleHTML(p, map) {
   const url = `${BASE}/news/${p.slug}/`;
   const desc = (p.meta_description || p.excerpt || p.title || '').replace(/\s+/g, ' ').slice(0, 200);
   const img = p.cover_image || (BASE + '/assets/og-image.jpg');
+  const tags = tagsOf(p);
+  const rt = readingMin(p.body);
+  const author = p.author || 'BIGLIGHT編集部';
+  const updated = p.updated_at && p.published_at && new Date(p.updated_at) - new Date(p.published_at) > 86400000;
   const jsonld =
 `<script type="application/ld+json">${JSON.stringify({
-  '@context': 'https://schema.org', '@type': 'Article',
+  '@context': 'https://schema.org', '@type': 'BlogPosting',
+  mainEntityOfPage: { '@type': 'WebPage', '@id': url },
   headline: p.title, description: desc, image: [img],
   datePublished: iso(p.published_at), dateModified: iso(p.updated_at || p.published_at),
-  author: { '@type': 'Organization', name: 'BIGLIGHT株式会社' },
+  author: { '@type': /編集部|Admin/.test(author) ? 'Organization' : 'Person', name: author },
   publisher: { '@type': 'Organization', name: 'BIGLIGHT株式会社', logo: { '@type': 'ImageObject', url: BASE + '/assets/logo.png' } },
-  mainEntityOfPage: url
+  keywords: tags.join(', '), articleSection: catName(map, p.category), inLanguage: 'ja'
 })}</script>
 <script type="application/ld+json">${JSON.stringify({
   '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [
@@ -100,42 +123,69 @@ function articleHTML(p) {
     + HEADER
     + `<nav class="crumb" aria-label="パンくず"><a href="/">ホーム</a> ＞ <a href="/news/">お知らせ</a> ＞ <span>${esc(p.title)}</span></nav>
 <article class="sec narticle"><div class="wrap nart">
-  <span class="ncat ${esc(p.category)}">${esc(CAT[p.category] || p.category)}</span>
+  <span class="ncat ${esc(p.category)}">${esc(catName(map, p.category))}</span>
   <h1>${esc(p.title)}</h1>
-  <div class="ndate">${ymd(p.published_at)}</div>
+  <div class="nmeta">
+    <span>📅 公開 ${ymd(p.published_at)}</span>
+    ${updated ? `<span>🔄 更新 ${ymd(p.updated_at)}</span>` : ''}
+    <span>✍ ${esc(author)}</span>
+    <span>📖 約${rt}分で読めます</span>
+    <span>👁 <span id="vcount">${(p.views || 0).toLocaleString()}</span> views</span>
+  </div>
   ${p.cover_image ? `<img class="ncover" src="${esc(p.cover_image)}" alt="${esc(p.title)}">` : ''}
   <div class="nbody">${p.body || ''}</div>
+  ${tags.length ? `<div class="ntags">${tags.map(t => `<a href="/news/tag/${encodeURIComponent(t)}/">#${esc(t)}</a>`).join('')}</div>` : ''}
+  <div class="nshare">
+    <span>シェア：</span>
+    <a target="_blank" rel="noopener" href="https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}">Facebook</a>
+    <a target="_blank" rel="noopener" href="https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(url)}">LINE</a>
+    <a target="_blank" rel="noopener" href="https://twitter.com/intent/tweet?url=${encodeURIComponent(url)}&text=${encodeURIComponent(p.title)}">X</a>
+    <a target="_blank" rel="noopener" href="https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}">LinkedIn</a>
+  </div>
   <div class="nback"><a class="btn-outline" href="/news/">&lsaquo; お知らせ一覧へ</a></div>
-</div></article>`
+</div></article>
+<script>(function(){try{var k='v'+${Number(p.id)};if(!sessionStorage.getItem(k)){sessionStorage.setItem(k,'1');fetch('${ADMIN}/api/posts/${Number(p.id)}/view',{method:'POST',mode:'cors'}).then(function(){var e=document.getElementById('vcount');if(e)e.textContent=(${Number(p.views || 0)}+1).toLocaleString();}).catch(function(){});}}catch(e){}})();</script>`
     + FOOTER;
 }
 
-function listHTML(posts) {
-  const url = BASE + '/news/';
-  const items = posts.length ? posts.map(p => `
-    <a class="ncard" href="/news/${esc(p.slug)}/">
-      ${p.cover_image ? `<div class="ncard-img" style="background-image:url('${esc(p.cover_image)}')"></div>` : '<div class="ncard-img noimg"></div>'}
-      <div class="ncard-b">
-        <div class="ncard-meta"><span class="ndate">${ymd(p.published_at)}</span><span class="ncat ${esc(p.category)}">${esc(CAT[p.category] || p.category)}</span></div>
-        <h3>${esc(p.title)}</h3>
-        <p>${esc((p.excerpt || '').slice(0, 90))}</p>
-      </div>
-    </a>`).join('') : '<p style="text-align:center;color:#64748b;padding:40px">記事は準備中です。</p>';
-  return head({ title: 'お知らせ・HR Magazine｜BIGLIGHT株式会社', desc: 'BIGLIGHTからのお知らせや、外国人材採用に役立つ情報（HR Magazine）をお届けします。', url })
-    + HEADER
-    + `<nav class="crumb" aria-label="パンくず"><a href="/">ホーム</a> ＞ <span>お知らせ</span></nav>
+function listShell(opts, posts, map) {
+  const items = posts.length ? posts.map(p => card(p, map)).join('') : '<p style="text-align:center;color:#64748b;padding:40px;grid-column:1/-1">記事は準備中です。</p>';
+  return head(opts) + HEADER
+    + `<nav class="crumb" aria-label="パンくず">${opts.crumb}</nav>
 <section class="sec"><div class="wrap">
-  <div class="sec-head reveal"><div class="en">News &amp; Magazine</div><h1>お知らせ・HR Magazine</h1><p>BIGLIGHTからのお知らせ・採用お役立ち情報。</p></div>
+  <div class="sec-head reveal"><div class="en">${opts.en || 'News &amp; Magazine'}</div><h1>${esc(opts.h1)}</h1><p>${esc(opts.lead)}</p></div>
+  ${opts.tabs || ''}
   <div class="ngrid">${items}</div>
-</div></section>`
-    + FOOTER;
+</div></section>` + FOOTER;
 }
 
-function sitemapXML(posts) {
+function listHTML(posts, map, tags) {
+  const tabs = `<div class="ntabs"><a class="on" href="/news/">すべて</a>${tags.slice(0, 12).map(t => `<a href="/news/tag/${encodeURIComponent(t)}/">#${esc(t)}</a>`).join('')}</div>`;
+  return listShell({
+    title: 'お知らせ・HR Magazine｜BIGLIGHT株式会社',
+    desc: 'BIGLIGHTからのお知らせや、外国人材採用（特定技能・技人国）に役立つ情報（HR Magazine）をお届けします。',
+    url: BASE + '/news/', h1: 'お知らせ・HR Magazine', lead: 'BIGLIGHTからのお知らせ・採用お役立ち情報。',
+    crumb: '<a href="/">ホーム</a> ＞ <span>お知らせ</span>', tabs
+  }, posts, map);
+}
+
+function tagHTML(tag, posts, map) {
+  const url = `${BASE}/news/tag/${encodeURIComponent(tag)}/`;
+  return listShell({
+    title: `${tag} の記事一覧｜お知らせ｜BIGLIGHT株式会社`,
+    desc: `「${tag}」に関するBIGLIGHTのお知らせ・記事一覧です。`,
+    url, h1: `# ${tag}`, lead: `「${tag}」の記事一覧`, en: 'Tag',
+    crumb: `<a href="/">ホーム</a> ＞ <a href="/news/">お知らせ</a> ＞ <span># ${esc(tag)}</span>`
+  }, posts, map);
+}
+
+function sitemapXML(posts, tags) {
+  const u = (loc, last, pr) => `  <url><loc>${loc}</loc>${last ? `<lastmod>${last}</lastmod>` : ''}<changefreq>weekly</changefreq><priority>${pr}</priority></url>`;
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>${BASE}/news/</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
-${posts.map(p => `  <url><loc>${BASE}/news/${p.slug}/</loc><lastmod>${(iso(p.updated_at || p.published_at) || '').slice(0, 10)}</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>`).join('\n')}
+${u(BASE + '/news/', '', '0.8')}
+${posts.map(p => u(`${BASE}/news/${p.slug}/`, (iso(p.updated_at || p.published_at) || '').slice(0, 10), '0.7')).join('\n')}
+${tags.map(t => u(`${BASE}/news/tag/${encodeURIComponent(t)}/`, '', '0.5')).join('\n')}
 </urlset>`;
 }
 
@@ -144,11 +194,27 @@ function ensureDir(d) { fs.mkdirSync(d, { recursive: true }); }
 async function regenerate(pool) {
   const r = await pool.query("SELECT * FROM posts WHERE status='published' ORDER BY published_at DESC NULLS LAST, created_at DESC");
   const posts = r.rows;
+  let map = {};
+  try { (await pool.query('SELECT slug,name FROM categories')).rows.forEach(c => { map[c.slug] = c.name; }); } catch (e) { map = FALLBACK_CAT; }
   const newsDir = path.join(SITE, 'news');
   ensureDir(newsDir);
-  fs.writeFileSync(path.join(newsDir, 'index.html'), listHTML(posts));
-  fs.writeFileSync(path.join(newsDir, 'sitemap.xml'), sitemapXML(posts));
-  for (const p of posts) { const d = path.join(newsDir, p.slug); ensureDir(d); fs.writeFileSync(path.join(d, 'index.html'), articleHTML(p)); }
+  // tập hợp tag
+  const tagSet = new Set();
+  posts.forEach(p => tagsOf(p).forEach(t => tagSet.add(t)));
+  const tags = [...tagSet];
+  // list + sitemap
+  fs.writeFileSync(path.join(newsDir, 'index.html'), listHTML(posts, map, tags));
+  fs.writeFileSync(path.join(newsDir, 'sitemap.xml'), sitemapXML(posts, tags));
+  // bài viết
+  for (const p of posts) { const d = path.join(newsDir, p.slug); ensureDir(d); fs.writeFileSync(path.join(d, 'index.html'), articleHTML(p, map)); }
+  // trang tag
+  const tagRoot = path.join(newsDir, 'tag');
+  try { fs.rmSync(tagRoot, { recursive: true, force: true }); } catch (e) {}
+  for (const t of tags) {
+    const sub = posts.filter(p => tagsOf(p).includes(t));
+    const d = path.join(tagRoot, t); ensureDir(d);
+    fs.writeFileSync(path.join(d, 'index.html'), tagHTML(t, sub, map));
+  }
   return posts.length;
 }
 function removeSlug(slug) {

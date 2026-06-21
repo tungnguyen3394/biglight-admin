@@ -46,3 +46,23 @@ CREATE TABLE IF NOT EXISTS posts (
   updated_at       TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_posts_pub ON posts(status, published_at DESC);
+
+-- News CMS 拡張 (tags / focus keyword / views)
+ALTER TABLE posts ADD COLUMN IF NOT EXISTS tags          TEXT;   -- カンマ区切り
+ALTER TABLE posts ADD COLUMN IF NOT EXISTS focus_keyword TEXT;
+ALTER TABLE posts ADD COLUMN IF NOT EXISTS views         BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE posts ALTER COLUMN author SET DEFAULT 'BIGLIGHT編集部';
+
+-- カテゴリ (管理画面から追加可能)
+CREATE TABLE IF NOT EXISTS categories (
+  id         BIGSERIAL PRIMARY KEY,
+  slug       TEXT UNIQUE NOT NULL,
+  name       TEXT NOT NULL,
+  sort       INT NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+INSERT INTO categories(slug,name,sort) VALUES
+  ('news','お知らせ',1),
+  ('magazine','HR Magazine',2),
+  ('seido','制度・法改正情報',3)
+ON CONFLICT (slug) DO NOTHING;

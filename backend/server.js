@@ -6,9 +6,34 @@ const { Pool } = require('pg');
 const { OAuth2Client } = require('google-auth-library');
 const path = require('path');
 const fs = require('fs');
+const multer = require('multer');
 const news = require('./news');
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+
+// ----- アップロード (アイキャッチ画像) -> /site/assets/uploads -> biglight.jp/assets/uploads -----
+const UP_DIR = path.join(process.env.SITE_DIR || '/site', 'assets', 'uploads');
+try { fs.mkdirSync(UP_DIR, { recursive: true }); } catch (e) {}
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: (_q, _f, cb) => cb(null, UP_DIR),
+    filename: (_q, file, cb) => {
+      let ext = (path.extname(file.originalname) || '').toLowerCase().replace(/[^.a-z0-9]/g, '');
+      if (!['.jpg', '.jpeg', '.png', '.webp'].includes(ext)) ext = '.jpg';
+      cb(null, 'img-' + Date.now().toString(36) + '-' + Math.round(Math.random() * 1e6).toString(36) + ext);
+    }
+  }),
+  limits: { fileSize: 6 * 1024 * 1024 },   // 6MB
+  fileFilter: (_q, file, cb) => {
+    const ok = ['image/jpeg', 'image/png', 'image/webp'].includes(file.mimetype);
+    cb(ok ? null : new Error('JPG / PNG / WEBP のみ対応しています'), ok);
+  }
+});
+function normTags(t) {
+  const arr = Array.isArray(t) ? t : String(t || '').split(',');
+  const out = arr.map(s => String(s).trim()).filter(Boolean).slice(0, 12);
+  return out.length ? out.join(', ') : null;
+}
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '')
   .split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
@@ -165,6 +190,14 @@ app.post('/api/download', async (req, res) => {
   }
 });
 
+// ----- public: đếm lượt xem bài viết (beacon từ trang /news/<slug>/) -----
+app.options('/api/posts/:id/view', (_q, res) => { setCors(res); res.sendStatus(204); });
+app.post('/api/posts/:id/view', async (req, res) => {
+  setCors(res);
+  try { await pool.query('UPDATE posts SET views = views + 1 WHERE id=$1', [req.params.id]); res.json({ ok: true }); }
+  catch (e) { res.json({ ok: false }); }
+});
+
 function slugify(s) {
   return String(s || '').trim().toLowerCase()
     .replace(/\s+/g, '-')
@@ -208,8 +241,10 @@ app.get('/api/stats', requireAuth, async (_q, res) => {
     const b = await pool.query("SELECT COUNT(*)::int n FROM inquiries");
     const c = await pool.query("SELECT COUNT(*)::int n FROM posts WHERE status='published'");
     const d = await pool.query("SELECT COUNT(*)::int n FROM posts");
+    const dr = await pool.query("SELECT COUNT(*)::int n FROM posts WHERE status='draft'");
     const e2 = await pool.query("SELECT COUNT(*)::int n FROM downloads");
-    res.json({ inquiriesNew: a.rows[0].n, inquiriesTotal: b.rows[0].n, postsPublished: c.rows[0].n, postsTotal: d.rows[0].n, downloadsTotal: e2.rows[0].n });
+    const top = await pool.query("SELECT id,slug,title,views,status FROM posts ORDER BY views DESC, created_at DESC LIMIT 10");
+    res.json({ inquiriesNew: a.rows[0].n, inquiriesTotal: b.rows[0].n, postsPublished: c.rows[0].n, postsTotal: d.rows[0].n, postsDraft: dr.rows[0].n, downloadsTotal: e2.rows[0].n, topPosts: top.rows });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -239,7 +274,7 @@ app.delete('/api/downloads/:id', requireAuth, async (req, res) => {
 
 // ----- posts CRUD -----
 app.get('/api/posts', requireAuth, async (_q, res) => {
-  const r = await pool.query('SELECT id,slug,title,category,status,published_at,updated_at FROM posts ORDER BY created_at DESC');
+  const r = await pool.query('SELECT id,slug,title,category,status,published_at,updated_at,views,author,tags FROM posts ORDER BY created_at DESC');
   res.json({ items: r.rows });
 });
 app.get('/api/posts/:id', requireAuth, async (req, res) => {
@@ -256,11 +291,13 @@ app.post('/api/posts', requireAuth, async (req, res) => {
     const ex = await pool.query('SELECT 1 FROM posts WHERE slug=$1', [slug]);
     if (ex.rows[0]) slug = slug + '-' + Date.now().toString(36);
     const status = b.status === 'published' ? 'published' : 'draft';
-    const pub = status === 'published' ? (b.published_at ? new Date(b.published_at) : new Date()) : null;
+    const pub = status === 'published' ? (b.published_at ? new Date(b.published_at) : new Date()) : (b.published_at ? new Date(b.published_at) : null);
+    const author = String(b.author || 'BIGLIGHT編集部').trim().slice(0, 120);
+    const fk = String(b.focus_keyword || '').trim().slice(0, 120) || null;
     const r = await pool.query(
-      `INSERT INTO posts(slug,title,category,excerpt,body,cover_image,meta_description,status,published_at,author,updated_at)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,now()) RETURNING *`,
-      [slug, title, b.category || 'news', b.excerpt || null, b.body || null, b.cover_image || null, b.meta_description || null, status, pub, (req.session.user && req.session.user.email) || null]);
+      `INSERT INTO posts(slug,title,category,excerpt,body,cover_image,meta_description,status,published_at,author,tags,focus_keyword,updated_at)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,now()) RETURNING *`,
+      [slug, title, b.category || 'news', b.excerpt || null, b.body || null, b.cover_image || null, b.meta_description || null, status, pub, author, normTags(b.tags), fk]);
     res.json({ item: r.rows[0] });
     news.regenerate(pool).catch(() => {});
   } catch (e) { console.error('POST /api/posts:', e.message); res.status(500).json({ error: e.message }); }
@@ -283,8 +320,9 @@ app.put('/api/posts/:id', requireAuth, async (req, res) => {
     if (status === 'published' && b.published_at) pub = new Date(b.published_at);
     if (status === 'draft') pub = null;
     const r = await pool.query(
-      `UPDATE posts SET slug=$1,title=$2,category=$3,excerpt=$4,body=$5,cover_image=$6,meta_description=$7,status=$8,published_at=$9,updated_at=now() WHERE id=$10 RETURNING *`,
-      [slug, title, b.category || old.category, b.excerpt != null ? b.excerpt : old.excerpt, b.body != null ? b.body : old.body, b.cover_image != null ? b.cover_image : old.cover_image, b.meta_description != null ? b.meta_description : old.meta_description, status, pub, req.params.id]);
+      `UPDATE posts SET slug=$1,title=$2,category=$3,excerpt=$4,body=$5,cover_image=$6,meta_description=$7,status=$8,published_at=$9,author=$10,tags=$11,focus_keyword=$12,updated_at=now() WHERE id=$13 RETURNING *`,
+      [slug, title, b.category || old.category, b.excerpt != null ? b.excerpt : old.excerpt, b.body != null ? b.body : old.body, b.cover_image != null ? b.cover_image : old.cover_image, b.meta_description != null ? b.meta_description : old.meta_description, status, pub,
+       b.author != null ? String(b.author).trim().slice(0, 120) : old.author, b.tags != null ? normTags(b.tags) : old.tags, b.focus_keyword != null ? (String(b.focus_keyword).trim().slice(0, 120) || null) : old.focus_keyword, req.params.id]);
     res.json({ item: r.rows[0] });
     if (old.slug !== slug) news.removeSlug(old.slug);
     if (r.rows[0].status !== 'published') news.removeSlug(slug);
@@ -301,6 +339,36 @@ app.delete('/api/posts/:id', requireAuth, async (req, res) => {
 app.post('/api/news/regenerate', requireAuth, async (_q, res) => {
   try { const n = await news.regenerate(pool); res.json({ ok: true, count: n }); }
   catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ----- アップロード画像 -----
+app.post('/api/upload', requireAuth, (req, res) => {
+  upload.single('file')(req, res, err => {
+    if (err) return res.status(400).json({ error: err.message });
+    if (!req.file) return res.status(400).json({ error: 'ファイルが選択されていません' });
+    res.json({ url: SITE_ORIGIN + '/assets/uploads/' + req.file.filename });
+  });
+});
+
+// ----- カテゴリ -----
+app.get('/api/categories', requireAuth, async (_q, res) => {
+  const r = await pool.query('SELECT * FROM categories ORDER BY sort, id');
+  res.json({ items: r.rows });
+});
+app.post('/api/categories', requireAuth, async (req, res) => {
+  try {
+    const name = String((req.body || {}).name || '').trim();
+    if (!name) return res.status(400).json({ error: 'カテゴリ名は必須です' });
+    let slug = slugify((req.body || {}).slug || name) || ('cat-' + Date.now().toString(36));
+    const ex = await pool.query('SELECT 1 FROM categories WHERE slug=$1', [slug]);
+    if (ex.rows[0]) slug = slug + '-' + Date.now().toString(36);
+    const r = await pool.query('INSERT INTO categories(slug,name,sort) VALUES($1,$2,$3) RETURNING *', [slug, name, parseInt((req.body || {}).sort, 10) || 99]);
+    res.json({ item: r.rows[0] });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+app.delete('/api/categories/:id', requireAuth, async (req, res) => {
+  await pool.query('DELETE FROM categories WHERE id=$1', [req.params.id]);
+  res.json({ ok: true });
 });
 
 // ================= admin UI (tĩnh) =================
