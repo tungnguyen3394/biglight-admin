@@ -16,6 +16,17 @@ CREATE TABLE IF NOT EXISTS inquiries (
 CREATE INDEX IF NOT EXISTS idx_inq_created ON inquiries(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_inq_status  ON inquiries(status);
 
+-- 資料請求 (người tải tài liệu PDF)
+CREATE TABLE IF NOT EXISTS downloads (
+  id          BIGSERIAL PRIMARY KEY,
+  company     TEXT,
+  name        TEXT,
+  email       TEXT,
+  ip          TEXT,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_dl_created ON downloads(created_at DESC);
+
 -- お知らせ・HR Magazine (bài viết)
 CREATE TABLE IF NOT EXISTS posts (
   id               BIGSERIAL PRIMARY KEY,

@@ -140,6 +140,35 @@ app.post('/api/inquiry', async (req, res) => {
   }
 });
 
+// ----- public: 資料ダウンロード lead -----
+app.options('/api/download', (_q, res) => { setCors(res); res.sendStatus(204); });
+app.post('/api/download', async (req, res) => {
+  setCors(res);
+  try {
+    const b = req.body || {};
+    if (b.website) return res.json({ ok: true });
+    const company = String(b.company || '').trim().slice(0, 200);
+    const name = String(b.name || '').trim().slice(0, 120);
+    const email = String(b.email || '').trim().slice(0, 200);
+    if (!name || !email) return res.status(400).json({ error: '必須項目が未入力です' });
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'メールアドレスが不正です' });
+    const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.ip || '';
+    if (!rateOk(ip)) return res.status(429).json({ error: 'しばらくしてから再度お試しください' });
+    await pool.query('INSERT INTO downloads(company,name,email,ip) VALUES($1,$2,$3,$4)', [company, name, email, ip]);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('POST /api/download:', e.message);
+    res.status(500).json({ error: 'server error' });
+  }
+});
+
+function slugify(s) {
+  return String(s || '').trim().toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9぀-ヿ一-鿿-]+/g, '')
+    .replace(/-+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80);
+}
+
 // ================= AUTH =================
 app.get('/healthz', (_q, res) => res.json({ ok: true }));
 app.get('/api/config', (_q, res) => res.json({ googleClientId: GOOGLE_CLIENT_ID }));
@@ -176,7 +205,8 @@ app.get('/api/stats', requireAuth, async (_q, res) => {
     const b = await pool.query("SELECT COUNT(*)::int n FROM inquiries");
     const c = await pool.query("SELECT COUNT(*)::int n FROM posts WHERE status='published'");
     const d = await pool.query("SELECT COUNT(*)::int n FROM posts");
-    res.json({ inquiriesNew: a.rows[0].n, inquiriesTotal: b.rows[0].n, postsPublished: c.rows[0].n, postsTotal: d.rows[0].n });
+    const e2 = await pool.query("SELECT COUNT(*)::int n FROM downloads");
+    res.json({ inquiriesNew: a.rows[0].n, inquiriesTotal: b.rows[0].n, postsPublished: c.rows[0].n, postsTotal: d.rows[0].n, downloadsTotal: e2.rows[0].n });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -195,9 +225,68 @@ app.delete('/api/inquiries/:id', requireAuth, async (req, res) => {
   res.json({ ok: true });
 });
 
+app.get('/api/downloads', requireAuth, async (_q, res) => {
+  const r = await pool.query('SELECT * FROM downloads ORDER BY created_at DESC LIMIT 500');
+  res.json({ items: r.rows });
+});
+app.delete('/api/downloads/:id', requireAuth, async (req, res) => {
+  await pool.query('DELETE FROM downloads WHERE id=$1', [req.params.id]);
+  res.json({ ok: true });
+});
+
+// ----- posts CRUD -----
 app.get('/api/posts', requireAuth, async (_q, res) => {
   const r = await pool.query('SELECT id,slug,title,category,status,published_at,updated_at FROM posts ORDER BY created_at DESC');
   res.json({ items: r.rows });
+});
+app.get('/api/posts/:id', requireAuth, async (req, res) => {
+  const r = await pool.query('SELECT * FROM posts WHERE id=$1', [req.params.id]);
+  if (!r.rows[0]) return res.status(404).json({ error: 'not found' });
+  res.json({ item: r.rows[0] });
+});
+app.post('/api/posts', requireAuth, async (req, res) => {
+  try {
+    const b = req.body || {};
+    const title = String(b.title || '').trim();
+    if (!title) return res.status(400).json({ error: 'タイトルは必須です' });
+    let slug = slugify(b.slug) || ('post-' + Date.now());
+    const ex = await pool.query('SELECT 1 FROM posts WHERE slug=$1', [slug]);
+    if (ex.rows[0]) slug = slug + '-' + Date.now().toString(36);
+    const status = b.status === 'published' ? 'published' : 'draft';
+    const pub = status === 'published' ? (b.published_at ? new Date(b.published_at) : new Date()) : null;
+    const r = await pool.query(
+      `INSERT INTO posts(slug,title,category,excerpt,body,cover_image,meta_description,status,published_at,author,updated_at)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,now()) RETURNING *`,
+      [slug, title, b.category || 'news', b.excerpt || null, b.body || null, b.cover_image || null, b.meta_description || null, status, pub, (req.session.user && req.session.user.email) || null]);
+    res.json({ item: r.rows[0] });
+  } catch (e) { console.error('POST /api/posts:', e.message); res.status(500).json({ error: e.message }); }
+});
+app.put('/api/posts/:id', requireAuth, async (req, res) => {
+  try {
+    const b = req.body || {};
+    const cur = await pool.query('SELECT * FROM posts WHERE id=$1', [req.params.id]);
+    if (!cur.rows[0]) return res.status(404).json({ error: 'not found' });
+    const old = cur.rows[0];
+    const title = String(b.title != null ? b.title : old.title).trim();
+    let slug = b.slug != null ? (slugify(b.slug) || old.slug) : old.slug;
+    if (slug !== old.slug) {
+      const ex = await pool.query('SELECT 1 FROM posts WHERE slug=$1 AND id<>$2', [slug, req.params.id]);
+      if (ex.rows[0]) slug = slug + '-' + Date.now().toString(36);
+    }
+    const status = b.status != null ? (b.status === 'published' ? 'published' : 'draft') : old.status;
+    let pub = old.published_at;
+    if (status === 'published' && !old.published_at) pub = b.published_at ? new Date(b.published_at) : new Date();
+    if (status === 'published' && b.published_at) pub = new Date(b.published_at);
+    if (status === 'draft') pub = null;
+    const r = await pool.query(
+      `UPDATE posts SET slug=$1,title=$2,category=$3,excerpt=$4,body=$5,cover_image=$6,meta_description=$7,status=$8,published_at=$9,updated_at=now() WHERE id=$10 RETURNING *`,
+      [slug, title, b.category || old.category, b.excerpt != null ? b.excerpt : old.excerpt, b.body != null ? b.body : old.body, b.cover_image != null ? b.cover_image : old.cover_image, b.meta_description != null ? b.meta_description : old.meta_description, status, pub, req.params.id]);
+    res.json({ item: r.rows[0] });
+  } catch (e) { console.error('PUT /api/posts:', e.message); res.status(500).json({ error: e.message }); }
+});
+app.delete('/api/posts/:id', requireAuth, async (req, res) => {
+  await pool.query('DELETE FROM posts WHERE id=$1', [req.params.id]);
+  res.json({ ok: true });
 });
 
 // ================= admin UI (tĩnh) =================
