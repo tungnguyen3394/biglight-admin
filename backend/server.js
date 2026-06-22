@@ -372,7 +372,9 @@ app.delete('/api/categories/:id', requireAuth, async (req, res) => {
 });
 
 // ================= admin UI (tĩnh) =================
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'), {
+  setHeaders: (res, p) => { if (p.endsWith('.html')) res.setHeader('Cache-Control', 'no-cache, must-revalidate'); }
+}));
 
 const PORT = process.env.PORT || 3000;
 init()
