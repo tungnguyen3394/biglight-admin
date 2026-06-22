@@ -197,6 +197,13 @@ app.post('/api/posts/:id/view', async (req, res) => {
   try { await pool.query('UPDATE posts SET views = views + 1 WHERE id=$1', [req.params.id]); res.json({ ok: true }); }
   catch (e) { res.json({ ok: false }); }
 });
+// public: bài viết mới nhất cho khối news trang chủ
+app.options('/api/posts/latest', (_q, res) => { setCors(res); res.sendStatus(204); });
+app.get('/api/posts/latest', async (_q, res) => {
+  setCors(res);
+  try { const r = await pool.query("SELECT slug,title,category,published_at FROM posts WHERE status='published' ORDER BY published_at DESC NULLS LAST, created_at DESC LIMIT 5"); res.json({ items: r.rows }); }
+  catch (e) { res.json({ items: [] }); }
+});
 
 function slugify(s) {
   return String(s || '').trim().toLowerCase()
