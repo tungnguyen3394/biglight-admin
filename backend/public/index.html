@@ -51,7 +51,9 @@
   th,td{padding:12px 14px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
   th{background:#f1f5fb;color:var(--navy);font-weight:700;white-space:nowrap;font-size:12.5px}
   tr:last-child td{border-bottom:0}
-  td .msg{max-width:380px;white-space:pre-wrap;color:#3a4658;line-height:1.6}
+  td .msg{max-width:420px;white-space:pre-wrap;color:#3a4658;line-height:1.6}
+  td .msg.clamp{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mtoggle{margin-top:5px;display:inline-block;padding:0;font-size:12px}
   td .sub{color:var(--muted);font-size:12px}
   .pill{font-size:11px;font-weight:700;border-radius:20px;padding:3px 10px}
   .pill.new{background:#fdeccb;color:#9a5b00}.pill.replied{background:#e7eefb;color:var(--navy)}.pill.done{background:#e2f4ea;color:#1c7a47}
@@ -229,11 +231,12 @@ function paintInq(){
     <tr><td style="white-space:nowrap">${fmt(r.created_at)}</td>
     <td><b>${esc(r.company)||'—'}</b><div class="sub">${esc(r.name)}</div></td>
     <td>${esc(r.email)}<div class="sub">${esc(r.tel)}</div></td>
-    <td><div class="msg">${esc(r.message)}</div></td>
+    <td><div class="msg clamp" id="m${r.id}">${esc(r.message)}</div>${(r.message&&(r.message.length>30||r.message.indexOf('\n')>=0))?`<button class="lnk mtoggle" data-m="${r.id}">続きを見る ▼</button>`:''}</td>
     <td><span class="pill ${r.status}">${ST[r.status]}</span></td>
     <td><select class="st" data-id="${r.id}"><option value="new"${r.status==='new'?' selected':''}>未対応</option><option value="replied"${r.status==='replied'?' selected':''}>対応中</option><option value="done"${r.status==='done'?' selected':''}>完了</option></select><br><button class="del" data-del="${r.id}" style="margin-top:6px">削除</button></td></tr>`).join('')}</tbody></table></div>`;
   document.querySelectorAll('select.st').forEach(s=>s.onchange=async()=>{ await api('/api/inquiries/'+s.dataset.id,{method:'PATCH',body:JSON.stringify({status:s.value})}); const it=INQ.find(x=>String(x.id)===s.dataset.id); if(it)it.status=s.value; paintInq(); refreshBadge(); });
   document.querySelectorAll('button.del').forEach(b=>b.onclick=async()=>{ if(!confirm('削除しますか？'))return; await api('/api/inquiries/'+b.dataset.del,{method:'DELETE'}); INQ=INQ.filter(x=>String(x.id)!==b.dataset.del); paintInq(); refreshBadge(); });
+  document.querySelectorAll('button.mtoggle').forEach(b=>b.onclick=()=>{ const d=$('#m'+b.dataset.m); const clamped=d.classList.toggle('clamp'); b.textContent=clamped?'続きを見る ▼':'閉じる ▲'; });
 }
 
 /* ===== 資料請求 ===== */
