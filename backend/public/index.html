@@ -63,16 +63,20 @@
   .lnk{color:var(--blue);cursor:pointer;font-size:12.5px;background:none;border:0;margin-right:10px}
   .empty{padding:40px;text-align:center;color:var(--muted)}
   /* editor form */
-  .form{background:#fff;border:1px solid var(--line);border-radius:14px;padding:26px;max-width:880px}
+  .form{background:#fff;border:1px solid var(--line);border-radius:14px;padding:26px;max-width:1000px}
   .fg{margin-bottom:18px}
   .fg label{display:block;font-size:13px;font-weight:600;color:var(--navy);margin-bottom:6px}
   .fg .hint{font-size:11.5px;color:var(--muted);font-weight:400;margin-left:6px}
   .fg input,.fg textarea,.fg select{width:100%;border:1px solid #cfd8e6;border-radius:8px;padding:10px 12px;font-size:14px;font-family:inherit}
   .fg textarea{min-height:70px;resize:vertical}
   .row2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-  #qeditor{background:#fff;min-height:280px}
+  #qeditor{background:#fff}
+  #qeditor .ql-editor{min-height:300px;max-height:520px;overflow-y:auto;resize:vertical}
   .ql-toolbar.ql-snow,.ql-container.ql-snow{border-color:#cfd8e6}
   .ql-container{font-size:15px;font-family:inherit}
+  .mdbox{border:1px dashed #b9c6db;border-radius:10px;background:#f6f9fe;padding:12px 14px;margin-bottom:6px}
+  .mdbox .mdhint{font-size:11.5px;color:#5a6b85;margin-bottom:8px;line-height:1.7}
+  .mdbox textarea{width:100%;min-height:90px;border:1px solid #cfd8e6;border-radius:8px;padding:10px 12px;font-size:13px;font-family:inherit;resize:vertical}
   .formbtns{display:flex;gap:12px;margin-top:8px;flex-wrap:wrap}
   .serp{border:1px solid #e3e8ef;border-radius:10px;padding:14px 16px;background:#fff;max-width:600px}
   .serp-url{font-size:12.5px;color:#202124}.serp-title{color:#1a0dab;font-size:18px;line-height:1.3;margin:3px 0}.serp-desc{font-size:13px;color:#4d5156;line-height:1.6}
@@ -153,6 +157,27 @@ function seoScore(d){
   ];
   const score=c.reduce((s,x)=>s+(x.ok?x.w:0),0);
   return {score, checks:c};
+}
+// Markdown (ChatGPT等) -> HTML : 見出し/太字/箇条書きを自動変換 -> SEO最適化
+function md2html(md){
+  const lines=String(md||'').replace(/\r/g,'').split('\n');
+  let html='',list=null;
+  const closeList=()=>{ if(list){ html+='</'+list+'>'; list=null; } };
+  const inl=s=>{ s=s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    s=s.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>').replace(/\[([^\]]+)\]\(([^)\s]+)\)/g,'<a href="$2">$1</a>');
+    return s; };
+  for(const raw of lines){ const line=raw.trim(); let m;
+    if(!line){ closeList(); continue; }
+    if(m=line.match(/^#{3,}\s+(.*)/)){ closeList(); html+='<h3>'+inl(m[1])+'</h3>'; continue; }
+    if(m=line.match(/^##\s+(.*)/)){ closeList(); html+='<h2>'+inl(m[1])+'</h2>'; continue; }
+    if(m=line.match(/^#\s+(.*)/)){ closeList(); html+='<h2>'+inl(m[1])+'</h2>'; continue; }
+    if(m=line.match(/^[-*・]\s+(.*)/)){ if(list!=='ul'){closeList();html+='<ul>';list='ul';} html+='<li>'+inl(m[1])+'</li>'; continue; }
+    if(m=line.match(/^\d+[.)]\s+(.*)/)){ if(list!=='ol'){closeList();html+='<ol>';list='ol';} html+='<li>'+inl(m[1])+'</li>'; continue; }
+    if(m=line.match(/^>\s+(.*)/)){ closeList(); html+='<blockquote>'+inl(m[1])+'</blockquote>'; continue; }
+    if(m=line.match(/^【(.+)】$/)){ closeList(); html+='<h3>'+inl(m[1])+'</h3>'; continue; }
+    closeList(); html+='<p>'+inl(line)+'</p>';
+  }
+  closeList(); return html;
 }
 function fmt(d){ if(!d) return '—'; const t=new Date(d); const p=n=>String(n).padStart(2,'0'); return `${t.getFullYear()}/${p(t.getMonth()+1)}/${p(t.getDate())} ${p(t.getHours())}:${p(t.getMinutes())}`; }
 function fmtd(d){ if(!d) return '—'; const t=new Date(d); const p=n=>String(n).padStart(2,'0'); return `${t.getFullYear()}/${p(t.getMonth()+1)}/${p(t.getDate())}`; }
@@ -324,6 +349,16 @@ async function renderEditor(id){
       </div>
       <div class="fg"><label>抜粋 <span class="hint">（一覧に表示・1〜2文）</span></label><textarea id="f_excerpt">${esc(p.excerpt)}</textarea></div>
       <div class="fg"><label>フォーカスキーワード <span class="hint">（SEO評価対象・例：特定技能 採用）</span></label><input id="f_kw" value="${esc(p.focus_keyword)}"></div>
+      <div class="fg"><label>AIから貼り付け（Markdown対応）<span class="hint">ChatGPT等の記事をそのまま貼り付け→自動でSEO整形</span></label>
+        <div class="mdbox">
+          <div class="mdhint">💡 見出しは <b>## 大見出し</b> / <b>### 小見出し</b>、太字 <b>**文字**</b>、箇条書き <b>- 項目</b> と書くと自動変換。【○○】も小見出しになります。</div>
+          <textarea id="f_md" placeholder="ここにChatGPTの記事をそのまま貼り付け…"></textarea>
+          <div style="margin-top:8px;display:flex;gap:10px;flex-wrap:wrap">
+            <button class="btn navy" id="mdfmt" type="button">✨ 整形して本文に反映</button>
+            <button class="btn" id="mdapp" type="button">＋ 本文の末尾に追加</button>
+          </div>
+        </div>
+      </div>
       <div class="fg"><label>本文 <span class="hint" id="rtime" style="float:right"></span></label><div id="qeditor"></div></div>
       <div class="fg"><label>メタディスクリプション <span class="hint">（80〜120字推奨）</span><span class="hint" id="cMeta" style="float:right"></span></label><textarea id="f_meta">${esc(p.meta_description)}</textarea></div>
       <div class="fg"><label>Google 検索プレビュー</label>
@@ -339,8 +374,11 @@ async function renderEditor(id){
       </div>
     </div>`;
   async function uploadFile(f){ const fd=new FormData(); fd.append('file',f); try{ const r=await fetch('/api/upload',{method:'POST',body:fd}); const d=await r.json(); if(r.ok) return d.url; alert('アップロード失敗: '+(d.error||'')); }catch(e){alert('アップロードに失敗しました');} return null; }
-  quill=new Quill('#qeditor',{theme:'snow',placeholder:'本文を入力…（H2/H3 見出しを使うとSEOに有利）',modules:{toolbar:{container:[[{header:[2,3,false]}],['bold','italic','underline'],[{list:'ordered'},{list:'bullet'}],['blockquote','link','image'],['clean']],handlers:{image:function(){ const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.onchange=async()=>{ const f=inp.files[0]; if(!f)return; const url=await uploadFile(f); if(url){ const rg=quill.getSelection(true)||{index:quill.getLength()}; quill.insertEmbed(rg.index,'image',url); quill.setSelection(rg.index+1); upd(); } }; inp.click(); }}}}});
+  quill=new Quill('#qeditor',{theme:'snow',placeholder:'本文を入力…（H2/H3 見出しを使うとSEOに有利）',modules:{toolbar:{container:[[{header:[2,3,4,false]}],['bold','italic','underline','strike'],[{list:'ordered'},{list:'bullet'}],['blockquote','code-block'],[{align:[]}],['link','image'],['clean']],handlers:{image:function(){ const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.onchange=async()=>{ const f=inp.files[0]; if(!f)return; const url=await uploadFile(f); if(url){ const rg=quill.getSelection(true)||{index:quill.getLength()}; quill.insertEmbed(rg.index,'image',url); quill.setSelection(rg.index+1); upd(); } }; inp.click(); }}}}});
   quill.root.innerHTML=p.body||'';
+  function autoMeta(){ if(!$('#f_meta').value.trim()){ const tmp=document.createElement('div'); tmp.innerHTML=quill.root.innerHTML; let txt=''; tmp.querySelectorAll('p').forEach(x=>{ if(!txt&&x.textContent.trim().length>20) txt=x.textContent.trim(); }); if(txt) $('#f_meta').value=txt.slice(0,118); } }
+  $('#mdfmt').onclick=()=>{ const md=$('#f_md').value.trim(); if(!md){ alert('上のテキスト欄にAIの記事を貼り付けてください'); return; } quill.clipboard.dangerouslyPasteHTML(md2html(md)); autoMeta(); upd(); $('#f_md').value=''; };
+  $('#mdapp').onclick=()=>{ const md=$('#f_md').value.trim(); if(!md)return; quill.clipboard.dangerouslyPasteHTML(quill.getLength(),md2html(md)); upd(); $('#f_md').value=''; };
   function setPrev(u){ const im=$('#upprev'); if(u){ im.src=u; im.classList.add('on'); } else im.classList.remove('on'); }
   setPrev(p.cover_image);
   $('#f_file').onchange=async e=>{ const f=e.target.files[0]; if(!f)return; $('#upbtntext').textContent='アップロード中…'; const url=await uploadFile(f); $('#upbtntext').textContent='📤 画像をアップロード'; if(url){ $('#f_cover').value=url; setPrev(url); upd(); } e.target.value=''; };
