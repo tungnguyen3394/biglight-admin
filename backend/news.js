@@ -13,6 +13,19 @@ function iso(d) { return d ? new Date(d).toISOString() : ''; }
 function tagsOf(p) { return String(p.tags || '').split(',').map(s => s.trim()).filter(Boolean); }
 function readingMin(html) { const n = String(html || '').replace(/<[^>]*>/g, '').replace(/\s+/g, '').length; return Math.max(1, Math.round(n / 500)); }
 function catName(map, slug) { return map[slug] || FALLBACK_CAT[slug] || slug; }
+// An toàn: nếu body còn chứa Markdown table dạng text (<p>| ... |</p>) thì chuyển thành <table> chuẩn
+function fixMdTables(html) {
+  if (!html || html.indexOf('|') < 0) return html;
+  const cells = r => r.replace(/^\s*\|/, '').replace(/\|\s*$/, '').split('|').map(c => c.trim());
+  return String(html).replace(/(?:<p>\s*\|.+?\|\s*<\/p>\s*){2,}/g, block => {
+    const rows = (block.match(/<p>\s*(\|.+?\|)\s*<\/p>/g) || []).map(r => r.replace(/<\/?p>/g, '').trim());
+    if (rows.length < 2 || !/^\|[\s:|-]+\|$/.test(rows[1])) return block;
+    const head = cells(rows[0]);
+    let body = '';
+    for (let i = 2; i < rows.length; i++) { const c = cells(rows[i]); body += '<tr>' + c.map(x => '<td>' + x + '</td>').join('') + '</tr>'; }
+    return '<div class="nbody-tablewrap"><table class="nbody-table"><thead><tr>' + head.map(h => '<th>' + h + '</th>').join('') + '</tr></thead><tbody>' + body + '</tbody></table></div>';
+  });
+}
 
 function head(opts) {
   const img = opts.image || (BASE + '/assets/og-image.jpg');
@@ -40,6 +53,15 @@ function head(opts) {
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Parisienne&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/assets/style.css">
+<style>
+.nbody .nbody-tablewrap{overflow-x:auto;margin:0 0 24px;-webkit-overflow-scrolling:touch}
+.nbody table{width:100%;border-collapse:collapse;margin:24px 0;font-size:15px}
+.nbody th,.nbody td{border:1px solid #dcdcdc;padding:14px;text-align:left;line-height:1.7;vertical-align:top}
+.nbody th{background:#0f4c81;color:#fff;font-weight:700;white-space:nowrap}
+.nbody tbody tr:nth-child(even){background:#f8fafc}
+.nbody img{max-width:100%;height:auto}
+@media(max-width:600px){.nbody th,.nbody td{padding:10px;font-size:13.5px}}
+</style>
 ${opts.jsonld || ''}
 </head>
 <body>`;
@@ -133,7 +155,7 @@ function articleHTML(p, map) {
     <span>👁 <span id="vcount">${(p.views || 0).toLocaleString()}</span> views</span>
   </div>
   ${p.cover_image ? `<img class="ncover" src="${esc(p.cover_image)}" alt="${esc(p.title)}">` : ''}
-  <div class="nbody">${p.body || ''}</div>
+  <div class="nbody">${fixMdTables(p.body) || ''}</div>
   ${tags.length ? `<div class="ntags">${tags.map(t => `<a href="/news/tag/${encodeURIComponent(t)}/">#${esc(t)}</a>`).join('')}</div>` : ''}
   <div class="nshare">
     <span>シェア：</span>
