@@ -74,6 +74,10 @@
   #qeditor .ql-editor{min-height:300px;max-height:520px;overflow-y:auto;resize:vertical}
   .ql-toolbar.ql-snow,.ql-container.ql-snow{border-color:#cfd8e6}
   .ql-container{font-size:15px;font-family:inherit}
+  .ql-editor table{border-collapse:collapse;width:100%;margin:10px 0;font-size:13px}
+  .ql-editor th,.ql-editor td{border:1px solid #cbd5e1;padding:6px 10px;text-align:left}
+  .ql-editor th{background:#f1f5fb;font-weight:700}
+  .ql-editor .nbody-tablewrap{overflow-x:auto}
   .mdbox{border:1px dashed #b9c6db;border-radius:10px;background:#f6f9fe;padding:12px 14px;margin-bottom:6px}
   .mdbox .mdhint{font-size:11.5px;color:#5a6b85;margin-bottom:8px;line-height:1.7}
   .mdbox textarea{width:100%;min-height:90px;border:1px solid #cfd8e6;border-radius:8px;padding:10px 12px;font-size:13px;font-family:inherit;resize:vertical}
@@ -158,26 +162,48 @@ function seoScore(d){
   const score=c.reduce((s,x)=>s+(x.ok?x.w:0),0);
   return {score, checks:c};
 }
-// Markdown (ChatGPT等) -> HTML : 見出し/太字/箇条書きを自動変換 -> SEO最適化
+// Markdown (ChatGPT等) -> HTML : 見出し/太字/箇条書き/表 を自動変換 -> SEO最適化
 function md2html(md){
   const lines=String(md||'').replace(/\r/g,'').split('\n');
-  let html='',list=null;
+  let html='',list=null,i=0;
   const closeList=()=>{ if(list){ html+='</'+list+'>'; list=null; } };
-  const inl=s=>{ s=s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const inl=s=>{ s=String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     s=s.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>').replace(/\[([^\]]+)\]\(([^)\s]+)\)/g,'<a href="$2">$1</a>');
     return s; };
-  for(const raw of lines){ const line=raw.trim(); let m;
-    if(!line){ closeList(); continue; }
-    if(m=line.match(/^#{3,}\s+(.*)/)){ closeList(); html+='<h3>'+inl(m[1])+'</h3>'; continue; }
-    if(m=line.match(/^##\s+(.*)/)){ closeList(); html+='<h2>'+inl(m[1])+'</h2>'; continue; }
-    if(m=line.match(/^#\s+(.*)/)){ closeList(); html+='<h2>'+inl(m[1])+'</h2>'; continue; }
-    if(m=line.match(/^[-*・]\s+(.*)/)){ if(list!=='ul'){closeList();html+='<ul>';list='ul';} html+='<li>'+inl(m[1])+'</li>'; continue; }
-    if(m=line.match(/^\d+[.)]\s+(.*)/)){ if(list!=='ol'){closeList();html+='<ol>';list='ol';} html+='<li>'+inl(m[1])+'</li>'; continue; }
-    if(m=line.match(/^>\s+(.*)/)){ closeList(); html+='<blockquote>'+inl(m[1])+'</blockquote>'; continue; }
-    if(m=line.match(/^【(.+)】$/)){ closeList(); html+='<h3>'+inl(m[1])+'</h3>'; continue; }
-    closeList(); html+='<p>'+inl(line)+'</p>';
+  const cells=row=>row.replace(/^\s*\|/,'').replace(/\|\s*$/,'').split('|').map(c=>c.trim());
+  while(i<lines.length){ const line=lines[i].trim(); let m;
+    if(!line){ closeList(); i++; continue; }
+    // 表（| ... | の行 + 区切り行 |---|---| ）
+    if(/^\|.*\|$/.test(line) && i+1<lines.length && /^\|[\s:|-]+\|$/.test(lines[i+1].trim())){
+      closeList();
+      const head=cells(line); i+=2; let body='';
+      while(i<lines.length && /^\|.*\|$/.test(lines[i].trim())){ const c=cells(lines[i].trim()); body+='<tr>'+c.map(x=>'<td>'+inl(x)+'</td>').join('')+'</tr>'; i++; }
+      html+='<table class="nbody-table"><thead><tr>'+head.map(h=>'<th>'+inl(h)+'</th>').join('')+'</tr></thead><tbody>'+body+'</tbody></table>';
+      continue;
+    }
+    if(m=line.match(/^#{3,}\s+(.*)/)){ closeList(); html+='<h3>'+inl(m[1])+'</h3>'; i++; continue; }
+    if(m=line.match(/^##\s+(.*)/)){ closeList(); html+='<h2>'+inl(m[1])+'</h2>'; i++; continue; }
+    if(m=line.match(/^#\s+(.*)/)){ closeList(); html+='<h2>'+inl(m[1])+'</h2>'; i++; continue; }
+    if(m=line.match(/^[-*・]\s+(.*)/)){ if(list!=='ul'){closeList();html+='<ul>';list='ul';} html+='<li>'+inl(m[1])+'</li>'; i++; continue; }
+    if(m=line.match(/^\d+[.)]\s+(.*)/)){ if(list!=='ol'){closeList();html+='<ol>';list='ol';} html+='<li>'+inl(m[1])+'</li>'; i++; continue; }
+    if(m=line.match(/^>\s+(.*)/)){ closeList(); html+='<blockquote>'+inl(m[1])+'</blockquote>'; i++; continue; }
+    if(m=line.match(/^【(.+)】$/)){ closeList(); html+='<h3>'+inl(m[1])+'</h3>'; i++; continue; }
+    closeList(); html+='<p>'+inl(line)+'</p>'; i++;
   }
   closeList(); return html;
+}
+// Đăng ký blot để Quill GIỮ bảng HTML (mặc định Quill xóa <table>)
+let _tableBlotReady=false;
+function ensureTableBlot(){
+  if(_tableBlotReady||!window.Quill) return;
+  const BlockEmbed=Quill.import('blots/block/embed');
+  class TableBlot extends BlockEmbed{
+    static create(value){ const node=super.create(); node.innerHTML=value; return node; }
+    static value(node){ return node.innerHTML; }
+  }
+  TableBlot.blotName='bltable'; TableBlot.tagName='div'; TableBlot.className='nbody-tablewrap';
+  Quill.register(TableBlot,true);
+  _tableBlotReady=true;
 }
 function fmt(d){ if(!d) return '—'; const t=new Date(d); const p=n=>String(n).padStart(2,'0'); return `${t.getFullYear()}/${p(t.getMonth()+1)}/${p(t.getDate())} ${p(t.getHours())}:${p(t.getMinutes())}`; }
 function fmtd(d){ if(!d) return '—'; const t=new Date(d); const p=n=>String(n).padStart(2,'0'); return `${t.getFullYear()}/${p(t.getMonth()+1)}/${p(t.getDate())}`; }
@@ -374,8 +400,10 @@ async function renderEditor(id){
       </div>
     </div>`;
   async function uploadFile(f){ const fd=new FormData(); fd.append('file',f); try{ const r=await fetch('/api/upload',{method:'POST',body:fd}); const d=await r.json(); if(r.ok) return d.url; alert('アップロード失敗: '+(d.error||'')); }catch(e){alert('アップロードに失敗しました');} return null; }
+  ensureTableBlot();
   quill=new Quill('#qeditor',{theme:'snow',placeholder:'本文を入力…（H2/H3 見出しを使うとSEOに有利）',modules:{toolbar:{container:[[{header:[2,3,4,false]}],['bold','italic','underline','strike'],[{list:'ordered'},{list:'bullet'}],['blockquote','code-block'],[{align:[]}],['link','image'],['clean']],handlers:{image:function(){ const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.onchange=async()=>{ const f=inp.files[0]; if(!f)return; const url=await uploadFile(f); if(url){ const rg=quill.getSelection(true)||{index:quill.getLength()}; quill.insertEmbed(rg.index,'image',url); quill.setSelection(rg.index+1); upd(); } }; inp.click(); }}}}});
-  quill.root.innerHTML=p.body||'';
+  try{ const D=Quill.import('delta'); quill.clipboard.addMatcher('TABLE',node=>new D().insert({bltable:node.outerHTML}).insert('\n')); }catch(e){}
+  if(p.body){ quill.clipboard.dangerouslyPasteHTML(p.body); } else { quill.setText(''); }
   function autoMeta(){ if(!$('#f_meta').value.trim()){ const tmp=document.createElement('div'); tmp.innerHTML=quill.root.innerHTML; let txt=''; tmp.querySelectorAll('p').forEach(x=>{ if(!txt&&x.textContent.trim().length>20) txt=x.textContent.trim(); }); if(txt) $('#f_meta').value=txt.slice(0,118); } }
   $('#mdfmt').onclick=()=>{ const md=$('#f_md').value.trim(); if(!md){ alert('上のテキスト欄にAIの記事を貼り付けてください'); return; } quill.clipboard.dangerouslyPasteHTML(md2html(md)); autoMeta(); upd(); $('#f_md').value=''; };
   $('#mdapp').onclick=()=>{ const md=$('#f_md').value.trim(); if(!md)return; quill.clipboard.dangerouslyPasteHTML(quill.getLength(),md2html(md)); upd(); $('#f_md').value=''; };
