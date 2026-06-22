@@ -72,10 +72,37 @@ const HEADER = `
   <div class="wrap nav">
     <a class="logo" href="/"><img src="/assets/logo.png" alt="BIGLIGHT株式会社"></a>
     <nav class="menu">
-      <div class="item"><a href="/about/#company">会社情報</a></div>
-      <div class="item"><a href="/service/tokutei-ginou/">サービス</a></div>
+      <div class="item">
+        <a>会社情報 <span class="caret">&#9660;</span></a>
+        <div class="dropdown">
+          <a href="/about/#mv">理念（Mission / Vision）</a>
+          <a href="/about/#message">代表メッセージ</a>
+          <a href="/#strength">選ばれる理由</a>
+          <a href="/about/#history">沿革</a>
+          <a href="/about/#company">会社概要</a>
+        </div>
+      </div>
+      <div class="item">
+        <a>サービス <span class="caret">&#9660;</span></a>
+        <div class="dropdown">
+          <a href="/service/tokutei-ginou/">特定技能 採用サービス</a>
+          <a href="/service/jinzai-shoukai/">技人国 人材紹介</a>
+          <a href="/service/teichaku/">定着・生活支援</a>
+          <a href="/flow/">導入の流れ</a>
+          <a href="/case/">導入事例</a>
+        </div>
+      </div>
       <div class="item"><a href="/case/">導入事例</a></div>
+      <div class="item"><a href="/faq/">よくある質問</a></div>
       <div class="item"><a href="/news/">お知らせ</a></div>
+      <div class="item">
+        <a>採用情報 <span class="caret">&#9660;</span></a>
+        <div class="dropdown">
+          <a href="/recruit/">採用トップ</a>
+          <a href="/recruit/#culture">会社文化</a>
+          <a href="/recruit/#senpai">先輩の声</a>
+        </div>
+      </div>
       <a class="cta" href="/contact/">無料相談</a>
     </nav>
     <div class="burger" onclick="document.getElementById('mnav').classList.add('open')">&#9776;</div>
@@ -83,12 +110,38 @@ const HEADER = `
 </header>
 <div id="mnav">
   <div class="mclose" onclick="document.getElementById('mnav').classList.remove('open')">&times;</div>
-  <a href="/about/#company">会社情報</a>
-  <a href="/service/tokutei-ginou/">特定技能 採用サービス</a>
-  <a href="/service/jinzai-shoukai/">技人国 人材紹介</a>
-  <a href="/case/">導入事例</a>
-  <a href="/news/">お知らせ</a>
-  <a href="/contact/">無料相談</a>
+  <div class="macc">
+    <button type="button" class="macc-h">会社情報 <span class="macc-ar">&#9662;</span></button>
+    <div class="macc-body">
+      <a href="/about/#mv">理念（Mission / Vision）</a>
+      <a href="/about/#message">代表メッセージ</a>
+      <a href="/#strength">選ばれる理由</a>
+      <a href="/about/#history">沿革</a>
+      <a href="/about/#company">会社概要</a>
+    </div>
+  </div>
+  <div class="macc">
+    <button type="button" class="macc-h">サービス <span class="macc-ar">&#9662;</span></button>
+    <div class="macc-body">
+      <a href="/service/tokutei-ginou/">特定技能 採用サービス</a>
+      <a href="/service/jinzai-shoukai/">技人国 人材紹介</a>
+      <a href="/service/teichaku/">定着・生活支援</a>
+      <a href="/flow/">導入の流れ</a>
+      <a href="/case/">導入事例</a>
+    </div>
+  </div>
+  <a class="macc-link" href="/case/">導入事例</a>
+  <a class="macc-link" href="/faq/">よくある質問</a>
+  <a class="macc-link" href="/news/">お知らせ</a>
+  <div class="macc">
+    <button type="button" class="macc-h">採用情報 <span class="macc-ar">&#9662;</span></button>
+    <div class="macc-body">
+      <a href="/recruit/">採用トップ</a>
+      <a href="/recruit/#culture">会社文化</a>
+      <a href="/recruit/#senpai">先輩の声</a>
+    </div>
+  </div>
+  <a class="macc-cta" href="/contact/">無料相談</a>
 </div>`;
 
 const FOOTER = `
