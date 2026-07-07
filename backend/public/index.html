@@ -109,7 +109,50 @@
   .catmgr .citem{display:inline-flex;align-items:center;gap:8px;background:#f1f5fb;border-radius:8px;padding:6px 8px 6px 12px;font-size:13px}
   .catmgr .citem .del{font-size:15px;line-height:1}
   .catmgr .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-  @media(max-width:760px){#app{grid-template-columns:1fr}.side{flex-direction:row;flex-wrap:wrap;align-items:center}.side .me{margin:0 0 0 auto;border:0;padding:0}.cards{grid-template-columns:repeat(2,1fr)}.row2{grid-template-columns:1fr}}
+  /* sidebar hamburger + thu gọn */
+  #app{transition:grid-template-columns .2s}
+  .side .top{display:flex;align-items:center;gap:10px;padding:2px 6px 20px}
+  .menu-btn{background:#ffffff14;border:0;color:#fff;width:38px;height:38px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .menu-btn:hover{background:#ffffff2b}
+  .side .brand{padding:0}
+  .nav a svg,.side svg,.btn svg,.menu-btn svg{flex-shrink:0}
+  .nav a svg{opacity:.9}
+  #app.collapsed{grid-template-columns:70px 1fr}
+  #app.collapsed .side{padding:22px 12px}
+  #app.collapsed .side .brand,#app.collapsed .nav a .label,#app.collapsed .nav a .badge,#app.collapsed .me .who,#app.collapsed .me .logout{display:none}
+  #app.collapsed .nav a{justify-content:center;padding:12px 0}
+  #app.collapsed .me{text-align:center}#app.collapsed .me img{margin:0}
+  /* danh sách: 1 hàng, click mở chi tiết */
+  tr.clk{cursor:pointer}
+  tr.clk:hover td{background:#f5f9ff}
+  td.ell{overflow:hidden}
+  th.nowrap,td.nowrap{white-space:nowrap}
+  .rowline{display:block;max-width:34vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #app.collapsed .rowline{max-width:42vw}
+  /* trang chi tiết */
+  .backbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+  .detail{background:#fff;border:1px solid var(--line);border-radius:14px;padding:8px 26px;max-width:920px}
+  .drow{display:flex;gap:18px;padding:15px 0;border-bottom:1px solid var(--line);font-size:14px}
+  .drow:last-child{border-bottom:0}
+  .dk{width:150px;flex-shrink:0;color:var(--muted);font-weight:600}
+  .dv{flex:1;white-space:pre-wrap;line-height:1.75;color:var(--ink);word-break:break-word}
+  .btn.red{color:#e23b3b;border-color:#f3c4c4}.btn.red:hover{background:#fdf0f0}
+  .btn svg,.menu-btn svg{vertical-align:middle}
+  .btn{display:inline-flex;align-items:center;gap:6px}
+  /* 資料 materials */
+  .matgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+  .matcard{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px 18px;display:flex;flex-direction:column;gap:9px}
+  .matcard .mt{font-weight:700;color:var(--ink);font-size:14.5px;line-height:1.4}
+  .matcard .mc{display:inline-block;font-size:11.5px;font-weight:700;color:var(--navy);background:#eef4fc;border-radius:14px;padding:2px 10px;align-self:flex-start}
+  .matcard .mmeta{font-size:12px;color:var(--muted);display:flex;flex-wrap:wrap;gap:8px 14px}
+  .matcard .mact{display:flex;gap:8px;margin-top:4px}
+  .sendbox{background:#f7faff;border:1px solid #d9e6fb;border-radius:12px;padding:18px 20px;margin-top:18px}
+  .sendbox h3{font-size:15px;color:var(--navy);margin-bottom:12px;display:flex;align-items:center;gap:8px}
+  .matpick{display:flex;align-items:center;gap:12px;padding:10px 4px;border-bottom:1px solid var(--line);font-size:13.5px}
+  .matpick:last-of-type{border-bottom:0}
+  .matpick .pn{font-weight:600}.matpick .pc{font-size:11.5px;color:var(--navy);background:#eef4fc;border-radius:12px;padding:1px 9px}
+  .sent-badge{font-size:12px;color:#1c7a47;background:#e2f4ea;border-radius:16px;padding:3px 11px;font-weight:700}
+  @media(max-width:760px){#app{grid-template-columns:1fr}#app.collapsed{grid-template-columns:1fr}.side{flex-direction:row;flex-wrap:wrap;align-items:center}.side .me{margin:0 0 0 auto;border:0;padding:0}.cards{grid-template-columns:repeat(2,1fr)}.row2{grid-template-columns:1fr}.dk{width:110px}}
 </style>
 </head>
 <body>
@@ -125,12 +168,28 @@
 
 <div id="app">
   <aside class="side">
-    <div class="brand">BIGLIGHT<small>ADMIN</small></div>
+    <div class="top">
+      <button class="menu-btn" id="menuBtn" title="メニューを開閉">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <div class="brand">BIGLIGHT<small>ADMIN</small></div>
+    </div>
     <nav class="nav">
-      <a class="active" data-page="dashboard">📊 ダッシュボード</a>
-      <a data-page="inquiries">✉️ お問い合わせ <span class="badge" id="nbInq" style="display:none">0</span></a>
-      <a data-page="downloads">📥 資料請求</a>
-      <a data-page="posts">📝 お知らせ・Magazine</a>
+      <a class="active" data-page="dashboard">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
+        <span class="label">ダッシュボード</span></a>
+      <a data-page="inquiries">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>
+        <span class="label">お問い合わせ</span> <span class="badge" id="nbInq" style="display:none">0</span></a>
+      <a data-page="downloads">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/></svg>
+        <span class="label">資料請求</span></a>
+      <a data-page="posts">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="14" y2="17"/></svg>
+        <span class="label">お知らせ・Magazine</span></a>
+      <a data-page="materials">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a5 5 0 0 1-7.07-7.07l9.19-9.19a3.5 3.5 0 0 1 4.95 4.95l-9.2 9.19a1.5 1.5 0 0 1-2.12-2.12l8.49-8.49"/></svg>
+        <span class="label">資料管理</span></a>
     </nav>
     <div class="me" id="me"></div>
   </aside>
@@ -140,6 +199,22 @@
 <script>
 const $ = s => document.querySelector(s);
 const esc = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+// ---- SVG line icons (thay emoji) ----
+const _svg = d => `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+const IC = {
+  reload:_svg('<path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/>'),
+  trash:_svg('<path d="M3 6h18"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M6 6l1 14a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-14"/>'),
+  plus:_svg('<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>'),
+  tag:_svg('<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>'),
+  refresh:_svg('<path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>'),
+  upload:_svg('<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/>'),
+  send:_svg('<line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>'),
+  back:_svg('<line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>'),
+  edit:_svg('<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/>'),
+  ext:_svg('<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>'),
+  file:_svg('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>'),
+  fire:_svg('<path d="M12 2s4 4 4 8a4 4 0 0 1-8 0c0-1 .5-2 1-3-2 1-4 3-4 6a7 7 0 0 0 14 0c0-5-7-11-7-11z"/>'),
+};
 const ST = { new:'未対応', replied:'対応中', done:'完了' };
 const CAT = { news:'お知らせ', magazine:'HR Magazine', seido:'制度・法改正情報', press:'プレス' };
 let CATEGORIES=[];
@@ -229,9 +304,11 @@ async function onCred(resp){ $('#lerr').textContent='';
 }
 function showApp(user){
   $('#login').style.display='none'; $('#app').style.display='grid';
-  $('#me').innerHTML=(user.picture?`<img src="${user.picture}" referrerpolicy="no-referrer">`:'')+`<span>${esc(user.name||user.email)}</span><div class="logout" id="logout">ログアウト</div>`;
+  $('#me').innerHTML=(user.picture?`<img src="${user.picture}" referrerpolicy="no-referrer">`:'')+`<span class="who">${esc(user.name||user.email)}</span><div class="logout" id="logout">ログアウト</div>`;
   $('#logout').onclick=async()=>{ await api('/api/logout',{method:'POST'}); location.reload(); };
   document.querySelectorAll('.nav a').forEach(a=>a.onclick=()=>go(a.dataset.page));
+  if(localStorage.getItem('sideCollapsed')==='1') $('#app').classList.add('collapsed');
+  $('#menuBtn').onclick=()=>{ const c=$('#app').classList.toggle('collapsed'); localStorage.setItem('sideCollapsed',c?'1':'0'); };
   refreshBadge(); loadCats().then(()=>go('dashboard'));
 }
 function setActive(p){ document.querySelectorAll('.nav a').forEach(a=>a.classList.toggle('active',a.dataset.page===p)); }
@@ -242,7 +319,10 @@ function go(page){ setActive(page);
   if(page==='inquiries') return renderInquiries();
   if(page==='downloads') return renderDownloads();
   if(page==='posts') return renderPosts();
+  if(page==='materials') return renderMaterials();
 }
+// bỏ qua click vào input/nút/select/link khi mở chi tiết theo hàng
+function rowClickable(){ document.querySelectorAll('tr.clk').forEach(tr=>{ tr.onclick=e=>{ if(e.target.closest('input,button,select,a,label')) return; const fn=tr.dataset.open; if(fn) window[fn](tr.dataset.id); }; }); }
 async function renderDashboard(){
   let s={inquiriesNew:0,inquiriesTotal:0,postsPublished:0,postsTotal:0,postsDraft:0,downloadsTotal:0,topPosts:[]};
   try{ s=await(await api('/api/stats')).json(); }catch(e){}
@@ -256,7 +336,7 @@ async function renderDashboard(){
       <div class="stat"><div class="n">${s.inquiriesTotal||0}</div><div class="l">問い合わせ 合計</div></div>
       <div class="stat"><div class="n">${s.downloadsTotal||0}</div><div class="l">資料請求 合計</div></div>
     </div>
-    <div class="panel"><h3>🔥 人気記事 TOP 10（閲覧数）</h3>
+    <div class="panel"><h3 style="display:flex;align-items:center;gap:8px">${IC.fire} 人気記事 TOP 10（閲覧数）</h3>
       ${top.length?`<div class="tablewrap" style="margin-top:12px"><table><thead><tr><th>#</th><th>タイトル</th><th>状態</th><th style="text-align:right">閲覧数</th></tr></thead><tbody>${top.map((p,i)=>`
         <tr><td>${i+1}</td><td><b>${esc(p.title)}</b><div class="sub">/news/${esc(p.slug)}/</div></td>
         <td><span class="pill ${p.status}">${p.status==='published'?'公開':'下書き'}</span></td>
@@ -273,7 +353,7 @@ async function renderInquiries(){
       <span class="tab on" data-f="all">すべて</span><span class="tab" data-f="new">未対応</span>
       <span class="tab" data-f="replied">対応中</span><span class="tab" data-f="done">完了</span>
       <span id="selcnt" style="margin-left:auto;font-size:12.5px;color:var(--muted);align-self:center"></span>
-      <button class="btn" id="reload">↻ 更新</button><button class="btn" id="delsel">🗑 選択削除</button><button class="btn gold" id="csv">CSV出力</button>
+      <button class="btn" id="reload">${IC.reload} 更新</button><button class="btn" id="delsel">${IC.trash} 選択削除</button><button class="btn gold" id="csv">CSV出力</button>
     </div><div id="body"></div>`;
   document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{INQF=t.dataset.f;document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x===t));paintInq();});
   $('#reload').onclick=loadInq;
@@ -286,24 +366,47 @@ async function loadInq(){ $('#body').innerHTML='<div class="empty">読み込み�
 function paintInq(){
   const rows=INQ.filter(r=>INQF==='all'||r.status===INQF);
   if(!rows.length){ $('#body').innerHTML='<div class="tablewrap"><div class="empty">該当する問い合わせはありません。</div></div>'; return; }
-  $('#body').innerHTML=`<div class="tablewrap"><table><thead><tr><th style="width:34px;text-align:center"><input type="checkbox" id="chkall"></th><th>受信日時</th><th>会社 / 氏名</th><th>連絡先</th><th>内容</th><th>状態</th><th>操作</th></tr></thead><tbody>${rows.map(r=>`
-    <tr><td style="text-align:center"><input type="checkbox" class="rowchk" value="${r.id}"></td><td style="white-space:nowrap">${fmt(r.created_at)}</td>
-    <td><b>${esc(r.company)||'—'}</b><div class="sub">${esc(r.name)}</div></td>
-    <td>${esc(r.email)}<div class="sub">${esc(r.tel)}</div></td>
-    <td><div class="msg clamp" id="m${r.id}">${esc(r.message)}</div>${(r.message&&(r.message.length>30||r.message.indexOf('\n')>=0))?`<button class="lnk mtoggle" data-m="${r.id}">続きを見る ▼</button>`:''}</td>
+  $('#body').innerHTML=`<div class="tablewrap"><table><thead><tr><th style="width:34px;text-align:center"><input type="checkbox" id="chkall"></th><th class="nowrap">受信日時</th><th>会社 / 氏名</th><th>連絡先</th><th style="width:40%">内容</th><th>状態</th><th>操作</th></tr></thead><tbody>${rows.map(r=>`
+    <tr class="clk" data-open="renderInquiryDetail" data-id="${r.id}"><td style="text-align:center"><input type="checkbox" class="rowchk" value="${r.id}"></td><td class="nowrap">${fmt(r.created_at)}</td>
+    <td class="nowrap"><b>${esc(r.company)||'—'}</b><div class="sub">${esc(r.name)}</div></td>
+    <td class="nowrap">${esc(r.email)}<div class="sub">${esc(r.tel)}</div></td>
+    <td class="ell"><span class="rowline">${esc((r.message||'').replace(/\s+/g,' ').trim())||'—'}</span></td>
     <td><span class="pill ${r.status}">${ST[r.status]}</span></td>
-    <td><select class="st" data-id="${r.id}"><option value="new"${r.status==='new'?' selected':''}>未対応</option><option value="replied"${r.status==='replied'?' selected':''}>対応中</option><option value="done"${r.status==='done'?' selected':''}>完了</option></select><br><button class="del" data-del="${r.id}" style="margin-top:6px">削除</button></td></tr>`).join('')}</tbody></table></div>`;
+    <td class="nowrap"><select class="st" data-id="${r.id}"><option value="new"${r.status==='new'?' selected':''}>未対応</option><option value="replied"${r.status==='replied'?' selected':''}>対応中</option><option value="done"${r.status==='done'?' selected':''}>完了</option></select><br><button class="del" data-del="${r.id}" style="margin-top:6px">削除</button></td></tr>`).join('')}</tbody></table></div>`;
   document.querySelectorAll('select.st').forEach(s=>s.onchange=async()=>{ await api('/api/inquiries/'+s.dataset.id,{method:'PATCH',body:JSON.stringify({status:s.value})}); const it=INQ.find(x=>String(x.id)===s.dataset.id); if(it)it.status=s.value; paintInq(); refreshBadge(); });
   document.querySelectorAll('button.del').forEach(b=>b.onclick=async()=>{ if(!confirm('削除しますか？'))return; await api('/api/inquiries/'+b.dataset.del,{method:'DELETE'}); INQ=INQ.filter(x=>String(x.id)!==b.dataset.del); paintInq(); refreshBadge(); });
-  document.querySelectorAll('button.mtoggle').forEach(b=>b.onclick=()=>{ const d=$('#m'+b.dataset.m); const clamped=d.classList.toggle('clamp'); b.textContent=clamped?'続きを見る ▼':'閉じる ▲'; });
+  rowClickable();
   bindChkAll();
+}
+async function renderInquiryDetail(id){
+  let r=INQ.find(x=>String(x.id)===String(id));
+  if(!r){ try{ INQ=(await(await api('/api/inquiries')).json()).items||[]; r=INQ.find(x=>String(x.id)===String(id)); }catch(e){} }
+  if(!r){ renderInquiries(); return; }
+  $('#main').innerHTML=`<div class="h1">お問い合わせ 詳細</div><div class="crumb">受信 ${fmt(r.created_at)}</div>
+    <div class="backbar">
+      <button class="btn" id="back">${IC.back} 一覧へ戻る</button>
+      <span class="pill ${r.status}" style="align-self:center">${ST[r.status]}</span>
+      <select class="st" id="dst" style="margin-left:auto">${['new','replied','done'].map(s=>`<option value="${s}"${r.status===s?' selected':''}>${ST[s]}</option>`).join('')}</select>
+      <button class="btn red" id="ddel">${IC.trash} 削除</button>
+    </div>
+    <div class="detail">
+      <div class="drow"><div class="dk">受信日時</div><div class="dv">${fmt(r.created_at)}</div></div>
+      <div class="drow"><div class="dk">会社名</div><div class="dv">${esc(r.company)||'—'}</div></div>
+      <div class="drow"><div class="dk">お名前</div><div class="dv">${esc(r.name)||'—'}</div></div>
+      <div class="drow"><div class="dk">メール</div><div class="dv"><a href="mailto:${esc(r.email)}">${esc(r.email)||'—'}</a></div></div>
+      <div class="drow"><div class="dk">電話</div><div class="dv">${esc(r.tel)||'—'}</div></div>
+      <div class="drow"><div class="dk">お問い合わせ内容</div><div class="dv">${esc(r.message)||'—'}</div></div>
+    </div>`;
+  $('#back').onclick=renderInquiries;
+  $('#dst').onchange=async()=>{ await api('/api/inquiries/'+r.id,{method:'PATCH',body:JSON.stringify({status:$('#dst').value})}); r.status=$('#dst').value; refreshBadge(); renderInquiryDetail(id); };
+  $('#ddel').onclick=async()=>{ if(!confirm('削除しますか？'))return; await api('/api/inquiries/'+r.id,{method:'DELETE'}); INQ=INQ.filter(x=>String(x.id)!==String(id)); refreshBadge(); renderInquiries(); };
 }
 
 /* ===== 資料請求 ===== */
 let DL=[];
 async function renderDownloads(){
   $('#main').innerHTML=`<div class="h1">資料請求 管理</div><div class="crumb">資料ダウンロードフォームからの請求一覧</div>
-    <div class="toolbar"><span id="selcnt" style="margin-left:auto;font-size:12.5px;color:var(--muted);align-self:center"></span><button class="btn" id="reload">↻ 更新</button><button class="btn" id="delsel">🗑 選択削除</button><button class="btn gold" id="csv">CSV出力</button></div><div id="body"></div>`;
+    <div class="toolbar"><span id="selcnt" style="margin-left:auto;font-size:12.5px;color:var(--muted);align-self:center"></span><button class="btn" id="reload">${IC.reload} 更新</button><button class="btn" id="delsel">${IC.trash} 選択削除</button><button class="btn gold" id="csv">CSV出力</button></div><div id="body"></div>`;
   $('#reload').onclick=loadDl;
   $('#delsel').onclick=()=>bulkDelete('/api/downloads',loadDl);
   $('#csv').onclick=()=>{ const ids=checkedIds(); const rows=ids.length?DL.filter(r=>ids.includes(String(r.id))):DL; csv(rows,['id','日時','会社','氏名','メール','関心内容','備考'],r=>[r.id,fmt(r.created_at),r.company,r.name,r.email,r.interest,r.note],'downloads.csv'); };
@@ -312,12 +415,61 @@ async function renderDownloads(){
 async function loadDl(){ $('#body').innerHTML='<div class="empty">読み込み中…</div>';
   try{ DL=(await(await api('/api/downloads')).json()).items||[]; }catch(e){DL=[];}
   if(!DL.length){ $('#body').innerHTML='<div class="tablewrap"><div class="empty">まだ資料請求はありません。</div></div>'; return; }
-  $('#body').innerHTML=`<div class="tablewrap"><table><thead><tr><th style="width:34px;text-align:center"><input type="checkbox" id="chkall"></th><th>請求日時</th><th>会社名</th><th>氏名</th><th>メール</th><th>関心内容</th><th>備考</th><th>操作</th></tr></thead><tbody>${DL.map(r=>`
-    <tr><td style="text-align:center"><input type="checkbox" class="rowchk" value="${r.id}"></td><td style="white-space:nowrap">${fmt(r.created_at)}</td><td><b>${esc(r.company)||'—'}</b></td><td>${esc(r.name)}</td><td>${esc(r.email)}</td>
-    <td style="max-width:220px">${esc(r.interest)||'—'}</td><td><div class="msg">${esc(r.note)||'—'}</div></td>
-    <td><button class="del" data-del="${r.id}">削除</button></td></tr>`).join('')}</tbody></table></div>`;
+  $('#body').innerHTML=`<div class="tablewrap"><table><thead><tr><th style="width:34px;text-align:center"><input type="checkbox" id="chkall"></th><th class="nowrap">請求日時</th><th>会社名</th><th>氏名</th><th>メール</th><th>関心内容</th><th>備考</th><th>送信</th><th>操作</th></tr></thead><tbody>${DL.map(r=>`
+    <tr class="clk" data-open="renderDownloadDetail" data-id="${r.id}"><td style="text-align:center"><input type="checkbox" class="rowchk" value="${r.id}"></td><td class="nowrap">${fmt(r.created_at)}</td><td class="nowrap"><b>${esc(r.company)||'—'}</b></td><td class="nowrap">${esc(r.name)}</td><td class="nowrap">${esc(r.email)}</td>
+    <td class="ell" style="max-width:180px"><span class="rowline">${esc(r.interest)||'—'}</span></td><td class="ell" style="max-width:220px"><span class="rowline">${esc((r.note||'').replace(/\s+/g,' ').trim())||'—'}</span></td>
+    <td class="nowrap">${r.sent_at?`<span class="sent-badge">送信済</span>`:'<span class="sub">—</span>'}</td>
+    <td class="nowrap"><button class="del" data-del="${r.id}">削除</button></td></tr>`).join('')}</tbody></table></div>`;
   document.querySelectorAll('button.del').forEach(b=>b.onclick=async()=>{ if(!confirm('削除しますか？'))return; await api('/api/downloads/'+b.dataset.del,{method:'DELETE'}); DL=DL.filter(x=>String(x.id)!==b.dataset.del); loadDl(); });
+  rowClickable();
   bindChkAll();
+}
+let MATS=[];
+async function renderDownloadDetail(id){
+  let r=DL.find(x=>String(x.id)===String(id));
+  if(!r){ try{ DL=(await(await api('/api/downloads')).json()).items||[]; r=DL.find(x=>String(x.id)===String(id)); }catch(e){} }
+  if(!r){ renderDownloads(); return; }
+  try{ MATS=(await(await api('/api/materials')).json()).items||[]; }catch(e){MATS=[];}
+  $('#main').innerHTML=`<div class="h1">資料請求 詳細</div><div class="crumb">請求 ${fmt(r.created_at)}</div>
+    <div class="backbar">
+      <button class="btn" id="back">${IC.back} 一覧へ戻る</button>
+      ${r.sent_at?`<span class="sent-badge" style="align-self:center">送信済 ${fmt(r.sent_at)}</span>`:''}
+      <button class="btn red" id="ddel" style="margin-left:auto">${IC.trash} 削除</button>
+    </div>
+    <div class="detail">
+      <div class="drow"><div class="dk">請求日時</div><div class="dv">${fmt(r.created_at)}</div></div>
+      <div class="drow"><div class="dk">会社名</div><div class="dv">${esc(r.company)||'—'}</div></div>
+      <div class="drow"><div class="dk">氏名</div><div class="dv">${esc(r.name)||'—'}</div></div>
+      <div class="drow"><div class="dk">メール</div><div class="dv"><a href="mailto:${esc(r.email)}">${esc(r.email)||'—'}</a></div></div>
+      <div class="drow"><div class="dk">関心内容</div><div class="dv">${esc(r.interest)||'—'}</div></div>
+      <div class="drow"><div class="dk">備考</div><div class="dv">${esc(r.note)||'—'}</div></div>
+      ${r.sent_note?`<div class="drow"><div class="dk">送信済み資料</div><div class="dv">${esc(r.sent_note)}</div></div>`:''}
+    </div>
+    <div class="sendbox">
+      <h3>${IC.send} 資料をメールで送信</h3>
+      ${MATS.length?`<div style="margin-bottom:10px">${MATS.map(m=>`
+        <label class="matpick"><input type="checkbox" class="matchk" value="${m.id}">
+          <span class="pn">${esc(m.name)}</span>${m.category?`<span class="pc">${esc(m.category)}</span>`:''}
+          <span class="sub" style="margin-left:auto">${m.filename?IC.file:''}${m.link_url?IC.ext:''}</span></label>`).join('')}</div>
+        <div class="fg"><label>メッセージ（任意・本文に追記）</label><textarea id="sendmsg" placeholder="担当者からの一言を追加できます…"></textarea></div>
+        <div class="formbtns"><button class="btn gold" id="sendbtn">${IC.send} ${esc(r.email)} へ送信</button>
+          <span id="sendmsgres" style="font-size:13px;align-self:center"></span></div>`
+        :`<p class="sub">送信できる資料がありません。「資料管理」で追加してください。</p>`}
+    </div>`;
+  $('#back').onclick=renderDownloads;
+  $('#ddel').onclick=async()=>{ if(!confirm('削除しますか？'))return; await api('/api/downloads/'+r.id,{method:'DELETE'}); DL=DL.filter(x=>String(x.id)!==String(id)); renderDownloads(); };
+  const sb=$('#sendbtn'); if(sb) sb.onclick=async()=>{
+    const ids=[...document.querySelectorAll('.matchk:checked')].map(c=>c.value);
+    if(!ids.length){ alert('送信する資料を選択してください'); return; }
+    if(!confirm(r.email+' へ資料を送信しますか？')) return;
+    sb.disabled=true; const old=sb.innerHTML; sb.innerHTML='送信中…';
+    try{
+      const resp=await api('/api/downloads/'+r.id+'/send',{method:'POST',body:JSON.stringify({materialIds:ids,message:$('#sendmsg').value.trim()})});
+      const d=await resp.json();
+      if(resp.ok){ $('#sendmsgres').style.color='#1c7a47'; $('#sendmsgres').textContent='✓ 送信しました'; r.sent_at=d.sent_at; r.sent_note=d.sent_note; const it=DL.find(x=>String(x.id)===String(id)); if(it){it.sent_at=d.sent_at;it.sent_note=d.sent_note;} setTimeout(()=>renderDownloadDetail(id),900); }
+      else { $('#sendmsgres').style.color='#e23b3b'; $('#sendmsgres').textContent='失敗: '+(d.error||''); sb.disabled=false; sb.innerHTML=old; }
+    }catch(e){ $('#sendmsgres').style.color='#e23b3b'; $('#sendmsgres').textContent='送信に失敗しました'; sb.disabled=false; sb.innerHTML=old; }
+  };
 }
 
 /* ===== お知らせ (posts) ===== */
@@ -325,28 +477,29 @@ async function renderPosts(){
   await loadCats();
   $('#main').innerHTML=`<div class="h1">お知らせ・HR Magazine</div><div class="crumb">記事の作成・公開（biglight.jp/news/ に表示）</div>
     <div class="toolbar">
-      <button class="btn navy" id="new">+ 新規作成</button>
-      <button class="btn" id="catbtn">🏷 カテゴリ管理</button>
-      <button class="btn" id="regen">🔄 公開サイト再生成</button>
+      <button class="btn navy" id="new">${IC.plus} 新規作成</button>
+      <button class="btn" id="catbtn">${IC.tag} カテゴリ管理</button>
+      <button class="btn" id="regen">${IC.refresh} 公開サイト再生成</button>
       <span id="selcnt" style="margin-left:auto;font-size:12.5px;color:var(--muted);align-self:center"></span>
-      <button class="btn" id="delsel">🗑 選択削除</button>
+      <button class="btn" id="delsel">${IC.trash} 選択削除</button>
       <button class="btn gold" id="csv">CSV出力</button>
-      <button class="btn" id="reload">↻ 更新</button>
+      <button class="btn" id="reload">${IC.reload} 更新</button>
     </div><div id="catmgr"></div><div id="body"></div>`;
   $('#new').onclick=()=>renderEditor(null); $('#reload').onclick=renderPosts;
   $('#catbtn').onclick=()=>{ const e=$('#catmgr'); if(e.innerHTML.trim()) e.innerHTML=''; else renderCatMgr(); };
-  $('#regen').onclick=async()=>{ const b=$('#regen'); b.textContent='生成中…'; const r=await api('/api/news/regenerate',{method:'POST'}); const d=await r.json(); b.textContent='🔄 公開サイト再生成'; alert(r.ok?('公開サイトを再生成しました（'+d.count+'記事）'):'失敗: '+(d.error||'')); };
+  $('#regen').onclick=async()=>{ const b=$('#regen'); b.innerHTML='生成中…'; const r=await api('/api/news/regenerate',{method:'POST'}); const d=await r.json(); b.innerHTML=IC.refresh+' 公開サイト再生成'; alert(r.ok?('公開サイトを再生成しました（'+d.count+'記事）'):'失敗: '+(d.error||'')); };
   $('#body').innerHTML='<div class="empty">読み込み中…</div>';
   let items=[]; try{ items=(await(await api('/api/posts')).json()).items||[]; }catch(e){}
   if(!items.length){ $('#body').innerHTML='<div class="tablewrap"><div class="empty">まだ記事がありません。「+ 新規作成」で追加できます。</div></div>'; return; }
-  $('#body').innerHTML=`<div class="tablewrap"><table><thead><tr><th style="width:34px;text-align:center"><input type="checkbox" id="chkall"></th><th>タイトル</th><th>カテゴリ</th><th>状態</th><th>公開日</th><th style="text-align:right">閲覧</th><th>操作</th></tr></thead><tbody>${items.map(p=>`
-    <tr><td style="text-align:center"><input type="checkbox" class="rowchk" value="${p.id}"></td><td><b>${esc(p.title)}</b><div class="sub">/news/${esc(p.slug)}/${p.tags?' · '+esc(p.tags):''}</div></td>
-    <td>${esc(catName(p.category))}</td><td><span class="pill ${p.status}">${p.status==='published'?'公開':'下書き'}</span></td>
-    <td style="white-space:nowrap">${fmtd(p.published_at)}</td>
+  $('#body').innerHTML=`<div class="tablewrap"><table><thead><tr><th style="width:34px;text-align:center"><input type="checkbox" id="chkall"></th><th style="width:46%">タイトル</th><th class="nowrap">カテゴリ</th><th>状態</th><th class="nowrap">公開日</th><th style="text-align:right">閲覧</th><th>操作</th></tr></thead><tbody>${items.map(p=>`
+    <tr class="clk" data-open="renderEditor" data-id="${p.id}"><td style="text-align:center"><input type="checkbox" class="rowchk" value="${p.id}"></td><td class="ell"><b class="rowline" style="display:block">${esc(p.title)}</b><div class="sub rowline">/news/${esc(p.slug)}/${p.tags?' · '+esc(p.tags):''}</div></td>
+    <td class="nowrap">${esc(catName(p.category))}</td><td><span class="pill ${p.status}">${p.status==='published'?'公開':'下書き'}</span></td>
+    <td class="nowrap">${fmtd(p.published_at)}</td>
     <td style="text-align:right;font-weight:600">${(p.views||0).toLocaleString()}</td>
-    <td><button class="lnk" data-edit="${p.id}">編集</button><button class="del" data-del="${p.id}">削除</button></td></tr>`).join('')}</tbody></table></div>`;
+    <td class="nowrap"><button class="lnk" data-edit="${p.id}">編集</button><button class="del" data-del="${p.id}">削除</button></td></tr>`).join('')}</tbody></table></div>`;
   document.querySelectorAll('button[data-edit]').forEach(b=>b.onclick=()=>renderEditor(b.dataset.edit));
   document.querySelectorAll('button.del[data-del]').forEach(b=>b.onclick=async()=>{ if(!confirm('この記事を削除しますか？'))return; await api('/api/posts/'+b.dataset.del,{method:'DELETE'}); renderPosts(); });
+  rowClickable();
   $('#delsel').onclick=()=>bulkDelete('/api/posts',renderPosts);
   $('#csv').onclick=()=>{ const ids=checkedIds(); const rows=ids.length?items.filter(p=>ids.includes(String(p.id))):items; csv(rows,['id','slug','タイトル','カテゴリ','状態','閲覧','公開日'],p=>[p.id,p.slug,p.title,catName(p.category),(p.status==='published'?'公開':'下書き'),p.views||0,fmtd(p.published_at)],'posts.csv'); };
   bindChkAll();
@@ -386,7 +539,7 @@ async function renderEditor(id){
       </div>
       <div class="fg"><label>アイキャッチ画像 <span class="hint">（JPG / PNG / WEBP）</span></label>
         <div class="upbox">
-          <label class="upbtn"><span id="upbtntext">📤 画像をアップロード</span><input type="file" id="f_file" accept="image/jpeg,image/png,image/webp" hidden></label>
+          <label class="upbtn" style="display:inline-flex;align-items:center;gap:7px">${IC.upload}<span id="upbtntext">画像をアップロード</span><input type="file" id="f_file" accept="image/jpeg,image/png,image/webp" hidden></label>
           <img class="upprev" id="upprev" alt="">
           <input id="f_cover" value="${esc(p.cover_image)}" placeholder="またはURLを貼り付け" style="flex:1;min-width:180px">
         </div>
@@ -395,11 +548,11 @@ async function renderEditor(id){
       <div class="fg"><label>フォーカスキーワード <span class="hint">（SEO評価対象・例：特定技能 採用）</span></label><input id="f_kw" value="${esc(p.focus_keyword)}"></div>
       <div class="fg"><label>AIから貼り付け（Markdown対応）<span class="hint">ChatGPT等の記事をそのまま貼り付け→自動でSEO整形</span></label>
         <div class="mdbox">
-          <div class="mdhint">💡 見出しは <b>## 大見出し</b> / <b>### 小見出し</b>、太字 <b>**文字**</b>、箇条書き <b>- 項目</b> と書くと自動変換。【○○】も小見出しになります。</div>
+          <div class="mdhint">見出しは <b>## 大見出し</b> / <b>### 小見出し</b>、太字 <b>**文字**</b>、箇条書き <b>- 項目</b> と書くと自動変換。【○○】も小見出しになります。</div>
           <textarea id="f_md" placeholder="ここにChatGPTの記事をそのまま貼り付け…"></textarea>
           <div style="margin-top:8px;display:flex;gap:10px;flex-wrap:wrap">
-            <button class="btn navy" id="mdfmt" type="button">✨ 整形して本文に反映</button>
-            <button class="btn" id="mdapp" type="button">＋ 本文の末尾に追加</button>
+            <button class="btn navy" id="mdfmt" type="button">${IC.refresh} 整形して本文に反映</button>
+            <button class="btn" id="mdapp" type="button">${IC.plus} 本文の末尾に追加</button>
           </div>
         </div>
       </div>
@@ -427,7 +580,7 @@ async function renderEditor(id){
   $('#mdapp').onclick=()=>{ const md=$('#f_md').value.trim(); if(!md)return; quill.clipboard.dangerouslyPasteHTML(quill.getLength(),md2html(md)); upd(); $('#f_md').value=''; };
   function setPrev(u){ const im=$('#upprev'); if(u){ im.src=u; im.classList.add('on'); } else im.classList.remove('on'); }
   setPrev(p.cover_image);
-  $('#f_file').onchange=async e=>{ const f=e.target.files[0]; if(!f)return; $('#upbtntext').textContent='アップロード中…'; const url=await uploadFile(f); $('#upbtntext').textContent='📤 画像をアップロード'; if(url){ $('#f_cover').value=url; setPrev(url); upd(); } e.target.value=''; };
+  $('#f_file').onchange=async e=>{ const f=e.target.files[0]; if(!f)return; $('#upbtntext').textContent='アップロード中…'; const url=await uploadFile(f); $('#upbtntext').textContent='画像をアップロード'; if(url){ $('#f_cover').value=url; setPrev(url); upd(); } e.target.value=''; };
   function renderChips(){ $('#tagchips').innerHTML=TAGS.map((t,i)=>`<span class="chip">${esc(t)} <b data-ti="${i}">×</b></span>`).join(''); document.querySelectorAll('#tagchips b[data-ti]').forEach(b=>b.onclick=()=>{ TAGS.splice(+b.dataset.ti,1); renderChips(); }); }
   function addTag(t){ t=String(t||'').trim().replace(/,+$/,'').trim(); if(t&&TAGS.indexOf(t)<0&&TAGS.length<12){ TAGS.push(t); renderChips(); } }
   renderChips();
@@ -437,7 +590,7 @@ async function renderEditor(id){
     $('#sp_title').textContent=t||'タイトル'; $('#sp_desc').textContent=m||ex||'検索結果に表示される説明文がここに表示されます。'; $('#sp_slug').textContent=s||'slug';
     $('#cTitle').textContent=t.length+'字'; $('#cTitle').className='hint '+(t.length>=30&&t.length<=60?'cok':(t.length>60?'cwarn':''));
     $('#cMeta').textContent=m.length+'字'; $('#cMeta').className='hint '+(m.length>=80&&m.length<=120?'cok':(m.length>120?'cwarn':''));
-    $('#rtime').textContent='📖 約'+readMin(bd)+'分';
+    $('#rtime').textContent='約'+readMin(bd)+'分で読めます';
     const r=seoScore({title:t,meta:m,cover:cover,body:bd,kw:kw,slug:s});
     const col=r.score>=80?'#16a34a':(r.score>=50?'#f5a623':'#e23b3b');
     $('#seobox').innerHTML=`<div class="seoscore"><div class="seoring" style="color:${col}">${r.score}<span style="font-size:14px;color:#94a3b8">/100</span></div><div class="seobar"><i style="width:${r.score}%;background:${col}"></i></div></div><ul class="seochk">${r.checks.map(c=>`<li class="${c.ok?'ok':'no'}">${c.ok?'✓':'•'} ${c.k}</li>`).join('')}</ul>`;
@@ -458,6 +611,72 @@ async function renderEditor(id){
     const d=await r.json(); sv.textContent=id?'更新する':'保存する';
     if(r.ok){ $('#msg').textContent='✓ 保存しました'; setTimeout(renderPosts,800); }
     else alert('保存に失敗: '+(d.error||''));
+  };
+}
+
+/* ===== 資料管理 (materials) ===== */
+function fmtSize(b){ if(!b) return ''; if(b<1024) return b+' B'; if(b<1048576) return (b/1024).toFixed(0)+' KB'; return (b/1048576).toFixed(1)+' MB'; }
+async function renderMaterials(){
+  $('#main').innerHTML=`<div class="h1">資料管理</div><div class="crumb">資料請求のお客様へメール送信する資料（ファイル・リンク）を管理</div>
+    <div class="toolbar"><button class="btn navy" id="new">${IC.plus} 新規作成</button>
+      <button class="btn" id="reload" style="margin-left:auto">${IC.reload} 更新</button></div>
+    <div id="mbody"><div class="empty">読み込み中…</div></div>`;
+  $('#new').onclick=()=>renderMaterialEditor(null);
+  $('#reload').onclick=renderMaterials;
+  let items=[]; try{ items=(await(await api('/api/materials')).json()).items||[]; }catch(e){}
+  MATS=items;
+  if(!items.length){ $('#mbody').innerHTML='<div class="tablewrap"><div class="empty">まだ資料がありません。「＋ 新規作成」で追加できます。</div></div>'; return; }
+  $('#mbody').innerHTML=`<div class="matgrid">${items.map(m=>`
+    <div class="matcard">
+      ${m.category?`<span class="mc">${esc(m.category)}</span>`:''}
+      <div class="mt">${esc(m.name)}</div>
+      <div class="mmeta">
+        ${m.file_url?`<a href="${esc(m.file_url)}" target="_blank" rel="noreferrer" style="display:inline-flex;align-items:center;gap:4px">${IC.file} ファイル${m.size?'（'+fmtSize(m.size)+'）':''}</a>`:''}
+        ${m.link_url?`<a href="${esc(m.link_url)}" target="_blank" rel="noreferrer" style="display:inline-flex;align-items:center;gap:4px">${IC.ext} リンク</a>`:''}
+        ${(!m.file_url&&!m.link_url)?'<span class="sub">ファイル/リンク未設定</span>':''}
+      </div>
+      <div class="mact"><button class="btn" data-edit="${m.id}">${IC.edit} 編集</button><button class="btn red" data-del="${m.id}">${IC.trash} 削除</button></div>
+    </div>`).join('')}</div>`;
+  document.querySelectorAll('button[data-edit]').forEach(b=>b.onclick=()=>renderMaterialEditor(b.dataset.edit));
+  document.querySelectorAll('button[data-del]').forEach(b=>b.onclick=async()=>{ if(!confirm('この資料を削除しますか？（公開ファイルも削除されます）'))return; await api('/api/materials/'+b.dataset.del,{method:'DELETE'}); renderMaterials(); });
+}
+function renderMaterialEditor(id){
+  const m=id?(MATS.find(x=>String(x.id)===String(id))||{}):{};
+  $('#main').innerHTML=`<div class="h1">${id?'資料を編集':'資料を作成'}</div><div class="crumb">ファイルは biglight.jp/assets/materials/ に公開されます（差し替えても同じリンク）</div>
+    <div class="form">
+      <div class="row2">
+        <div class="fg"><label>資料名 <span class="hint">（必須）</span></label><input id="m_name" value="${esc(m.name||'')}" placeholder="例：特定技能 制度ガイド 2026"></div>
+        <div class="fg"><label>カテゴリ <span class="hint">（任意）</span></label><input id="m_cat" value="${esc(m.category||'')}" placeholder="例：制度資料 / 会社案内"></div>
+      </div>
+      <div class="fg"><label>ファイル <span class="hint">（PDF / Word / Excel / PowerPoint / ZIP / 画像・最大24MB）</span></label>
+        <div class="upbox">
+          <label class="upbtn" style="display:inline-flex;align-items:center;gap:7px">${IC.upload}<span id="m_upt">${m.filename?'ファイルを差し替え':'ファイルを選択'}</span><input type="file" id="m_file" hidden></label>
+          <span id="m_fname" class="sub">${m.filename?esc(m.file_url):'選択されていません'}</span>
+        </div>
+      </div>
+      <div class="fg"><label>リンク <span class="hint">（任意・Google Drive等の外部リンク）</span></label><input id="m_link" value="${esc(m.link_url||'')}" placeholder="https://..."></div>
+      <div class="formbtns">
+        <button class="btn gold" id="msave">${id?'更新する':'保存する'}</button>
+        <button class="btn" id="mback">${IC.back} 一覧へ戻る</button>
+        <span id="mmsg" style="font-size:13px;align-self:center"></span>
+      </div>
+    </div>`;
+  let file=null;
+  $('#m_file').onchange=e=>{ file=e.target.files[0]||null; $('#m_fname').textContent=file?file.name:'選択されていません'; };
+  $('#mback').onclick=renderMaterials;
+  $('#msave').onclick=async()=>{
+    const name=$('#m_name').value.trim();
+    if(!name){ alert('資料名を入力してください'); return; }
+    const fd=new FormData();
+    fd.append('name',name); fd.append('category',$('#m_cat').value.trim()); fd.append('link_url',$('#m_link').value.trim());
+    if(file) fd.append('file',file);
+    const sv=$('#msave'); sv.disabled=true; const old=sv.innerHTML; sv.innerHTML='保存中…';
+    try{
+      const r=await fetch(id?'/api/materials/'+id:'/api/materials',{method:id?'PUT':'POST',body:fd});
+      const d=await r.json();
+      if(r.ok){ $('#mmsg').style.color='#1c7a47'; $('#mmsg').textContent='✓ 保存しました'; setTimeout(renderMaterials,700); }
+      else { $('#mmsg').style.color='#e23b3b'; $('#mmsg').textContent='失敗: '+(d.error||''); sv.disabled=false; sv.innerHTML=old; }
+    }catch(e){ $('#mmsg').style.color='#e23b3b'; $('#mmsg').textContent='保存に失敗しました'; sv.disabled=false; sv.innerHTML=old; }
   };
 }
 

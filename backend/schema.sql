@@ -28,6 +28,22 @@ CREATE TABLE IF NOT EXISTS downloads (
 CREATE INDEX IF NOT EXISTS idx_dl_created ON downloads(created_at DESC);
 ALTER TABLE downloads ADD COLUMN IF NOT EXISTS interest TEXT;
 ALTER TABLE downloads ADD COLUMN IF NOT EXISTS note TEXT;
+ALTER TABLE downloads ADD COLUMN IF NOT EXISTS sent_at   TIMESTAMPTZ;   -- lần gần nhất gửi tài liệu qua mail
+ALTER TABLE downloads ADD COLUMN IF NOT EXISTS sent_note TEXT;          -- tài liệu đã gửi (tên, phân cách bằng , )
+
+-- 資料 (tài liệu đính kèm gửi cho khách 資料請求)
+CREATE TABLE IF NOT EXISTS materials (
+  id          BIGSERIAL PRIMARY KEY,
+  category    TEXT,                          -- tên phân loại tài liệu
+  name        TEXT NOT NULL,                 -- tên hiển thị tài liệu
+  filename    TEXT,                          -- tên file thật trên đĩa (mat-<id>.<ext>)
+  file_url    TEXT,                          -- link công khai biglight.jp/assets/materials/...
+  link_url    TEXT,                          -- link ngoài (Google Drive, v.v.)
+  size        BIGINT,                        -- dung lượng file (byte)
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_mat_created ON materials(created_at DESC);
 
 -- お知らせ・HR Magazine (bài viết)
 CREATE TABLE IF NOT EXISTS posts (

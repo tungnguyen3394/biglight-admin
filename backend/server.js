@@ -29,6 +29,23 @@ const upload = multer({
     cb(ok ? null : new Error('JPG / PNG / WEBP のみ対応しています'), ok);
   }
 });
+// ----- アップロード (資料ファイル PDF等) -> /site/assets/materials -> biglight.jp/assets/materials -----
+const MAT_DIR = path.join(process.env.SITE_DIR || '/site', 'assets', 'materials');
+try { fs.mkdirSync(MAT_DIR, { recursive: true }); } catch (e) {}
+const MAT_EXT = ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.csv', '.zip', '.txt', '.jpg', '.jpeg', '.png', '.webp'];
+const matUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_q, _f, cb) => cb(null, MAT_DIR),
+    filename: (_q, file, cb) => cb(null, 'tmp-' + Date.now().toString(36) + '-' + Math.round(Math.random() * 1e6).toString(36))
+  }),
+  limits: { fileSize: 24 * 1024 * 1024 },   // 24MB (giới hạn đính kèm Gmail ~25MB)
+  fileFilter: (_q, file, cb) => {
+    const ext = (path.extname(file.originalname) || '').toLowerCase();
+    cb(MAT_EXT.includes(ext) ? null : new Error('対応していないファイル形式です'), MAT_EXT.includes(ext));
+  }
+});
+function matExt(orig) { const e = (path.extname(orig || '') || '').toLowerCase(); return MAT_EXT.includes(e) ? e : '.pdf'; }
+
 function normTags(t) {
   const arr = Array.isArray(t) ? t : String(t || '').split(',');
   const out = arr.map(s => String(s).trim()).filter(Boolean).slice(0, 12);
@@ -100,6 +117,49 @@ URL：https://biglight.jp
   };
   try { await transporter.sendMail(autoReply); } catch (e) { console.error('mail autoReply:', e.message); }
   try { await transporter.sendMail(notify); } catch (e) { console.error('mail notify:', e.message); }
+}
+
+const MAIL_SIGN =
+`──────────────────────────
+BIGLIGHT株式会社
+〒462-0007 愛知県名古屋市北区如意一丁目112 A
+TEL：052-908-7944 ／ FAX：052-908-7267
+URL：https://biglight.jp
+──────────────────────────`;
+
+// 資料請求のお客様へ 資料（file/link）をメール送信
+async function sendMaterialsMail(dl, mats, extraMsg) {
+  if (!transporter) throw new Error('SMTP が設定されていません');
+  const greet = (dl.company ? dl.company + '\n' : '') + `${dl.name || 'ご担当者'} 様`;
+  const links = mats.map(m => {
+    const url = m.link_url || m.file_url;
+    return `・${m.name}${url ? '\n  ' + url : ''}`;
+  }).join('\n');
+  const attachments = mats
+    .filter(m => m.filename)
+    .map(m => ({ filename: (m.name || 'material') + matExt(m.filename), path: path.join(MAT_DIR, m.filename) }))
+    .filter(a => { try { return fs.existsSync(a.path); } catch (e) { return false; } });
+  const mail = {
+    from: MAIL_FROM, to: dl.email, replyTo: ADMIN_NOTIFY_TO,
+    subject: '【BIGLIGHT株式会社】ご請求資料の送付',
+    attachments,
+    text:
+`${greet}
+
+この度は、BIGLIGHT株式会社の資料をご請求いただき、誠にありがとうございます。
+ご請求いただきました資料をお送りいたします。
+${extraMsg ? '\n' + extraMsg + '\n' : ''}
+──────────────────────────
+■ 資料一覧
+${links || '（資料が選択されていません）'}
+──────────────────────────
+
+ご不明な点がございましたら、お気軽にお問い合わせください。
+今後ともBIGLIGHT株式会社をよろしくお願い申し上げます。
+
+${MAIL_SIGN}`,
+  };
+  await transporter.sendMail(mail);
 }
 
 async function init() {
@@ -276,6 +336,86 @@ app.get('/api/downloads', requireAuth, async (_q, res) => {
 });
 app.delete('/api/downloads/:id', requireAuth, async (req, res) => {
   await pool.query('DELETE FROM downloads WHERE id=$1', [req.params.id]);
+  res.json({ ok: true });
+});
+
+// ----- 資料請求のお客様へ 資料をメール送信 -----
+app.post('/api/downloads/:id/send', requireAuth, async (req, res) => {
+  try {
+    const b = req.body || {};
+    const ids = (Array.isArray(b.materialIds) ? b.materialIds : []).map(x => parseInt(x, 10)).filter(Boolean);
+    if (!ids.length) return res.status(400).json({ error: '送信する資料を選択してください' });
+    const dl = (await pool.query('SELECT * FROM downloads WHERE id=$1', [req.params.id])).rows[0];
+    if (!dl) return res.status(404).json({ error: 'not found' });
+    if (!dl.email) return res.status(400).json({ error: 'お客様のメールがありません' });
+    const mats = (await pool.query('SELECT * FROM materials WHERE id = ANY($1::bigint[])', [ids])).rows;
+    if (!mats.length) return res.status(400).json({ error: '資料が見つかりません' });
+    await sendMaterialsMail(dl, mats, String(b.message || '').trim());
+    const note = mats.map(m => m.name).join(', ');
+    await pool.query('UPDATE downloads SET sent_at=now(), sent_note=$1 WHERE id=$2', [note, req.params.id]);
+    res.json({ ok: true, sent_at: new Date().toISOString(), sent_note: note });
+  } catch (e) { console.error('POST /api/downloads/send:', e.message); res.status(500).json({ error: e.message }); }
+});
+
+// ================= 資料 (materials) =================
+app.get('/api/materials', requireAuth, async (_q, res) => {
+  const r = await pool.query('SELECT * FROM materials ORDER BY category NULLS LAST, created_at DESC');
+  res.json({ items: r.rows });
+});
+// tạo/sửa: multipart (name, category, link_url + file tùy chọn)
+function saveMatFile(id, file) {
+  const ext = matExt(file.originalname);
+  const finalName = 'mat-' + id + ext;
+  const finalPath = path.join(MAT_DIR, finalName);
+  // xoá file cũ khác đuôi (giữ URL ổn định khi cùng đuôi)
+  try {
+    for (const f of fs.readdirSync(MAT_DIR)) {
+      if (f.startsWith('mat-' + id + '.') && f !== finalName) fs.unlinkSync(path.join(MAT_DIR, f));
+    }
+  } catch (e) {}
+  fs.renameSync(file.path, finalPath);
+  return { filename: finalName, file_url: SITE_ORIGIN + '/assets/materials/' + finalName, size: file.size };
+}
+app.post('/api/materials', requireAuth, (req, res) => {
+  matUpload.single('file')(req, res, async err => {
+    if (err) return res.status(400).json({ error: err.message });
+    try {
+      const name = String((req.body || {}).name || '').trim();
+      if (!name) { if (req.file) try { fs.unlinkSync(req.file.path); } catch (e) {} return res.status(400).json({ error: '資料名は必須です' }); }
+      const category = String((req.body || {}).category || '').trim() || null;
+      const link_url = String((req.body || {}).link_url || '').trim() || null;
+      const ins = await pool.query('INSERT INTO materials(category,name,link_url) VALUES($1,$2,$3) RETURNING *', [category, name, link_url]);
+      let row = ins.rows[0];
+      if (req.file) {
+        const f = saveMatFile(row.id, req.file);
+        row = (await pool.query('UPDATE materials SET filename=$1,file_url=$2,size=$3,updated_at=now() WHERE id=$4 RETURNING *', [f.filename, f.file_url, f.size, row.id])).rows[0];
+      }
+      res.json({ item: row });
+    } catch (e) { console.error('POST /api/materials:', e.message); res.status(500).json({ error: e.message }); }
+  });
+});
+app.put('/api/materials/:id', requireAuth, (req, res) => {
+  matUpload.single('file')(req, res, async err => {
+    if (err) return res.status(400).json({ error: err.message });
+    try {
+      const cur = (await pool.query('SELECT * FROM materials WHERE id=$1', [req.params.id])).rows[0];
+      if (!cur) { if (req.file) try { fs.unlinkSync(req.file.path); } catch (e) {} return res.status(404).json({ error: 'not found' }); }
+      const b = req.body || {};
+      const name = b.name != null ? String(b.name).trim() : cur.name;
+      const category = b.category != null ? (String(b.category).trim() || null) : cur.category;
+      const link_url = b.link_url != null ? (String(b.link_url).trim() || null) : cur.link_url;
+      let filename = cur.filename, file_url = cur.file_url, size = cur.size;
+      if (req.file) { const f = saveMatFile(cur.id, req.file); filename = f.filename; file_url = f.file_url; size = f.size; }
+      const row = (await pool.query('UPDATE materials SET name=$1,category=$2,link_url=$3,filename=$4,file_url=$5,size=$6,updated_at=now() WHERE id=$7 RETURNING *',
+        [name, category, link_url, filename, file_url, size, cur.id])).rows[0];
+      res.json({ item: row });
+    } catch (e) { console.error('PUT /api/materials:', e.message); res.status(500).json({ error: e.message }); }
+  });
+});
+app.delete('/api/materials/:id', requireAuth, async (req, res) => {
+  const cur = (await pool.query('SELECT filename FROM materials WHERE id=$1', [req.params.id])).rows[0];
+  await pool.query('DELETE FROM materials WHERE id=$1', [req.params.id]);
+  if (cur && cur.filename) try { fs.unlinkSync(path.join(MAT_DIR, cur.filename)); } catch (e) {}
   res.json({ ok: true });
 });
 
