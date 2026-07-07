@@ -45,6 +45,68 @@ CREATE TABLE IF NOT EXISTS materials (
 );
 CREATE INDEX IF NOT EXISTS idx_mat_created ON materials(created_at DESC);
 
+-- ============ 営業メール管理 (Sales Email Center) ============
+-- テンプレート
+CREATE TABLE IF NOT EXISTS mail_templates (
+  id           BIGSERIAL PRIMARY KEY,
+  name         TEXT NOT NULL,
+  category     TEXT DEFAULT 'その他',
+  subject      TEXT,
+  body         TEXT,
+  signature_id BIGINT,
+  attach_ids   TEXT,                          -- JSON mảng id materials
+  favorite     BOOLEAN NOT NULL DEFAULT false,
+  created_by   TEXT,
+  last_used    TIMESTAMPTZ,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+-- 署名
+CREATE TABLE IF NOT EXISTS mail_signatures (
+  id         BIGSERIAL PRIMARY KEY,
+  name       TEXT NOT NULL,
+  body       TEXT,
+  is_default BOOLEAN NOT NULL DEFAULT false,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+-- 送信履歴
+CREATE TABLE IF NOT EXISTS mail_logs (
+  id             BIGSERIAL PRIMARY KEY,
+  sender         TEXT,
+  to_email       TEXT,
+  to_name        TEXT,
+  recipient_kind TEXT,                         -- download | inquiry | manual
+  recipient_id   BIGINT,
+  subject        TEXT,
+  template_id    BIGINT,
+  template_name  TEXT,
+  status         TEXT DEFAULT '送信',
+  att            TEXT,
+  note           TEXT,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_mlog_created ON mail_logs(created_at DESC);
+-- 下書き
+CREATE TABLE IF NOT EXISTS mail_drafts (
+  id            BIGSERIAL PRIMARY KEY,
+  recipient_key TEXT,                          -- "kind:id"
+  subject       TEXT,
+  body          TEXT,
+  template_id   BIGINT,
+  attach_ids    TEXT,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+-- meta (danh mục template / danh mục tài liệu…)
+CREATE TABLE IF NOT EXISTS mail_meta (
+  key TEXT PRIMARY KEY,
+  val JSONB
+);
+INSERT INTO mail_meta(key,val) VALUES
+  ('tpl_cats','["新規営業","お礼メール","アポイント依頼","資料送付","見積送付","契約後フォロー","定期フォロー","その他"]'::jsonb),
+  ('file_cats','["会社案内","候補者名簿","履歴書","営業資料","提案書","その他"]'::jsonb)
+ON CONFLICT (key) DO NOTHING;
+
 -- お知らせ・HR Magazine (bài viết)
 CREATE TABLE IF NOT EXISTS posts (
   id               BIGSERIAL PRIMARY KEY,

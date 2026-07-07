@@ -419,6 +419,163 @@ app.delete('/api/materials/:id', requireAuth, async (req, res) => {
   res.json({ ok: true });
 });
 
+// ================= 営業メール管理 (Sales Email Center) =================
+const jparse = (s, d) => { try { return s ? JSON.parse(s) : d; } catch (e) { return d; } };
+const toInt = v => { const n = parseInt(v, 10); return Number.isFinite(n) ? n : null; };
+const senderName = req => (req.session.user && (req.session.user.name || req.session.user.email)) || '';
+
+// 宛先候補: 資料請求 + お問い合わせ を統合
+app.get('/api/recipients', requireAuth, async (_q, res) => {
+  try {
+    const d = await pool.query("SELECT id,company,name,email,interest,created_at FROM downloads WHERE email IS NOT NULL AND email<>'' ORDER BY created_at DESC LIMIT 1000");
+    const i = await pool.query("SELECT id,company,name,email,tel,created_at FROM inquiries WHERE email IS NOT NULL AND email<>'' ORDER BY created_at DESC LIMIT 1000");
+    const items = [
+      ...d.rows.map(r => ({ key: 'download:' + r.id, kind: 'download', id: r.id, company: r.company || '', name: r.name || '', email: r.email, tel: '', industry: r.interest || '', address: '', created_at: r.created_at })),
+      ...i.rows.map(r => ({ key: 'inquiry:' + r.id, kind: 'inquiry', id: r.id, company: r.company || '', name: r.name || '', email: r.email, tel: r.tel || '', industry: '', address: '', created_at: r.created_at })),
+    ];
+    res.json({ items });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ----- テンプレート -----
+app.get('/api/mail/templates', requireAuth, async (_q, res) => {
+  const r = await pool.query('SELECT * FROM mail_templates ORDER BY favorite DESC, last_used DESC NULLS LAST, name');
+  res.json({ items: r.rows.map(t => ({ ...t, attach_ids: jparse(t.attach_ids, []) })) });
+});
+app.post('/api/mail/templates', requireAuth, async (req, res) => {
+  try {
+    const b = req.body || {}; const name = String(b.name || '').trim();
+    if (!name) return res.status(400).json({ error: 'テンプレート名は必須です' });
+    const r = await pool.query(
+      `INSERT INTO mail_templates(name,category,subject,body,signature_id,attach_ids,favorite,created_by,updated_at)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,now()) RETURNING *`,
+      [name, b.category || 'その他', b.subject || '', b.body || '', toInt(b.signature_id), JSON.stringify(b.attach_ids || []), !!b.favorite, senderName(req)]);
+    res.json({ item: { ...r.rows[0], attach_ids: jparse(r.rows[0].attach_ids, []) } });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+app.put('/api/mail/templates/:id', requireAuth, async (req, res) => {
+  try {
+    const cur = (await pool.query('SELECT * FROM mail_templates WHERE id=$1', [req.params.id])).rows[0];
+    if (!cur) return res.status(404).json({ error: 'not found' });
+    const b = req.body || {};
+    const f = (k, def) => b[k] != null ? b[k] : def;
+    const r = await pool.query(
+      `UPDATE mail_templates SET name=$1,category=$2,subject=$3,body=$4,signature_id=$5,attach_ids=$6,favorite=$7,last_used=$8,updated_at=now() WHERE id=$9 RETURNING *`,
+      [String(f('name', cur.name)).trim(), f('category', cur.category), f('subject', cur.subject), f('body', cur.body),
+       b.signature_id !== undefined ? toInt(b.signature_id) : cur.signature_id,
+       b.attach_ids !== undefined ? JSON.stringify(b.attach_ids || []) : cur.attach_ids,
+       b.favorite !== undefined ? !!b.favorite : cur.favorite,
+       b.last_used ? new Date() : cur.last_used, req.params.id]);
+    res.json({ item: { ...r.rows[0], attach_ids: jparse(r.rows[0].attach_ids, []) } });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+app.delete('/api/mail/templates/:id', requireAuth, async (req, res) => {
+  await pool.query('DELETE FROM mail_templates WHERE id=$1', [req.params.id]); res.json({ ok: true });
+});
+
+// ----- 署名 -----
+app.get('/api/mail/signatures', requireAuth, async (_q, res) => {
+  const r = await pool.query('SELECT * FROM mail_signatures ORDER BY is_default DESC, id');
+  res.json({ items: r.rows });
+});
+app.post('/api/mail/signatures', requireAuth, async (req, res) => {
+  try {
+    const b = req.body || {}; const name = String(b.name || '').trim();
+    if (!name) return res.status(400).json({ error: '署名名は必須です' });
+    if (b.is_default) await pool.query('UPDATE mail_signatures SET is_default=false');
+    const r = await pool.query('INSERT INTO mail_signatures(name,body,is_default) VALUES($1,$2,$3) RETURNING *', [name, b.body || '', !!b.is_default]);
+    res.json({ item: r.rows[0] });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+app.put('/api/mail/signatures/:id', requireAuth, async (req, res) => {
+  try {
+    const cur = (await pool.query('SELECT * FROM mail_signatures WHERE id=$1', [req.params.id])).rows[0];
+    if (!cur) return res.status(404).json({ error: 'not found' });
+    const b = req.body || {};
+    if (b.is_default) await pool.query('UPDATE mail_signatures SET is_default=false');
+    const r = await pool.query('UPDATE mail_signatures SET name=$1,body=$2,is_default=$3 WHERE id=$4 RETURNING *',
+      [b.name != null ? String(b.name).trim() : cur.name, b.body != null ? b.body : cur.body, b.is_default !== undefined ? !!b.is_default : cur.is_default, req.params.id]);
+    res.json({ item: r.rows[0] });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+app.delete('/api/mail/signatures/:id', requireAuth, async (req, res) => {
+  await pool.query('DELETE FROM mail_signatures WHERE id=$1', [req.params.id]); res.json({ ok: true });
+});
+
+// ----- 送信履歴 -----
+app.get('/api/mail/logs', requireAuth, async (_q, res) => {
+  const r = await pool.query('SELECT * FROM mail_logs ORDER BY created_at DESC LIMIT 1000');
+  res.json({ items: r.rows });
+});
+app.delete('/api/mail/logs/:id', requireAuth, async (req, res) => {
+  await pool.query('DELETE FROM mail_logs WHERE id=$1', [req.params.id]); res.json({ ok: true });
+});
+
+// ----- 下書き -----
+app.get('/api/mail/drafts', requireAuth, async (_q, res) => {
+  const r = await pool.query('SELECT * FROM mail_drafts ORDER BY updated_at DESC');
+  res.json({ items: r.rows.map(d => ({ ...d, attach_ids: jparse(d.attach_ids, []) })) });
+});
+app.post('/api/mail/drafts', requireAuth, async (req, res) => {   // upsert
+  try {
+    const b = req.body || {};
+    if (b.id) {
+      const r = await pool.query('UPDATE mail_drafts SET recipient_key=$1,subject=$2,body=$3,template_id=$4,attach_ids=$5,updated_at=now() WHERE id=$6 RETURNING *',
+        [b.recipient_key || '', b.subject || '', b.body || '', toInt(b.template_id), JSON.stringify(b.attach_ids || []), b.id]);
+      if (r.rows[0]) return res.json({ item: { ...r.rows[0], attach_ids: jparse(r.rows[0].attach_ids, []) } });
+    }
+    const r = await pool.query('INSERT INTO mail_drafts(recipient_key,subject,body,template_id,attach_ids) VALUES($1,$2,$3,$4,$5) RETURNING *',
+      [b.recipient_key || '', b.subject || '', b.body || '', toInt(b.template_id), JSON.stringify(b.attach_ids || [])]);
+    res.json({ item: { ...r.rows[0], attach_ids: jparse(r.rows[0].attach_ids, []) } });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+app.delete('/api/mail/drafts/:id', requireAuth, async (req, res) => {
+  await pool.query('DELETE FROM mail_drafts WHERE id=$1', [req.params.id]); res.json({ ok: true });
+});
+
+// ----- meta (カテゴリ) -----
+app.get('/api/mail/meta', requireAuth, async (_q, res) => {
+  const r = await pool.query("SELECT key,val FROM mail_meta WHERE key IN ('tpl_cats','file_cats')");
+  const o = { tpl_cats: [], file_cats: [] }; r.rows.forEach(x => { o[x.key] = x.val || []; }); res.json(o);
+});
+app.put('/api/mail/meta/:key', requireAuth, async (req, res) => {
+  const key = req.params.key;
+  if (!['tpl_cats', 'file_cats'].includes(key)) return res.status(400).json({ error: 'bad key' });
+  const val = (req.body || {}).val || [];
+  await pool.query('INSERT INTO mail_meta(key,val) VALUES($1,$2) ON CONFLICT(key) DO UPDATE SET val=$2', [key, JSON.stringify(val)]);
+  res.json({ ok: true });
+});
+
+// ----- 送信 (SMTP) -----
+app.post('/api/mail/send', requireAuth, async (req, res) => {
+  try {
+    if (!transporter) return res.status(400).json({ error: 'SMTP が設定されていません' });
+    const b = req.body || {};
+    const to = String(b.to || '').trim();
+    if (!to) return res.status(400).json({ error: '宛先メールがありません' });
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) return res.status(400).json({ error: '宛先メールが不正です' });
+    const subject = String(b.subject || '').trim();
+    const body = String(b.body || '');
+    const attachIds = (Array.isArray(b.attachIds) ? b.attachIds : []).map(x => parseInt(x, 10)).filter(Boolean);
+    let attachments = [];
+    if (attachIds.length) {
+      const mats = (await pool.query('SELECT * FROM materials WHERE id = ANY($1::bigint[])', [attachIds])).rows;
+      attachments = mats.filter(m => m.filename)
+        .map(m => ({ filename: (m.name || 'material') + matExt(m.filename), path: path.join(MAT_DIR, m.filename) }))
+        .filter(a => { try { return fs.existsSync(a.path); } catch (e) { return false; } });
+    }
+    await transporter.sendMail({ from: MAIL_FROM, to, replyTo: ADMIN_NOTIFY_TO, subject, text: body, attachments });
+    let rk = null, rid = null;
+    if (b.recipientKey && String(b.recipientKey).indexOf(':') > 0) { const a = String(b.recipientKey).split(':'); rk = a[0]; rid = toInt(a[1]); }
+    await pool.query(
+      `INSERT INTO mail_logs(sender,to_email,to_name,recipient_kind,recipient_id,subject,template_id,template_name,status,att,note)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,'送信',$9,$10)`,
+      [senderName(req), to, b.toName || '', rk, rid, subject, toInt(b.templateId), b.templateName || '', b.att || '', b.note || '']);
+    if (toInt(b.templateId)) { try { await pool.query('UPDATE mail_templates SET last_used=now() WHERE id=$1', [toInt(b.templateId)]); } catch (e) {} }
+    res.json({ ok: true });
+  } catch (e) { console.error('POST /api/mail/send:', e.message); res.status(500).json({ error: e.message }); }
+});
+
 // ----- posts CRUD -----
 app.get('/api/posts', requireAuth, async (_q, res) => {
   const r = await pool.query('SELECT id,slug,title,category,status,published_at,updated_at,views,author,tags FROM posts ORDER BY created_at DESC');

@@ -152,6 +152,42 @@
   .matpick:last-of-type{border-bottom:0}
   .matpick .pn{font-weight:600}.matpick .pc{font-size:11.5px;color:var(--navy);background:#eef4fc;border-radius:12px;padding:1px 9px}
   .sent-badge{font-size:12px;color:#1c7a47;background:#e2f4ea;border-radius:16px;padding:3px 11px;font-weight:700}
+  /* ===== 営業メール管理 ===== */
+  .smtab{font-weight:600}
+  .cardgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:12px}
+  .scard{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 16px;box-shadow:0 1px 4px rgba(0,0,0,.05);display:flex;flex-direction:column;gap:6px}
+  .badge{display:inline-block;font-size:11px;font-weight:700;color:var(--navy);background:#eef4fc;border-radius:14px;padding:2px 10px;flex-shrink:0}
+  .chipcat{cursor:pointer;padding:5px 12px;border-radius:999px;font-size:11.5px;font-weight:600;border:1px solid var(--line);background:#fff;color:var(--muted);display:inline-flex;align-items:center;gap:5px}
+  .chipcat.on{border-color:var(--navy);background:#eef4fc;color:var(--navy)}
+  .chipcat.dash{border-style:dashed;border-color:var(--blue);color:var(--blue)}
+  .varchip{cursor:pointer;font-size:10.5px;background:#f1f5fb;border:1px solid var(--line);border-radius:6px;padding:2px 7px;color:var(--blue);font-family:monospace}
+  .varchip span{color:var(--muted);font-family:inherit}
+  .selin{padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:12.5px;background:#fff;color:var(--ink);font-family:inherit}
+  .addmenu{position:relative}
+  .addmenu>summary{list-style:none;cursor:pointer}
+  .addmenu>summary::-webkit-details-marker{display:none}
+  .addmenu .menu{position:absolute;z-index:50;top:calc(100% + 4px);left:0;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.15);min-width:210px;padding:6px}
+  .addmenu .menu-item{display:flex;align-items:center;gap:8px;padding:9px 11px;font-size:13px;color:var(--ink);cursor:pointer;border-radius:8px}
+  .addmenu .menu-item:hover{background:#f2f6fc}
+  .catrow{display:flex;align-items:center;gap:12px;padding:9px 4px;border-bottom:1px solid var(--line);font-size:13px}
+  .attgrp{border:1px solid var(--line);border-radius:8px;margin-bottom:6px;overflow:hidden}
+  .attgrp-h{cursor:pointer;display:flex;align-items:center;gap:8px;background:#f5f8fd;padding:7px 10px;font-size:12px;font-weight:700;color:var(--navy);user-select:none}
+  .attgrp-h .arw{font-size:10px}
+  .attpick{display:flex;align-items:center;gap:6px;font-size:12px;border:1px solid var(--line);border-radius:8px;padding:4px 9px;cursor:pointer;background:#fff}
+  /* modal */
+  .modalbg{position:fixed;inset:0;background:rgba(9,20,45,.55);display:none;z-index:200;overflow-y:auto;padding:34px 16px}
+  .modalbg.show{display:flex;align-items:flex-start;justify-content:center}
+  .modalbox{background:#fff;border-radius:16px;padding:24px 26px;width:100%;max-width:640px;box-shadow:0 30px 80px rgba(0,0,0,.4);margin:auto}
+  .modalbox h3{font-size:17px;color:var(--navy);margin-bottom:16px}
+  .modal-actions{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;margin-top:18px;padding-top:14px;border-top:1px solid var(--line)}
+  .mform{display:flex;flex-direction:column;gap:12px}
+  .mform label{display:block;font-size:12.5px;font-weight:600;color:var(--navy);margin-bottom:5px}
+  .mform input,.mform textarea,.mform select{width:100%;border:1px solid #cfd8e6;border-radius:8px;padding:9px 11px;font-size:14px;font-family:inherit}
+  .mform textarea{resize:vertical;line-height:1.6}
+  .ckline{display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;font-weight:500;color:var(--ink)}
+  .preview{border:1px solid var(--line);border-radius:10px;padding:14px 16px;background:#f8fafd}
+  .pv-subj{font-weight:700;font-size:13.5px;border-bottom:1px solid var(--line);padding:6px 0 8px;margin:6px 0 10px}
+  .pv-body{white-space:pre-wrap;font-size:13px;line-height:1.75}
   @media(max-width:760px){#app{grid-template-columns:1fr}#app.collapsed{grid-template-columns:1fr}.side{flex-direction:row;flex-wrap:wrap;align-items:center}.side .me{margin:0 0 0 auto;border:0;padding:0}.cards{grid-template-columns:repeat(2,1fr)}.row2{grid-template-columns:1fr}.dk{width:110px}}
 </style>
 </head>
@@ -187,13 +223,17 @@
       <a data-page="posts">
         <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="14" y2="17"/></svg>
         <span class="label">お知らせ・Magazine</span></a>
-      <a data-page="materials">
-        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a5 5 0 0 1-7.07-7.07l9.19-9.19a3.5 3.5 0 0 1 4.95 4.95l-9.2 9.19a1.5 1.5 0 0 1-2.12-2.12l8.49-8.49"/></svg>
-        <span class="label">資料管理</span></a>
+      <a data-page="salesmail">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+        <span class="label">営業メール管理</span></a>
     </nav>
     <div class="me" id="me"></div>
   </aside>
   <main class="main" id="main"></main>
+</div>
+
+<div id="modalBg" class="modalbg" onclick="if(event.target===this)closeModal()">
+  <div id="modal" class="modalbox" role="dialog"></div>
 </div>
 
 <script>
@@ -302,7 +342,9 @@ async function onCred(resp){ $('#lerr').textContent='';
   const r=await api('/auth/google',{method:'POST',body:JSON.stringify({credential:resp.credential})}); const d=await r.json();
   if(r.ok) showApp(d.user); else $('#lerr').textContent=d.error||'ログインに失敗しました';
 }
+let CURRENT_USER=null;
 function showApp(user){
+  CURRENT_USER=user;
   $('#login').style.display='none'; $('#app').style.display='grid';
   $('#me').innerHTML=(user.picture?`<img src="${user.picture}" referrerpolicy="no-referrer">`:'')+`<span class="who">${esc(user.name||user.email)}</span><div class="logout" id="logout">ログアウト</div>`;
   $('#logout').onclick=async()=>{ await api('/api/logout',{method:'POST'}); location.reload(); };
@@ -319,7 +361,7 @@ function go(page){ setActive(page);
   if(page==='inquiries') return renderInquiries();
   if(page==='downloads') return renderDownloads();
   if(page==='posts') return renderPosts();
-  if(page==='materials') return renderMaterials();
+  if(page==='salesmail') return renderSalesMail();
 }
 // bỏ qua click vào input/nút/select/link khi mở chi tiết theo hàng
 function rowClickable(){ document.querySelectorAll('tr.clk').forEach(tr=>{ tr.onclick=e=>{ if(e.target.closest('input,button,select,a,label')) return; const fn=tr.dataset.open; if(fn) window[fn](tr.dataset.id); }; }); }
@@ -614,70 +656,470 @@ async function renderEditor(id){
   };
 }
 
-/* ===== 資料管理 (materials) ===== */
-function fmtSize(b){ if(!b) return ''; if(b<1024) return b+' B'; if(b<1048576) return (b/1024).toFixed(0)+' KB'; return (b/1048576).toFixed(1)+' MB'; }
-async function renderMaterials(){
-  $('#main').innerHTML=`<div class="h1">資料管理</div><div class="crumb">資料請求のお客様へメール送信する資料（ファイル・リンク）を管理</div>
-    <div class="toolbar"><button class="btn navy" id="new">${IC.plus} 新規作成</button>
-      <button class="btn" id="reload" style="margin-left:auto">${IC.reload} 更新</button></div>
-    <div id="mbody"><div class="empty">読み込み中…</div></div>`;
-  $('#new').onclick=()=>renderMaterialEditor(null);
-  $('#reload').onclick=renderMaterials;
-  let items=[]; try{ items=(await(await api('/api/materials')).json()).items||[]; }catch(e){}
-  MATS=items;
-  if(!items.length){ $('#mbody').innerHTML='<div class="tablewrap"><div class="empty">まだ資料がありません。「＋ 新規作成」で追加できます。</div></div>'; return; }
-  $('#mbody').innerHTML=`<div class="matgrid">${items.map(m=>`
-    <div class="matcard">
-      ${m.category?`<span class="mc">${esc(m.category)}</span>`:''}
-      <div class="mt">${esc(m.name)}</div>
-      <div class="mmeta">
-        ${m.file_url?`<a href="${esc(m.file_url)}" target="_blank" rel="noreferrer" style="display:inline-flex;align-items:center;gap:4px">${IC.file} ファイル${m.size?'（'+fmtSize(m.size)+'）':''}</a>`:''}
-        ${m.link_url?`<a href="${esc(m.link_url)}" target="_blank" rel="noreferrer" style="display:inline-flex;align-items:center;gap:4px">${IC.ext} リンク</a>`:''}
-        ${(!m.file_url&&!m.link_url)?'<span class="sub">ファイル/リンク未設定</span>':''}
-      </div>
-      <div class="mact"><button class="btn" data-edit="${m.id}">${IC.edit} 編集</button><button class="btn red" data-del="${m.id}">${IC.trash} 削除</button></div>
-    </div>`).join('')}</div>`;
-  document.querySelectorAll('button[data-edit]').forEach(b=>b.onclick=()=>renderMaterialEditor(b.dataset.edit));
-  document.querySelectorAll('button[data-del]').forEach(b=>b.onclick=async()=>{ if(!confirm('この資料を削除しますか？（公開ファイルも削除されます）'))return; await api('/api/materials/'+b.dataset.del,{method:'DELETE'}); renderMaterials(); });
+/* ===== 営業メール管理 (Sales Email Center) ===== */
+function fmtSize(b){ if(!b) return '-'; if(b<1024) return b+' B'; if(b<1048576) return (b/1024).toFixed(0)+' KB'; return (b/1048576).toFixed(1)+' MB'; }
+function openModal(html){ $('#modal').innerHTML=html; $('#modalBg').classList.add('show'); $('#modalBg').scrollTop=0; }
+function closeModal(){ $('#modalBg').classList.remove('show'); $('#modal').innerHTML=''; }
+let M={tpls:[],sigs:[],logs:[],drafts:[],mats:[],recips:[],tplCats:[],fileCats:[]};
+let SM_TAB='tpl', SM_Q='', SM_CAT='', SM_FILE_Q='', SM_FILE_CAT2='', SM_FILE_SORT='cat';
+let _smDraftId=null, _smAutoTimer=null, _smRepId=null;
+const SM_VARS=[['{{company_name}}','会社名'],['{{contact_name}}','担当者'],['{{today}}','本日日付'],['{{sales_name}}','差出人名'],['{{phone}}','電話番号'],['{{email}}','メール'],['{{industry}}','職種'],['{{address}}','住所']];
+function _smNow(){ return fmt(new Date()); }
+function _smDate(){ const d=new Date(),p=n=>String(n).padStart(2,'0'); return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate()); }
+function _smSender(){ return (CURRENT_USER&&(CURRENT_USER.name||CURRENT_USER.email))||''; }
+function smFillVars(text,p){ p=p||{}; const map={'{{company_name}}':p.company||'','{{contact_name}}':p.name||'','{{today}}':new Date().toLocaleDateString('ja-JP'),'{{sales_name}}':_smSender(),'{{phone}}':p.tel||'','{{email}}':p.email||'','{{industry}}':p.industry||'','{{address}}':p.address||''}; return String(text||'').replace(/\{\{\w+\}\}/g,m=>(m in map)?map[m]:m); }
+function _smSigDefault(){ return M.sigs.find(s=>s.is_default)||M.sigs[0]||null; }
+function _smRecip(key){ return M.recips.find(r=>r.key===key)||null; }
+function _smMatType(m){ return (m.link_url&&!m.filename)?'link':'file'; }
+
+async function loadMail(){
+  const g=p=>p.then(r=>r.json()).catch(()=>({}));
+  const [tpl,sig,log,dr,mat,rec,meta]=await Promise.all([
+    g(api('/api/mail/templates')),g(api('/api/mail/signatures')),g(api('/api/mail/logs')),g(api('/api/mail/drafts')),g(api('/api/materials')),g(api('/api/recipients')),g(api('/api/mail/meta'))]);
+  M.tpls=tpl.items||[]; M.sigs=sig.items||[]; M.logs=log.items||[]; M.drafts=dr.items||[]; M.mats=mat.items||[]; M.recips=rec.items||[];
+  M.tplCats=(meta&&meta.tpl_cats)||[]; M.fileCats=(meta&&meta.file_cats)||[];
+  if(!M.fileCats.length) M.fileCats=['会社案内','候補者名簿','その他'];
+  if(!M.tplCats.length) M.tplCats=['新規営業','その他'];
 }
-function renderMaterialEditor(id){
-  const m=id?(MATS.find(x=>String(x.id)===String(id))||{}):{};
-  $('#main').innerHTML=`<div class="h1">${id?'資料を編集':'資料を作成'}</div><div class="crumb">ファイルは biglight.jp/assets/materials/ に公開されます（差し替えても同じリンク）</div>
-    <div class="form">
-      <div class="row2">
-        <div class="fg"><label>資料名 <span class="hint">（必須）</span></label><input id="m_name" value="${esc(m.name||'')}" placeholder="例：特定技能 制度ガイド 2026"></div>
-        <div class="fg"><label>カテゴリ <span class="hint">（任意）</span></label><input id="m_cat" value="${esc(m.category||'')}" placeholder="例：制度資料 / 会社案内"></div>
+async function renderSalesMail(){ $('#main').innerHTML='<div class="h1">営業メール管理</div><div class="crumb">読み込み中…</div>'; await loadMail(); paintSalesMail(); }
+async function reloadMail(){ await loadMail(); paintSalesMail(); }
+function smTab(t){ SM_TAB=t; paintSalesMail(); }
+function paintSalesMail(){
+  const tabs=[['tpl','テンプレート'],['sig','署名'],['file','添付資料'],['log','送信履歴'],['draft','下書き'],['act','活動サマリー']];
+  let body='';
+  if(SM_TAB==='tpl') body=_smTplList();
+  else if(SM_TAB==='sig') body=_smSigList();
+  else if(SM_TAB==='file') body=_smFileList();
+  else if(SM_TAB==='log') body=_smLogList();
+  else if(SM_TAB==='act') body=_smActList();
+  else body=_smDraftList();
+  $('#main').innerHTML=`<div class="h1">営業メール管理</div><div class="crumb">テンプレート・署名・添付資料でメールを作成し、資料請求／お問い合わせのお客様へ送信</div>
+    <div class="toolbar" style="margin-bottom:16px">
+      ${tabs.map(([k,l])=>`<button class="smtab btn ${SM_TAB===k?'navy':''}" onclick="smTab('${k}')">${l}${k==='draft'&&M.drafts.length?` (${M.drafts.length})`:''}</button>`).join('')}
+      <button class="btn" style="margin-left:auto;background:#16a34a;border-color:#16a34a;color:#fff;font-weight:700" onclick="openSalesCompose()">${IC.send} メール作成</button>
+    </div>
+    <div id="smbody">${body}</div>`;
+}
+function smSetQ(v){ SM_Q=v; $('#smbody').innerHTML=_smTplList(); const i=$('#smQ'); if(i){ i.focus(); try{const l=i.value.length;i.setSelectionRange(l,l);}catch(e){} } }
+function smSetCat(c){ SM_CAT=(SM_CAT===c?'':c); $('#smbody').innerHTML=_smTplList(); }
+
+/* ---- テンプレート ---- */
+function _smTpls(){ let l=M.tpls.slice(); if(SM_Q){ const q=SM_Q.toLowerCase(); l=l.filter(t=>((t.name||'')+' '+(t.subject||'')+' '+(t.body||'')).toLowerCase().includes(q)); } if(SM_CAT) l=l.filter(t=>t.category===SM_CAT); return l; }
+function _smTplList(){
+  const l=_smTpls();
+  return `<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+    <input id="smQ" value="${esc(SM_Q)}" oninput="if(!event.isComposing)smSetQ(this.value)" oncompositionend="smSetQ(this.value)" placeholder="テンプレート検索…" style="padding:8px 11px;border:1px solid var(--line);border-radius:8px;font-size:13px;width:210px">
+    ${M.tplCats.map(c=>`<span onclick="smSetCat('${esc(c)}')" class="chipcat ${SM_CAT===c?'on':''}">${esc(c)}</span>`).join('')}
+    <span onclick="smTplCatManage()" class="chipcat dash">${IC.tag} カテゴリ編集</span>
+    <button class="btn navy" style="margin-left:auto" onclick="smTplForm()">${IC.plus} テンプレート追加</button>
+  </div>
+  ${l.length===0?'<div class="tablewrap"><div class="empty">テンプレートがありません。「＋ テンプレート追加」で作成してください。</div></div>':`
+  <div class="cardgrid">${l.map(t=>`
+    <div class="scard">
+      <div style="display:flex;align-items:center;gap:8px">
+        <a onclick="smTplFav('${t.id}')" title="お気に入り" style="cursor:pointer;font-size:17px;color:${t.favorite?'#f59e0b':'#cbd5e1'}">${t.favorite?'★':'☆'}</a>
+        <b style="font-size:13.5px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t.name)}</b>
+        <span class="badge">${esc(t.category||'その他')}</span>
       </div>
-      <div class="fg"><label>ファイル <span class="hint">（PDF / Word / Excel / PowerPoint / ZIP / 画像・最大24MB）</span></label>
-        <div class="upbox">
-          <label class="upbtn" style="display:inline-flex;align-items:center;gap:7px">${IC.upload}<span id="m_upt">${m.filename?'ファイルを差し替え':'ファイルを選択'}</span><input type="file" id="m_file" hidden></label>
-          <span id="m_fname" class="sub">${m.filename?esc(m.file_url):'選択されていません'}</span>
-        </div>
+      <div style="font-size:12px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">件名: ${esc(t.subject)}</div>
+      <div style="font-size:11.5px;color:var(--muted);white-space:pre-wrap;max-height:54px;overflow:hidden">${esc(String(t.body||'').slice(0,120))}${t.body&&t.body.length>120?'…':''}</div>
+      <div style="display:flex;gap:12px;font-size:12px;margin-top:2px;flex-wrap:wrap">
+        <a onclick="openSalesCompose(null,null,'${t.id}')" style="cursor:pointer;color:#16a34a;font-weight:700">${IC.send} 送信</a>
+        <a onclick="smTplPreview('${t.id}')" style="cursor:pointer;color:var(--blue)">プレビュー</a>
+        <a onclick="smTplForm('${t.id}')" style="cursor:pointer;color:var(--blue)">編集</a>
+        <a onclick="smTplDup('${t.id}')" style="cursor:pointer;color:var(--blue)">複製</a>
+        <a class="del" onclick="smTplDel('${t.id}')" style="cursor:pointer">削除</a>
       </div>
-      <div class="fg"><label>リンク <span class="hint">（任意・Google Drive等の外部リンク）</span></label><input id="m_link" value="${esc(m.link_url||'')}" placeholder="https://..."></div>
-      <div class="formbtns">
-        <button class="btn gold" id="msave">${id?'更新する':'保存する'}</button>
-        <button class="btn" id="mback">${IC.back} 一覧へ戻る</button>
-        <span id="mmsg" style="font-size:13px;align-self:center"></span>
+    </div>`).join('')}</div>`}`;
+}
+async function smTplFav(id){ const t=M.tpls.find(x=>String(x.id)===String(id)); if(!t)return; await api('/api/mail/templates/'+id,{method:'PUT',body:JSON.stringify({favorite:!t.favorite})}); reloadMail(); }
+async function smTplDup(id){ const t=M.tpls.find(x=>String(x.id)===String(id)); if(!t)return; await api('/api/mail/templates',{method:'POST',body:JSON.stringify({name:t.name+'（コピー）',category:t.category,subject:t.subject,body:t.body,signature_id:t.signature_id,attach_ids:t.attach_ids})}); reloadMail(); }
+async function smTplDel(id){ if(!confirm('このテンプレートを削除しますか？'))return; await api('/api/mail/templates/'+id,{method:'DELETE'}); reloadMail(); }
+function _smVarBtns(target){ return `<div style="display:flex;gap:6px;flex-wrap:wrap;margin:5px 0 8px">${SM_VARS.map(([v,l])=>`<a onclick="smInsertVar('${target}','${v}')" title="${l}" class="varchip">${v}<span> ${l}</span></a>`).join('')}</div>`; }
+function smInsertVar(targetId,v){ const el=document.getElementById(targetId); if(!el)return; const s=el.selectionStart||0,e=el.selectionEnd||0; el.value=el.value.slice(0,s)+v+el.value.slice(e); el.focus(); el.selectionStart=el.selectionEnd=s+v.length; if(targetId==='smcBody')smAutoSaveKick(); }
+function smTplForm(id){
+  const t=id?M.tpls.find(x=>String(x.id)===String(id)):null;
+  openModal(`<h3>${t?'テンプレート編集':'テンプレート追加'}</h3>
+    <div class="mform">
+      <div><label>テンプレート名 *</label><input id="tfName" value="${esc(t?t.name:'')}"></div>
+      <div style="display:flex;gap:10px">
+        <div style="flex:1"><label>カテゴリ</label><select id="tfCat">${M.tplCats.map(c=>`<option ${t&&t.category===c?'selected':''}>${esc(c)}</option>`).join('')}</select></div>
+        <div style="flex:1"><label>署名</label><select id="tfSig"><option value="">（既定の署名）</option>${M.sigs.map(s=>`<option value="${s.id}" ${t&&String(t.signature_id)===String(s.id)?'selected':''}>${esc(s.name)}</option>`).join('')}</select></div>
       </div>
-    </div>`;
-  let file=null;
-  $('#m_file').onchange=e=>{ file=e.target.files[0]||null; $('#m_fname').textContent=file?file.name:'選択されていません'; };
-  $('#mback').onclick=renderMaterials;
-  $('#msave').onclick=async()=>{
-    const name=$('#m_name').value.trim();
-    if(!name){ alert('資料名を入力してください'); return; }
-    const fd=new FormData();
-    fd.append('name',name); fd.append('category',$('#m_cat').value.trim()); fd.append('link_url',$('#m_link').value.trim());
-    if(file) fd.append('file',file);
-    const sv=$('#msave'); sv.disabled=true; const old=sv.innerHTML; sv.innerHTML='保存中…';
-    try{
-      const r=await fetch(id?'/api/materials/'+id:'/api/materials',{method:id?'PUT':'POST',body:fd});
-      const d=await r.json();
-      if(r.ok){ $('#mmsg').style.color='#1c7a47'; $('#mmsg').textContent='✓ 保存しました'; setTimeout(renderMaterials,700); }
-      else { $('#mmsg').style.color='#e23b3b'; $('#mmsg').textContent='失敗: '+(d.error||''); sv.disabled=false; sv.innerHTML=old; }
-    }catch(e){ $('#mmsg').style.color='#e23b3b'; $('#mmsg').textContent='保存に失敗しました'; sv.disabled=false; sv.innerHTML=old; }
-  };
+      <div><label>件名 *</label><input id="tfSubj" value="${esc(t?t.subject:'')}"></div>
+      <div><label>本文 *（変数をクリックで挿入）</label>${_smVarBtns('tfBody')}<textarea id="tfBody" rows="9">${esc(t?t.body:'')}</textarea></div>
+      <div><label>既定の添付資料（送信時に自動選択）</label>${_smAttChecks('tfAtt', t?t.attach_ids:[])}</div>
+      <label class="ckline"><input id="tfFav" type="checkbox" ${t&&t.favorite?'checked':''}> ★ お気に入りに登録</label>
+    </div>
+    <div class="modal-actions"><button class="btn" onclick="closeModal()">キャンセル</button><button class="btn navy" onclick="smTplSave('${id||''}')">保存</button></div>`);
+}
+async function smTplSave(id){
+  const name=$('#tfName').value.trim(),subject=$('#tfSubj').value.trim(),body=$('#tfBody').value;
+  if(!name||!subject||!body){ alert('テンプレート名・件名・本文は必須です。'); return; }
+  const payload={name,category:$('#tfCat').value,signature_id:$('#tfSig').value||null,subject,body,favorite:$('#tfFav').checked,attach_ids:[...document.querySelectorAll('.tfAtt:checked')].map(c=>Number(c.value))};
+  await api(id?'/api/mail/templates/'+id:'/api/mail/templates',{method:id?'PUT':'POST',body:JSON.stringify(payload)});
+  closeModal(); reloadMail();
+}
+function smTplPreview(id){
+  const t=M.tpls.find(x=>String(x.id)===String(id)); if(!t)return;
+  const sample=M.recips[0]||{company:'サンプル株式会社',name:'山田 太郎',tel:'052-000-0000',email:'sample@example.com',industry:'製造業',address:'愛知県名古屋市…'};
+  const sig=M.sigs.find(s=>String(s.id)===String(t.signature_id))||_smSigDefault();
+  const body=smFillVars(t.body,sample)+(sig?'\n\n'+smFillVars(sig.body,sample):'');
+  openModal(`<h3>プレビュー — ${esc(t.name)}</h3>
+    <div style="max-height:62vh;overflow-y:auto">
+      <div style="font-size:12px;color:var(--muted);margin-bottom:6px">※ 変数は1件目の宛先（または例）で置換したイメージです</div>
+      <div class="preview"><div class="pv-subj">件名: ${esc(smFillVars(t.subject,sample))}</div><div class="pv-body">${esc(body)}</div></div>
+    </div>
+    <div class="modal-actions"><button class="btn" onclick="closeModal()">閉じる</button><button class="btn" style="background:#16a34a;border-color:#16a34a;color:#fff" onclick="openSalesCompose(null,null,'${t.id}')">${IC.send} このテンプレで送信</button></div>`);
+}
+/* テンプレートカテゴリ管理 */
+function smTplCatManage(){
+  openModal(`<h3>${IC.tag} テンプレートカテゴリ管理</h3>
+    <div style="max-height:56vh;overflow-y:auto">${M.tplCats.map((x,i)=>`<div class="catrow"><b style="flex:1">${esc(x)}</b><span class="sub">${M.tpls.filter(t=>(t.category||'その他')===x).length}件</span>${x!=='その他'?`<a onclick="smTplCatRename(${i})" style="cursor:pointer;color:var(--blue)">名前変更</a><a onclick="smTplCatDel(${i})" style="cursor:pointer;color:#dc2626">削除</a>`:'<span class="sub">（固定）</span>'}</div>`).join('')}</div>
+    <div class="modal-actions"><button class="btn" onclick="closeModal();paintSalesMail()">閉じる</button><button class="btn navy" onclick="smTplCatAdd()">${IC.plus} カテゴリ追加</button></div>`);
+}
+async function _saveTplCats(){ await api('/api/mail/meta/tpl_cats',{method:'PUT',body:JSON.stringify({val:M.tplCats})}); }
+async function smTplCatAdd(){ const n=(prompt('新しいカテゴリ名')||'').trim(); if(!n)return; if(M.tplCats.includes(n)){alert('同名があります');return;} M.tplCats.splice(M.tplCats.indexOf('その他'),0,n); await _saveTplCats(); smTplCatManage(); }
+async function smTplCatRename(i){ const old=M.tplCats[i]; const n=(prompt('カテゴリ名を変更',old)||'').trim(); if(!n||n===old)return; if(M.tplCats.includes(n)){alert('同名があります');return;} M.tplCats[i]=n; await _saveTplCats(); await loadMail(); smTplCatManage(); }
+async function smTplCatDel(i){ const name=M.tplCats[i]; if(name==='その他'){alert('「その他」は削除できません');return;} if(!confirm('カテゴリ「'+name+'」を削除しますか？'))return; M.tplCats.splice(i,1); await _saveTplCats(); smTplCatManage(); }
+
+/* ---- 署名 ---- */
+function _smSigList(){
+  const l=M.sigs;
+  return `<div style="margin-bottom:12px"><button class="btn navy" onclick="smSigForm()">${IC.plus} 署名追加</button></div>
+  ${l.length===0?'<div class="tablewrap"><div class="empty">署名がありません。</div></div>':`
+  <div class="cardgrid">${l.map(s=>`
+    <div class="scard" style="border-color:${s.is_default?'var(--navy)':'var(--line)'}">
+      <div style="display:flex;align-items:center;gap:8px">
+        <b style="font-size:13.5px;flex:1">${esc(s.name)}</b>
+        ${s.is_default?'<span class="badge">既定</span>':`<a onclick="smSigDefault('${s.id}')" style="cursor:pointer;font-size:11.5px;color:var(--blue)">既定にする</a>`}
+      </div>
+      <div style="font-size:12px;color:var(--muted);white-space:pre-wrap;border-left:3px solid var(--line);padding-left:10px;max-height:110px;overflow:hidden">${esc(s.body)}</div>
+      <div style="display:flex;gap:12px;font-size:12px;margin-top:6px">
+        <a onclick="smSigForm('${s.id}')" style="cursor:pointer;color:var(--blue)">編集</a>
+        <a class="del" onclick="smSigDel('${s.id}')" style="cursor:pointer">削除</a>
+      </div>
+    </div>`).join('')}</div>`}`;
+}
+function smSigForm(id){
+  const s=id?M.sigs.find(x=>String(x.id)===String(id)):null;
+  openModal(`<h3>${s?'署名編集':'署名追加'}</h3>
+    <div class="mform">
+      <div><label>署名名 *</label><input id="sgName" value="${esc(s?s.name:'')}"></div>
+      <div><label>内容 *（変数使用可）</label>${_smVarBtns('sgBody')}<textarea id="sgBody" rows="7">${esc(s?s.body:'')}</textarea></div>
+      <label class="ckline"><input id="sgDef" type="checkbox" ${s&&s.is_default?'checked':''}> 既定の署名にする（全メールに自動付加）</label>
+    </div>
+    <div class="modal-actions"><button class="btn" onclick="closeModal()">キャンセル</button><button class="btn navy" onclick="smSigSave('${id||''}')">保存</button></div>`);
+}
+async function smSigSave(id){
+  const name=$('#sgName').value.trim(),body=$('#sgBody').value;
+  if(!name||!body){ alert('署名名・内容は必須です。'); return; }
+  await api(id?'/api/mail/signatures/'+id:'/api/mail/signatures',{method:id?'PUT':'POST',body:JSON.stringify({name,body,is_default:$('#sgDef').checked})});
+  closeModal(); reloadMail();
+}
+async function smSigDefault(id){ await api('/api/mail/signatures/'+id,{method:'PUT',body:JSON.stringify({is_default:true})}); reloadMail(); }
+async function smSigDel(id){ if(!confirm('この署名を削除しますか？'))return; await api('/api/mail/signatures/'+id,{method:'DELETE'}); reloadMail(); }
+
+/* ---- 送信履歴 ---- */
+function _smLogList(){
+  const l=M.logs;
+  return `<div class="tablewrap">${l.length===0?'<div class="empty">送信履歴がありません。</div>':`
+    <table><thead><tr><th class="nowrap">日時</th><th class="nowrap">差出人</th><th>宛先</th><th>メール</th><th>件名</th><th class="nowrap">テンプレート</th><th>状態</th><th>添付</th><th>操作</th></tr></thead>
+    <tbody>${l.map(g=>`<tr>
+      <td class="nowrap">${fmt(g.created_at)}</td><td class="nowrap">${esc(g.sender)||'-'}</td>
+      <td class="nowrap">${esc(g.to_name)||'-'}</td><td class="nowrap">${esc(g.to_email)}</td>
+      <td class="ell"><span class="rowline">${esc(g.subject)||'-'}</span></td>
+      <td class="nowrap">${esc(g.template_name)||'-'}</td><td><span class="pill done">${esc(g.status||'送信')}</span></td>
+      <td class="ell" style="max-width:160px"><span class="rowline sub">${esc(g.att)||'-'}</span></td>
+      <td class="nowrap"><button class="del" onclick="smLogDel('${g.id}')">削除</button></td></tr>`).join('')}</tbody></table>`}</div>`;
+}
+async function smLogDel(id){ if(!confirm('この履歴を削除しますか？'))return; await api('/api/mail/logs/'+id,{method:'DELETE'}); reloadMail(); }
+
+/* ---- 下書き ---- */
+function _smDraftList(){
+  const l=M.drafts;
+  return `<div class="tablewrap">${l.length===0?'<div class="empty">下書きがありません。メール作成中に自動保存されます。</div>':`
+    <table><thead><tr><th class="nowrap">更新日時</th><th>宛先</th><th>件名</th><th>本文（先頭）</th><th>操作</th></tr></thead>
+    <tbody>${l.map(d=>{ const p=_smRecip(d.recipient_key); return `<tr>
+      <td class="nowrap">${fmt(d.updated_at)}</td>
+      <td class="nowrap">${p?esc(p.name||p.company):'-'}</td>
+      <td>${esc(d.subject)||'（無題）'}</td>
+      <td class="ell"><span class="rowline sub">${esc(String(d.body||'').slice(0,60))}</span></td>
+      <td class="nowrap"><a class="lnk" onclick="openSalesCompose('${d.recipient_key||''}','${d.id}')">再開</a><button class="del" onclick="smDraftDel('${d.id}')">削除</button></td>
+    </tr>`;}).join('')}</tbody></table>`}</div>`;
+}
+async function smDraftDel(id){ if(!confirm('この下書きを削除しますか？'))return; await api('/api/mail/drafts/'+id,{method:'DELETE'}); reloadMail(); }
+
+/* ---- 添付資料ライブラリ ---- */
+function smFileSetQ(v){ SM_FILE_Q=v; $('#smbody').innerHTML=_smFileList(); const i=$('#smFileQ'); if(i){ i.focus(); try{const L=i.value.length;i.setSelectionRange(L,L);}catch(e){} } }
+function smFileSetCat(v){ SM_FILE_CAT2=v; $('#smbody').innerHTML=_smFileList(); }
+function smFileSetSort(v){ SM_FILE_SORT=v; $('#smbody').innerHTML=_smFileList(); }
+function _smFileList(){
+  const cats=M.fileCats; let list=M.mats.slice();
+  if(SM_FILE_Q){ const q=SM_FILE_Q.toLowerCase(); list=list.filter(f=>((f.name||'')+' '+(f.filename||'')+' '+(f.link_url||'')).toLowerCase().includes(q)); }
+  if(SM_FILE_CAT2) list=list.filter(f=>(f.category||'その他')===SM_FILE_CAT2);
+  if(SM_FILE_SORT==='name') list.sort((a,b)=>String(a.name).localeCompare(String(b.name),'ja'));
+  else if(SM_FILE_SORT==='date') list.sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||'')));
+  else if(SM_FILE_SORT==='size') list.sort((a,b)=>(b.size||0)-(a.size||0));
+  else list.sort((a,b)=>(cats.indexOf(a.category||'その他')-cats.indexOf(b.category||'その他'))||String(a.name).localeCompare(String(b.name),'ja'));
+  return `<div style="display:flex;gap:8px;margin-bottom:8px;align-items:center;flex-wrap:wrap">
+    <details class="addmenu"><summary class="btn navy">${IC.plus} 追加 ▾</summary>
+      <div class="menu">
+        <a class="menu-item" onclick="this.closest('details').open=false;smFilePick()">${IC.upload} ファイル追加</a>
+        <a class="menu-item" onclick="this.closest('details').open=false;smFileUrlForm()">${IC.ext} リンク資料を登録</a>
+        <a class="menu-item" onclick="this.closest('details').open=false;smFileCatManage()">${IC.tag} カテゴリ管理</a>
+      </div></details>
+    <input id="smFileQ" value="${esc(SM_FILE_Q)}" oninput="if(!event.isComposing)smFileSetQ(this.value)" oncompositionend="smFileSetQ(this.value)" placeholder="資料名で検索…" style="padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px;width:180px">
+    <select onchange="smFileSetCat(this.value)" class="selin"><option value="">カテゴリ: すべて</option>${cats.map(c=>`<option ${SM_FILE_CAT2===c?'selected':''}>${esc(c)}</option>`).join('')}</select>
+    <select onchange="smFileSetSort(this.value)" class="selin">
+      <option value="cat" ${SM_FILE_SORT==='cat'?'selected':''}>並び: カテゴリ順</option>
+      <option value="name" ${SM_FILE_SORT==='name'?'selected':''}>並び: 名前順</option>
+      <option value="date" ${SM_FILE_SORT==='date'?'selected':''}>並び: 登録日順</option>
+      <option value="size" ${SM_FILE_SORT==='size'?'selected':''}>並び: サイズ順</option>
+    </select>
+    <input id="smFileInput" type="file" style="display:none" onchange="smFileUpload(this)">
+  </div>
+  <div style="font-size:11px;color:var(--muted);margin-bottom:8px">※ ファイルは biglight.jp/assets/materials/ に公開・メール送信時に自動添付。リンク資料は本文末尾に自動挿入されます。</div>
+  <div class="tablewrap">${M.mats.length===0?'<div class="empty">資料がありません。「＋ 追加」から登録してください。</div>':list.length===0?'<div class="empty">検索・絞り込みに一致する資料がありません。</div>':`
+    <table><thead><tr><th class="nowrap">カテゴリ</th><th>資料名</th><th class="nowrap">種類</th><th>ファイル名 / URL</th><th class="nowrap">サイズ</th><th class="nowrap">登録日</th><th>操作</th></tr></thead>
+    <tbody>${list.map(f=>`<tr>
+      <td class="nowrap sub">${esc(f.category||'その他')}</td>
+      <td style="font-weight:600">${esc(f.name)}</td>
+      <td class="nowrap">${_smMatType(f)==='link'?IC.ext+' リンク':IC.file+' ファイル'}</td>
+      <td class="ell">${f.filename?`<span class="rowline">${esc(f.filename)}</span>`:`<a class="rowline" href="${esc(f.link_url)}" target="_blank" rel="noreferrer" style="color:var(--blue)">${esc(f.link_url)}</a>`}</td>
+      <td class="nowrap">${f.filename?fmtSize(f.size):'-'}</td>
+      <td class="nowrap">${fmtd(f.created_at)}</td>
+      <td class="nowrap">${f.file_url?`<a class="lnk" href="${esc(f.file_url)}" target="_blank" rel="noreferrer">${IC.upload} DL</a>`:''}<a class="lnk" onclick="smFileEditForm('${f.id}')">編集</a>${f.filename?`<a class="lnk" style="color:#d97706" onclick="smFileReplacePick('${f.id}')">差し替え</a>`:''}<button class="del" onclick="smFileDel('${f.id}')">削除</button></td>
+    </tr>`).join('')}</tbody></table>`}</div>`;
+}
+function smFilePick(){ _smRepId=null; window._smPendFile=null; const i=$('#smFileInput'); if(i)i.click(); }
+function smFileReplacePick(id){ _smRepId=id; const i=$('#smFileInput'); if(i)i.click(); }
+async function smFileUpload(inp){
+  const file=inp.files&&inp.files[0]; if(!file)return;
+  if(file.size>24*1024*1024){ alert('24MBまでのファイルを登録できます（大きい場合はリンク登録をご利用ください）。'); inp.value=''; return; }
+  if(_smRepId){ const fd=new FormData(); fd.append('file',file); await fetch('/api/materials/'+_smRepId,{method:'PUT',body:fd}); _smRepId=null; inp.value=''; reloadMail(); return; }
+  window._smPendFile=file; inp.value=''; smFileMetaForm(file.name.replace(/\.[^.]+$/,''));
+}
+function smFileMetaForm(defName){
+  openModal(`<h3>${IC.file} 資料の登録</h3>
+    <div class="mform">
+      <div><label>資料名 *（一覧・選択時に表示）</label><input id="fmName" value="${esc(defName||'')}"></div>
+      <div><label>カテゴリ（種類）</label><select id="fmCat">${M.fileCats.map(c=>`<option>${esc(c)}</option>`).join('')}</select></div>
+    </div>
+    <div class="modal-actions"><button class="btn" onclick="window._smPendFile=null;closeModal()">キャンセル</button><button class="btn navy" onclick="smFileMetaSave()">登録</button></div>`);
+}
+async function smFileMetaSave(){
+  const file=window._smPendFile; if(!file)return;
+  const name=$('#fmName').value.trim(); if(!name){ alert('資料名は必須です。'); return; }
+  const fd=new FormData(); fd.append('name',name); fd.append('category',$('#fmCat').value); fd.append('file',file);
+  await fetch('/api/materials',{method:'POST',body:fd}); window._smPendFile=null; closeModal(); reloadMail();
+}
+function smFileEditForm(id){
+  const f=M.mats.find(x=>String(x.id)===String(id)); if(!f)return;
+  openModal(`<h3>${IC.edit} 資料の編集</h3>
+    <div class="mform">
+      <div><label>資料名 *</label><input id="feName" value="${esc(f.name)}"></div>
+      <div><label>カテゴリ（種類）</label><select id="feCat">${M.fileCats.map(c=>`<option ${(f.category||'その他')===c?'selected':''}>${esc(c)}</option>`).join('')}</select></div>
+      ${f.filename?`<div class="sub">ファイル: ${esc(f.filename)}（差し替えは一覧の「差し替え」から）</div>`:`<div><label>URL *</label><input id="feUrl" value="${esc(f.link_url||'')}"></div>`}
+    </div>
+    <div class="modal-actions"><button class="btn" onclick="closeModal()">キャンセル</button><button class="btn navy" onclick="smFileEditSave('${id}')">保存</button></div>`);
+}
+async function smFileEditSave(id){
+  const name=$('#feName').value.trim(); if(!name){ alert('資料名は必須です。'); return; }
+  const payload={name,category:$('#feCat').value}; const u=$('#feUrl'); if(u){ const v=u.value.trim(); if(!v){ alert('URLは必須です。'); return; } payload.link_url=v; }
+  await api('/api/materials/'+id,{method:'PUT',body:JSON.stringify(payload)}); closeModal(); reloadMail();
+}
+function smFileUrlForm(){
+  openModal(`<h3>${IC.ext} リンク資料を登録</h3>
+    <div class="mform">
+      <div><label>資料名 *</label><input id="fuName" placeholder="会社案内"></div>
+      <div><label>カテゴリ（種類）</label><select id="fuCat">${M.fileCats.map(c=>`<option>${esc(c)}</option>`).join('')}</select></div>
+      <div><label>URL *（Google Drive共有リンク等）</label><input id="fuUrl" placeholder="https://…"></div>
+      <div class="sub">送信時、選択したリンク資料は本文末尾に【添付資料（リンク）】として自動挿入されます。</div>
+    </div>
+    <div class="modal-actions"><button class="btn" onclick="closeModal()">キャンセル</button><button class="btn navy" onclick="smFileUrlSave()">登録</button></div>`);
+}
+async function smFileUrlSave(){
+  const name=$('#fuName').value.trim(),url=$('#fuUrl').value.trim();
+  if(!name||!url){ alert('資料名とURLは必須です。'); return; }
+  await api('/api/materials',{method:'POST',body:JSON.stringify({name,category:$('#fuCat').value,link_url:url})}); closeModal(); reloadMail();
+}
+async function smFileDel(id){ if(!confirm('この資料を削除しますか？（公開ファイルも削除されます）'))return; await api('/api/materials/'+id,{method:'DELETE'}); reloadMail(); }
+function smFileCatManage(){
+  openModal(`<h3>${IC.tag} 資料カテゴリ管理</h3>
+    <div style="max-height:56vh;overflow-y:auto">${M.fileCats.map((x,i)=>`<div class="catrow"><b style="flex:1">${esc(x)}</b><span class="sub">${M.mats.filter(f=>(f.category||'その他')===x).length}件</span>${x!=='その他'?`<a onclick="smFileCatRename(${i})" style="cursor:pointer;color:var(--blue)">名前変更</a><a onclick="smFileCatDel(${i})" style="cursor:pointer;color:#dc2626">削除</a>`:'<span class="sub">（固定）</span>'}</div>`).join('')}</div>
+    <div class="modal-actions"><button class="btn" onclick="closeModal();paintSalesMail()">閉じる</button><button class="btn navy" onclick="smFileCatAdd()">${IC.plus} カテゴリ追加</button></div>`);
+}
+async function _saveFileCats(){ await api('/api/mail/meta/file_cats',{method:'PUT',body:JSON.stringify({val:M.fileCats})}); }
+async function smFileCatAdd(){ const n=(prompt('新しいカテゴリ名')||'').trim(); if(!n)return; if(M.fileCats.includes(n)){alert('同名があります');return;} M.fileCats.splice(M.fileCats.indexOf('その他'),0,n); await _saveFileCats(); smFileCatManage(); }
+async function smFileCatRename(i){ const old=M.fileCats[i]; const n=(prompt('カテゴリ名を変更',old)||'').trim(); if(!n||n===old)return; if(M.fileCats.includes(n)){alert('同名があります');return;} M.fileCats[i]=n; await _saveFileCats(); smFileCatManage(); }
+async function smFileCatDel(i){ const name=M.fileCats[i]; if(name==='その他'){alert('「その他」は削除できません');return;} if(!confirm('カテゴリ「'+name+'」を削除しますか？'))return; M.fileCats.splice(i,1); await _saveFileCats(); smFileCatManage(); }
+
+/* 添付資料チェック（カテゴリ折りたたみ） */
+function _smAttChecks(cls,selIds){
+  const sel=new Set((selIds||[]).map(String));
+  if(!M.mats.length) return `<div class="sub" style="padding:6px 2px">資料は「添付資料」タブで登録できます。</div>`;
+  const groups=M.fileCats.map(c=>({c,files:M.mats.filter(f=>(f.category||'その他')===c)})).filter(g=>g.files.length);
+  const other=M.mats.filter(f=>!M.fileCats.includes(f.category||'その他')); if(other.length) groups.push({c:'その他',files:other});
+  return groups.map(g=>{ const open=g.files.some(f=>sel.has(String(f.id)));
+    return `<div class="attgrp">
+      <div class="attgrp-h" onclick="const b=this.nextElementSibling;const o=b.style.display==='none';b.style.display=o?'':'none';this.querySelector('.arw').textContent=o?'▾':'▸'"><span class="arw">${open?'▾':'▸'}</span>${IC.tag} ${esc(g.c)}<span class="sub" style="font-weight:600">${g.files.length}件</span></div>
+      <div style="display:${open?'':'none'};padding:7px 10px"><div style="display:flex;flex-wrap:wrap;gap:8px">${g.files.map(f=>`<label class="attpick"><input type="checkbox" class="${cls}" value="${f.id}" ${sel.has(String(f.id))?'checked':''}> ${_smMatType(f)==='link'?'🔗':'📄'} ${esc(f.name)}</label>`).join('')}</div></div>
+    </div>`; }).join('');
+}
+
+/* ---- 活動サマリー ---- */
+function _smActList(){
+  const bySender={};
+  M.logs.forEach(l=>{ const n=l.sender||'(不明)'; (bySender[n]=bySender[n]||{n,mails:0,last:''}); bySender[n].mails++; const d=String(l.created_at||''); if(d>bySender[n].last) bySender[n].last=d; });
+  const rows=Object.values(bySender).sort((a,b)=>String(b.last).localeCompare(String(a.last)));
+  const totalMails=M.logs.length, recipCount=new Set(M.logs.map(l=>l.to_email)).size;
+  return `<div class="cards" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px">
+      <div class="stat"><div class="n">${totalMails}</div><div class="l">送信メール 合計</div></div>
+      <div class="stat"><div class="n">${recipCount}</div><div class="l">送信先（ユニーク）</div></div>
+      <div class="stat"><div class="n">${M.tpls.length}</div><div class="l">テンプレート</div></div>
+      <div class="stat"><div class="n">${M.mats.length}</div><div class="l">添付資料</div></div>
+    </div>
+    <div class="tablewrap"><table><thead><tr><th>差出人</th><th style="text-align:right">送信メール</th><th class="nowrap">最終送信日</th></tr></thead>
+    <tbody>${rows.length?rows.map(r=>`<tr><td style="font-weight:600">${esc(r.n)}</td><td style="text-align:right;font-weight:700;color:var(--navy)">${r.mails}</td><td class="nowrap">${r.last?fmt(r.last):'-'}</td></tr>`).join(''):'<tr><td colspan="3" class="empty">活動データがありません</td></tr>'}</tbody></table></div>`;
+}
+
+/* ---- メール作成（単発 / 一括） ---- */
+function _smRecipOptions(sel){
+  return M.recips.map(p=>`<option value="${p.key}" ${p.key===sel?'selected':''}>${esc((p.name||p.company||'（無名）'))}${p.company&&p.name?' / '+esc(p.company):''} — ${esc(p.email)} [${p.kind==='download'?'資料請求':'問い合わせ'}]</option>`).join('');
+}
+function openSalesCompose(recipKey,draftId,templateId){
+  _smDraftId=draftId||null;
+  const draft=draftId?M.drafts.find(d=>String(d.id)===String(draftId)):null;
+  const rk=(draft&&draft.recipient_key)||recipKey||'';
+  const tid=(draft&&draft.template_id)||templateId||'';
+  const defSig=_smSigDefault();
+  openModal(`<h3>${IC.send} 営業メール作成</h3>
+    <div class="mform" style="max-height:66vh;overflow-y:auto;padding-right:4px">
+      <div style="display:flex;gap:10px;align-items:flex-end">
+        <div style="flex:1"><label>宛先（資料請求／問い合わせ）*</label>
+          <select id="smcTo"><option value="">-</option>${_smRecipOptions(rk)}</select></div>
+        <button class="btn" onclick="smBulkOpen()" title="複数の宛先に個別送信">一括送信モード</button>
+      </div>
+      <div><label>テンプレート</label><select id="smcTpl" onchange="smcApplyTpl(true)"><option value="">（テンプレートなし）</option>${M.tpls.map(t=>`<option value="${t.id}" ${String(t.id)===String(tid)?'selected':''}>${t.favorite?'★ ':''}${esc(t.name)}（${esc(t.category||'')}）</option>`).join('')}</select></div>
+      <div><label>件名 *</label><input id="smcSubj" value="${esc(draft?draft.subject:'')}" oninput="smAutoSaveKick()"></div>
+      <div><label>本文 *（変数クリックで挿入 → 送信時に自動置換）</label>${_smVarBtns('smcBody')}<textarea id="smcBody" rows="10" oninput="smAutoSaveKick()">${esc(draft?draft.body:'')}</textarea></div>
+      <div><label>署名（末尾に自動付加）</label><select id="smcSig"><option value="">（署名なし）</option>${M.sigs.map(s=>`<option value="${s.id}" ${defSig&&String(s.id)===String(defSig.id)?'selected':''}>${esc(s.name)}${s.is_default?'（既定）':''}</option>`).join('')}</select></div>
+      <div><label>添付資料（ファイルは自動添付・リンクは本文へ自動挿入）</label><div id="smcAttBox">${_smAttChecks('smcAtt', draft?draft.attach_ids:[])}</div></div>
+      <div id="smcInfo" class="sub"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal()">閉じる</button>
+      <button class="btn" onclick="smDraftSave(true)">下書き保存</button>
+      <button class="btn" onclick="smcPreview()">プレビュー</button>
+      <button class="btn" style="background:#16a34a;border-color:#16a34a;color:#fff;font-weight:700" onclick="smSend()">${IC.send} 送信</button>
+    </div>`);
+  if(!draft&&tid) smcApplyTpl(true);
+}
+function smcApplyTpl(force){
+  const t=M.tpls.find(x=>String(x.id)===String($('#smcTpl').value)); if(!t)return;
+  const subjEl=$('#smcSubj'),bodyEl=$('#smcBody');
+  if(force||!bodyEl.value.trim()){ subjEl.value=t.subject; bodyEl.value=t.body; }
+  if(t.signature_id){ const o=$('#smcSig').querySelector(`option[value="${t.signature_id}"]`); if(o) $('#smcSig').value=t.signature_id; }
+  const ids=new Set((t.attach_ids||[]).map(String));
+  document.querySelectorAll('.smcAtt').forEach(c=>{ c.checked=ids.has(String(c.value)); });
+  smAutoSaveKick();
+}
+function _smComposeData(){
+  const recip=_smRecip($('#smcTo').value);
+  const sig=M.sigs.find(s=>String(s.id)===String($('#smcSig').value))||null;
+  const subjRaw=$('#smcSubj').value,bodyRaw=$('#smcBody').value;
+  const subject=smFillVars(subjRaw,recip||{});
+  const atts=[...document.querySelectorAll('.smcAtt:checked')].map(c=>M.mats.find(m=>String(m.id)===String(c.value))).filter(Boolean);
+  const linkAtts=atts.filter(m=>_smMatType(m)==='link');
+  let body=smFillVars(bodyRaw,recip||{})+(sig?'\n\n'+smFillVars(sig.body,recip||{}):'');
+  if(linkAtts.length) body+='\n\n【添付資料（リンク）】\n'+linkAtts.map(m=>'・'+m.name+': '+m.link_url).join('\n');
+  return {recip,subject,body,bodyRaw,atts,fileIds:atts.filter(m=>m.filename).map(m=>m.id)};
+}
+function smcPreview(){
+  const d=_smComposeData();
+  const bak={to:$('#smcTo').value,tpl:$('#smcTpl').value,subj:$('#smcSubj').value,body:$('#smcBody').value,sig:$('#smcSig').value,atts:[...document.querySelectorAll('.smcAtt:checked')].map(c=>c.value)};
+  window._smcBak=bak;
+  openModal(`<h3>プレビュー ${d.recip?'— '+esc(d.recip.name||d.recip.company):''}</h3>
+    <div class="preview" style="max-height:60vh;overflow-y:auto">
+      <div class="sub">宛先: ${d.recip?esc((d.recip.email||'（未登録）')+' — '+(d.recip.name||d.recip.company)):'未選択'}</div>
+      <div class="pv-subj">件名: ${esc(d.subject)}</div><div class="pv-body">${esc(d.body)}</div>
+      ${d.fileIds.length?`<div class="sub" style="margin-top:8px">📎 添付ファイル: ${esc(d.atts.filter(m=>m.filename).map(m=>m.name).join(', '))}</div>`:''}
+    </div>
+    <div class="modal-actions"><button class="btn" onclick="smcRestore()">← 編集に戻る</button><button class="btn" style="background:#16a34a;border-color:#16a34a;color:#fff" onclick="smSendFromPreview()">${IC.send} 送信</button></div>`);
+}
+function smcRestore(){
+  const bak=window._smcBak||{};
+  openSalesCompose(bak.to||'',null,'');
+  setTimeout(()=>{ if($('#smcSubj')){ $('#smcSubj').value=bak.subj||''; $('#smcBody').value=bak.body||''; if(bak.to)$('#smcTo').value=bak.to; if(bak.tpl)$('#smcTpl').value=bak.tpl; $('#smcSig').value=bak.sig||''; (bak.atts||[]).forEach(v=>{ const c=document.querySelector('.smcAtt[value="'+v+'"]'); if(c){ c.checked=true; const box=c.closest('.attgrp'); if(box){ const b=box.querySelector('div[style]'); } } }); } },40);
+}
+function smSendFromPreview(){ smcRestore(); setTimeout(smSend,80); }
+function smAutoSaveKick(){ clearTimeout(_smAutoTimer); _smAutoTimer=setTimeout(()=>smDraftSave(false),1600); }
+async function smDraftSave(manual){
+  const subjEl=$('#smcSubj'),bodyEl=$('#smcBody'); if(!subjEl||!bodyEl)return;
+  if(!subjEl.value.trim()&&!bodyEl.value.trim()){ if(manual)alert('件名か本文を入力してください。'); return; }
+  const payload={id:_smDraftId||undefined,recipient_key:$('#smcTo').value||'',template_id:$('#smcTpl').value||null,subject:subjEl.value,body:bodyEl.value,attach_ids:[...document.querySelectorAll('.smcAtt:checked')].map(c=>Number(c.value))};
+  try{ const d=(await(await api('/api/mail/drafts',{method:'POST',body:JSON.stringify(payload)})).json()).item; if(d) _smDraftId=d.id; }catch(e){}
+  const info=$('#smcInfo'); if(info) info.textContent='下書き自動保存: '+_smNow();
+  if(manual){ await loadMail(); alert('下書きを保存しました。「下書き」タブから再開できます。'); }
+}
+async function smSend(){
+  const d=_smComposeData();
+  if(!d.recip){ alert('宛先を選択してください。'); return; }
+  if(!d.subject.trim()||!d.bodyRaw.trim()){ alert('件名・本文を入力してください。'); return; }
+  if(!d.recip.email){ alert('この宛先はメール未登録です。'); return; }
+  if(!confirm(d.recip.email+' へ送信しますか？')) return;
+  const t=M.tpls.find(x=>String(x.id)===String($('#smcTpl').value));
+  const payload={to:d.recip.email,toName:d.recip.name||d.recip.company,recipientKey:d.recip.key,subject:d.subject,body:d.body,attachIds:d.fileIds,templateId:t?t.id:null,templateName:t?t.name:'',att:d.atts.map(m=>m.name).join(', ')};
+  const info=$('#smcInfo'); if(info){ info.style.color='var(--muted)'; info.textContent='送信中…'; }
+  try{
+    const r=await api('/api/mail/send',{method:'POST',body:JSON.stringify(payload)}); const j=await r.json();
+    if(r.ok){ if(_smDraftId){ await api('/api/mail/drafts/'+_smDraftId,{method:'DELETE'}); _smDraftId=null; } closeModal(); SM_TAB='log'; await reloadMail(); }
+    else { if(info){ info.style.color='#e23b3b'; info.textContent='失敗: '+(j.error||''); } }
+  }catch(e){ if(info){ info.style.color='#e23b3b'; info.textContent='送信に失敗しました'; } }
+}
+/* 一括送信 */
+function smBulkOpen(){
+  const subj=$('#smcSubj')?$('#smcSubj').value:'',body=$('#smcBody')?$('#smcBody').value:'';
+  const tid=$('#smcTpl')?$('#smcTpl').value:'',sig=$('#smcSig')?$('#smcSig').value:'';
+  const attIds=[...document.querySelectorAll('.smcAtt:checked')].map(c=>c.value);
+  if(!subj.trim()&&!body.trim()&&!tid){ alert('先にテンプレートを選ぶか、件名・本文を入力してください。'); return; }
+  window._smBulkCtx={subj,body,tid,sig,attIds};
+  openModal(`<h3>${IC.send} 一括送信（1件ずつ個別送信）</h3>
+    <div class="sub" style="margin-bottom:8px">対象を選んで「送信リスト作成」。各行の送信ボタンで1件ずつ送信し、変数は各社の情報で自動置換されます。</div>
+    <div style="max-height:46vh;overflow-y:auto;border:1px solid var(--line);border-radius:8px;padding:8px 10px">
+      ${M.recips.map(p=>`<label style="display:flex;gap:8px;align-items:center;padding:5px 2px;font-size:13px;cursor:pointer"><input type="checkbox" class="smbk" value="${p.key}"><b>${esc(p.name||p.company||'（無名）')}</b><span class="sub">${esc(p.company||'')} ${esc(p.email)} [${p.kind==='download'?'資料請求':'問い合わせ'}]</span></label>`).join('')}
+    </div>
+    <div class="modal-actions"><button class="btn" onclick="openSalesCompose()">← 戻る</button><button class="btn navy" onclick="smBulkList()">送信リスト作成 →</button></div>`);
+}
+function smBulkList(){
+  const keys=[...document.querySelectorAll('.smbk:checked')].map(c=>c.value);
+  if(!keys.length){ alert('対象を選択してください。'); return; }
+  const ctx=window._smBulkCtx||{};
+  const sig=M.sigs.find(s=>String(s.id)===String(ctx.sig))||_smSigDefault();
+  const t=M.tpls.find(x=>String(x.id)===String(ctx.tid));
+  const atts=(ctx.attIds||[]).map(id=>M.mats.find(m=>String(m.id)===String(id))).filter(Boolean);
+  const linkAtts=atts.filter(m=>_smMatType(m)==='link'), fileIds=atts.filter(m=>m.filename).map(m=>m.id);
+  window._smBulkRows=keys.map(k=>{ const p=_smRecip(k);
+    let body=smFillVars(ctx.body,p)+(sig?'\n\n'+smFillVars(sig.body,p):'');
+    if(linkAtts.length) body+='\n\n【添付資料（リンク）】\n'+linkAtts.map(m=>'・'+m.name+': '+m.link_url).join('\n');
+    return {p,subject:smFillVars(ctx.subj,p),body,fileIds,att:atts.map(m=>m.name).join(', '),tpl:t}; });
+  openModal(`<h3>${IC.send} 一括送信リスト（${keys.length}件）</h3>
+    <div style="max-height:56vh;overflow-y:auto"><table style="width:100%;border-collapse:collapse;font-size:12.5px">
+      <thead><tr><th style="text-align:left;padding:6px;border-bottom:1px solid var(--line)">宛先</th><th style="text-align:left;padding:6px;border-bottom:1px solid var(--line)">件名</th><th style="padding:6px;border-bottom:1px solid var(--line)">操作</th></tr></thead>
+      <tbody>${window._smBulkRows.map((r,i)=>`<tr id="smbr-${i}"><td style="padding:6px;border-bottom:1px solid var(--line);white-space:nowrap"><b>${esc(r.p.name||r.p.company)}</b><br><span class="sub">${esc(r.p.email)}</span></td><td style="padding:6px;border-bottom:1px solid var(--line)">${esc(r.subject)}</td><td style="padding:6px;border-bottom:1px solid var(--line);text-align:center;white-space:nowrap"><button class="btn" style="padding:5px 12px;font-size:12px;background:#16a34a;border-color:#16a34a;color:#fff" onclick="smBulkSend(${i})">送信</button></td></tr>`).join('')}</tbody>
+    </table></div>
+    <div class="modal-actions"><button class="btn" onclick="closeModal();reloadMail()">完了・閉じる</button></div>`);
+}
+async function smBulkSend(i){
+  const r=(window._smBulkRows||[])[i]; if(!r)return;
+  const btn=document.querySelector('#smbr-'+i+' button'); if(btn){ btn.disabled=true; btn.textContent='送信中…'; }
+  try{
+    const resp=await api('/api/mail/send',{method:'POST',body:JSON.stringify({to:r.p.email,toName:r.p.name||r.p.company,recipientKey:r.p.key,subject:r.subject,body:r.body,attachIds:r.fileIds,templateId:r.tpl?r.tpl.id:null,templateName:r.tpl?r.tpl.name:'',att:r.att,note:'一括送信'})});
+    const tr=document.getElementById('smbr-'+i);
+    if(resp.ok){ if(tr) tr.style.opacity='.55'; if(btn){ btn.textContent='✅ 済'; btn.style.background='#94a3b8'; btn.style.borderColor='#94a3b8'; } }
+    else { const j=await resp.json(); if(btn){ btn.disabled=false; btn.textContent='再送'; } alert('失敗: '+(j.error||'')); }
+  }catch(e){ if(btn){ btn.disabled=false; btn.textContent='再送'; } alert('送信に失敗しました'); }
 }
 
 function csv(data,head,rowfn,fname){
