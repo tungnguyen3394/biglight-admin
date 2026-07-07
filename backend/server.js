@@ -162,6 +162,38 @@ ${MAIL_SIGN}`,
   await transporter.sendMail(mail);
 }
 
+// ---- メール送信: 各自の GAS(Gmail) を優先、なければ SMTP ----
+const MIME_MAP = { '.pdf': 'application/pdf', '.doc': 'application/msword', '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', '.xls': 'application/vnd.ms-excel', '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', '.ppt': 'application/vnd.ms-powerpoint', '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation', '.csv': 'text/csv', '.zip': 'application/zip', '.txt': 'text/plain', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp' };
+async function buildAttachments(materialIds) {
+  const ids = (Array.isArray(materialIds) ? materialIds : []).map(x => parseInt(x, 10)).filter(Boolean);
+  if (!ids.length) return [];
+  const mats = (await pool.query('SELECT * FROM materials WHERE id = ANY($1::bigint[])', [ids])).rows;
+  return mats.filter(m => m.filename)
+    .map(m => ({ name: (m.name || 'material') + matExt(m.filename), path: path.join(MAT_DIR, m.filename) }))
+    .filter(a => { try { return fs.existsSync(a.path); } catch (e) { return false; } });
+}
+// req から送信者を判定 → GAS 優先・SMTP フォールバック
+async function sendMailSmart(req, opt) {
+  const u = req.session.user;
+  const prof = (await pool.query('SELECT gas_url FROM profiles WHERE email=$1', [u.email])).rows[0] || {};
+  const gas = (prof.gas_url || u.gas_url || '').trim();
+  const atts = await buildAttachments(opt.materialIds);
+  if (gas) {
+    const attachments = atts.map(a => ({ name: a.name, mimeType: MIME_MAP[path.extname(a.name).toLowerCase()] || 'application/octet-stream', dataBase64: fs.readFileSync(a.path).toString('base64') }));
+    const payload = { to: opt.to, subject: opt.subject, body: opt.body, cc: opt.cc || '', bcc: opt.bcc || '', attachments };
+    const resp = await fetch(gas, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    const txt = await resp.text();
+    let ok = resp.ok; try { const j = JSON.parse(txt); if (j && j.ok === false) ok = false; } catch (e) {}
+    if (!ok) throw new Error('GAS送信エラー: ' + txt.slice(0, 200));
+    return { via: 'gas' };
+  }
+  if (transporter) {
+    await transporter.sendMail({ from: MAIL_FROM, to: opt.to, replyTo: opt.replyTo || ADMIN_NOTIFY_TO, subject: opt.subject, text: opt.body, attachments: atts.map(a => ({ filename: a.name, path: a.path })) });
+    return { via: 'smtp' };
+  }
+  throw new Error('メール送信手段がありません（GAS未登録・SMTP未設定）');
+}
+
 async function init() {
   const sql = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8');
   await pool.query(sql);
@@ -277,6 +309,9 @@ app.get('/healthz', (_q, res) => res.json({ ok: true }));
 app.get('/api/config', (_q, res) => res.json({ googleClientId: GOOGLE_CLIENT_ID }));
 app.get('/api/me', (req, res) => res.json({ user: req.session.user || null }));
 
+function sessionUser(prof) {
+  return { email: prof.email, name: prof.name || prof.email, picture: prof.picture || '', role: prof.role, mail_enabled: !!prof.mail_enabled, gas_url: prof.gas_url || '', status: prof.status };
+}
 app.post('/auth/google', async (req, res) => {
   try {
     const { credential } = req.body || {};
@@ -284,10 +319,24 @@ app.post('/auth/google', async (req, res) => {
     const ticket = await oauth.verifyIdToken({ idToken: credential, audience: GOOGLE_CLIENT_ID });
     const p = ticket.getPayload();
     const email = (p.email || '').toLowerCase();
-    if (!p.email_verified || !ADMIN_EMAILS.includes(email)) {
-      return res.status(403).json({ error: 'このアカウントは許可されていません' });
+    if (!p.email_verified) return res.status(403).json({ error: 'メールが確認されていません' });
+    const boot = ADMIN_EMAILS.includes(email);
+    // profiles に自動登録（初回=承認待ち。ADMIN_EMAILS は常に admin/有効）
+    const existing = (await pool.query('SELECT * FROM profiles WHERE email=$1', [email])).rows[0];
+    let prof;
+    if (!existing) {
+      prof = (await pool.query(
+        'INSERT INTO profiles(email,name,picture,role,status,mail_enabled,last_login) VALUES($1,$2,$3,$4,$5,$6,now()) RETURNING *',
+        [email, p.name || email, p.picture || '', boot ? 'admin' : 'viewer', boot ? 'active' : 'pending', boot])).rows[0];
+    } else {
+      prof = (await pool.query(
+        `UPDATE profiles SET name=$2, picture=$3, last_login=now()${boot ? ", role='admin', status='active'" : ''} WHERE email=$1 RETURNING *`,
+        [email, p.name || existing.name || email, p.picture || existing.picture || ''])).rows[0];
     }
-    req.session.user = { email, name: p.name || email, picture: p.picture || '' };
+    if (prof.status !== 'active' && !boot) {
+      return res.status(403).json({ error: prof.status === 'disabled' ? 'このアカウントは無効化されています。' : '承認待ちです。管理者の承認をお待ちください。' });
+    }
+    req.session.user = sessionUser(prof);
     res.json({ ok: true, user: req.session.user });
   } catch (e) {
     console.error('auth/google:', e.message);
@@ -300,6 +349,57 @@ function requireAuth(req, res, next) {
   if (req.session && req.session.user) return next();
   res.status(401).json({ error: 'unauthorized' });
 }
+function isAdmin(req) { const u = req.session && req.session.user; return !!u && (u.role === 'admin' || ADMIN_EMAILS.includes(u.email)); }
+function requireAdmin(req, res, next) { if (isAdmin(req)) return next(); res.status(403).json({ error: '管理者権限が必要です' }); }
+let ROLE_PERMS = {};
+async function loadPerms() { try { const r = await pool.query("SELECT val FROM app_meta WHERE key='role_perms'"); ROLE_PERMS = (r.rows[0] && r.rows[0].val) || {}; } catch (e) { ROLE_PERMS = {}; } }
+function can(req, appKey, action) { if (isAdmin(req)) return true; const u = req.session && req.session.user; if (!u) return false; const rp = ROLE_PERMS[u.role]; return !!(rp && rp[appKey] && rp[appKey][action]); }
+function requirePerm(appKey, action) { return (req, res, next) => can(req, appKey, action) ? next() : res.status(403).json({ error: '権限がありません' }); }
+function requireMail(req, res, next) { const u = req.session && req.session.user; if (u && (u.mail_enabled || isAdmin(req))) return next(); res.status(403).json({ error: 'メール送信の権限がありません（管理者に許可を依頼してください）' }); }
+
+// ---- ユーザー管理 (admin) ----
+app.get('/api/profiles', requireAuth, requireAdmin, async (_q, res) => {
+  const r = await pool.query('SELECT email,name,picture,role,status,mail_enabled,gas_url,last_login,created_at FROM profiles ORDER BY (status=\'pending\') DESC, last_login DESC NULLS LAST');
+  res.json({ items: r.rows });
+});
+app.put('/api/profiles/:email', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const email = String(req.params.email || '').toLowerCase();
+    const cur = (await pool.query('SELECT * FROM profiles WHERE email=$1', [email])).rows[0];
+    if (!cur) return res.status(404).json({ error: 'not found' });
+    const b = req.body || {};
+    const role = ['admin', 'manager', 'staff', 'viewer'].includes(b.role) ? b.role : cur.role;
+    const status = ['pending', 'active', 'disabled'].includes(b.status) ? b.status : cur.status;
+    const mail = b.mail_enabled !== undefined ? !!b.mail_enabled : cur.mail_enabled;
+    const r = await pool.query('UPDATE profiles SET role=$1,status=$2,mail_enabled=$3 WHERE email=$4 RETURNING *', [role, status, mail, email]);
+    res.json({ item: r.rows[0] });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+app.delete('/api/profiles/:email', requireAuth, requireAdmin, async (req, res) => {
+  const email = String(req.params.email || '').toLowerCase();
+  if (ADMIN_EMAILS.includes(email)) return res.status(400).json({ error: 'このアカウントは削除できません（管理者）' });
+  await pool.query('DELETE FROM profiles WHERE email=$1', [email]);
+  res.json({ ok: true });
+});
+// ---- 権限マトリクス ----
+app.get('/api/perms', requireAuth, async (req, res) => {
+  const u = req.session.user;
+  res.json({ role: u.role, isAdmin: isAdmin(req), mail_enabled: !!u.mail_enabled, gas_set: !!u.gas_url, gas_url: u.gas_url || '', rolePerms: ROLE_PERMS });
+});
+app.put('/api/perms', requireAuth, requireAdmin, async (req, res) => {
+  const val = (req.body || {}).rolePerms || {};
+  await pool.query("INSERT INTO app_meta(key,val) VALUES('role_perms',$1) ON CONFLICT(key) DO UPDATE SET val=$1", [JSON.stringify(val)]);
+  await loadPerms();
+  res.json({ ok: true });
+});
+// ---- 自分の GAS 設定 ----
+app.post('/api/me/gas', requireAuth, async (req, res) => {
+  const url = String((req.body || {}).gas_url || '').trim();
+  if (url && !/^https:\/\/script\.google\.com\//.test(url)) return res.status(400).json({ error: 'GAS の URL 形式が正しくありません' });
+  await pool.query('UPDATE profiles SET gas_url=$1 WHERE email=$2', [url || null, req.session.user.email]);
+  req.session.user.gas_url = url;
+  res.json({ ok: true });
+});
 
 // ================= ADMIN API =================
 app.get('/api/stats', requireAuth, async (_q, res) => {
@@ -319,13 +419,13 @@ app.get('/api/inquiries', requireAuth, async (_q, res) => {
   const r = await pool.query('SELECT * FROM inquiries ORDER BY created_at DESC LIMIT 500');
   res.json({ items: r.rows });
 });
-app.patch('/api/inquiries/:id', requireAuth, async (req, res) => {
+app.patch('/api/inquiries/:id', requireAuth, requirePerm('inquiries', 'edit'), async (req, res) => {
   const st = String((req.body || {}).status || '').trim();
   if (!['new', 'replied', 'done'].includes(st)) return res.status(400).json({ error: 'bad status' });
   await pool.query('UPDATE inquiries SET status=$1 WHERE id=$2', [st, req.params.id]);
   res.json({ ok: true });
 });
-app.delete('/api/inquiries/:id', requireAuth, async (req, res) => {
+app.delete('/api/inquiries/:id', requireAuth, requirePerm('inquiries', 'del'), async (req, res) => {
   await pool.query('DELETE FROM inquiries WHERE id=$1', [req.params.id]);
   res.json({ ok: true });
 });
@@ -334,13 +434,13 @@ app.get('/api/downloads', requireAuth, async (_q, res) => {
   const r = await pool.query('SELECT * FROM downloads ORDER BY created_at DESC LIMIT 500');
   res.json({ items: r.rows });
 });
-app.delete('/api/downloads/:id', requireAuth, async (req, res) => {
+app.delete('/api/downloads/:id', requireAuth, requirePerm('downloads', 'del'), async (req, res) => {
   await pool.query('DELETE FROM downloads WHERE id=$1', [req.params.id]);
   res.json({ ok: true });
 });
 
 // ----- 資料請求のお客様へ 資料をメール送信 -----
-app.post('/api/downloads/:id/send', requireAuth, async (req, res) => {
+app.post('/api/downloads/:id/send', requireAuth, requireMail, async (req, res) => {
   try {
     const b = req.body || {};
     const ids = (Array.isArray(b.materialIds) ? b.materialIds : []).map(x => parseInt(x, 10)).filter(Boolean);
@@ -350,7 +450,24 @@ app.post('/api/downloads/:id/send', requireAuth, async (req, res) => {
     if (!dl.email) return res.status(400).json({ error: 'お客様のメールがありません' });
     const mats = (await pool.query('SELECT * FROM materials WHERE id = ANY($1::bigint[])', [ids])).rows;
     if (!mats.length) return res.status(400).json({ error: '資料が見つかりません' });
-    await sendMaterialsMail(dl, mats, String(b.message || '').trim());
+    const extraMsg = String(b.message || '').trim();
+    const greet = (dl.company ? dl.company + '\n' : '') + `${dl.name || 'ご担当者'} 様`;
+    const links = mats.map(m => { const url = m.link_url || m.file_url; return `・${m.name}${url ? '\n  ' + url : ''}`; }).join('\n');
+    const body =
+`${greet}
+
+この度は、BIGLIGHT株式会社の資料をご請求いただき、誠にありがとうございます。
+ご請求いただきました資料をお送りいたします。
+${extraMsg ? '\n' + extraMsg + '\n' : ''}
+──────────────────────────
+■ 資料一覧
+${links}
+──────────────────────────
+
+ご不明な点がございましたら、お気軽にお問い合わせください。
+
+${MAIL_SIGN}`;
+    await sendMailSmart(req, { to: dl.email, subject: '【BIGLIGHT株式会社】ご請求資料の送付', body, materialIds: ids });
     const note = mats.map(m => m.name).join(', ');
     await pool.query('UPDATE downloads SET sent_at=now(), sent_note=$1 WHERE id=$2', [note, req.params.id]);
     res.json({ ok: true, sent_at: new Date().toISOString(), sent_note: note });
@@ -376,7 +493,7 @@ function saveMatFile(id, file) {
   fs.renameSync(file.path, finalPath);
   return { filename: finalName, file_url: SITE_ORIGIN + '/assets/materials/' + finalName, size: file.size };
 }
-app.post('/api/materials', requireAuth, (req, res) => {
+app.post('/api/materials', requireAuth, requirePerm('salesmail', 'create'), (req, res) => {
   matUpload.single('file')(req, res, async err => {
     if (err) return res.status(400).json({ error: err.message });
     try {
@@ -394,7 +511,7 @@ app.post('/api/materials', requireAuth, (req, res) => {
     } catch (e) { console.error('POST /api/materials:', e.message); res.status(500).json({ error: e.message }); }
   });
 });
-app.put('/api/materials/:id', requireAuth, (req, res) => {
+app.put('/api/materials/:id', requireAuth, requirePerm('salesmail', 'edit'), (req, res) => {
   matUpload.single('file')(req, res, async err => {
     if (err) return res.status(400).json({ error: err.message });
     try {
@@ -412,7 +529,7 @@ app.put('/api/materials/:id', requireAuth, (req, res) => {
     } catch (e) { console.error('PUT /api/materials:', e.message); res.status(500).json({ error: e.message }); }
   });
 });
-app.delete('/api/materials/:id', requireAuth, async (req, res) => {
+app.delete('/api/materials/:id', requireAuth, requirePerm('salesmail', 'del'), async (req, res) => {
   const cur = (await pool.query('SELECT filename FROM materials WHERE id=$1', [req.params.id])).rows[0];
   await pool.query('DELETE FROM materials WHERE id=$1', [req.params.id]);
   if (cur && cur.filename) try { fs.unlinkSync(path.join(MAT_DIR, cur.filename)); } catch (e) {}
@@ -442,7 +559,7 @@ app.get('/api/mail/templates', requireAuth, async (_q, res) => {
   const r = await pool.query('SELECT * FROM mail_templates ORDER BY favorite DESC, last_used DESC NULLS LAST, name');
   res.json({ items: r.rows.map(t => ({ ...t, attach_ids: jparse(t.attach_ids, []) })) });
 });
-app.post('/api/mail/templates', requireAuth, async (req, res) => {
+app.post('/api/mail/templates', requireAuth, requirePerm('salesmail', 'create'), async (req, res) => {
   try {
     const b = req.body || {}; const name = String(b.name || '').trim();
     if (!name) return res.status(400).json({ error: 'テンプレート名は必須です' });
@@ -453,7 +570,7 @@ app.post('/api/mail/templates', requireAuth, async (req, res) => {
     res.json({ item: { ...r.rows[0], attach_ids: jparse(r.rows[0].attach_ids, []) } });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
-app.put('/api/mail/templates/:id', requireAuth, async (req, res) => {
+app.put('/api/mail/templates/:id', requireAuth, requirePerm('salesmail', 'edit'), async (req, res) => {
   try {
     const cur = (await pool.query('SELECT * FROM mail_templates WHERE id=$1', [req.params.id])).rows[0];
     if (!cur) return res.status(404).json({ error: 'not found' });
@@ -469,7 +586,7 @@ app.put('/api/mail/templates/:id', requireAuth, async (req, res) => {
     res.json({ item: { ...r.rows[0], attach_ids: jparse(r.rows[0].attach_ids, []) } });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
-app.delete('/api/mail/templates/:id', requireAuth, async (req, res) => {
+app.delete('/api/mail/templates/:id', requireAuth, requirePerm('salesmail', 'del'), async (req, res) => {
   await pool.query('DELETE FROM mail_templates WHERE id=$1', [req.params.id]); res.json({ ok: true });
 });
 
@@ -478,7 +595,7 @@ app.get('/api/mail/signatures', requireAuth, async (_q, res) => {
   const r = await pool.query('SELECT * FROM mail_signatures ORDER BY is_default DESC, id');
   res.json({ items: r.rows });
 });
-app.post('/api/mail/signatures', requireAuth, async (req, res) => {
+app.post('/api/mail/signatures', requireAuth, requirePerm('salesmail', 'create'), async (req, res) => {
   try {
     const b = req.body || {}; const name = String(b.name || '').trim();
     if (!name) return res.status(400).json({ error: '署名名は必須です' });
@@ -487,7 +604,7 @@ app.post('/api/mail/signatures', requireAuth, async (req, res) => {
     res.json({ item: r.rows[0] });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
-app.put('/api/mail/signatures/:id', requireAuth, async (req, res) => {
+app.put('/api/mail/signatures/:id', requireAuth, requirePerm('salesmail', 'edit'), async (req, res) => {
   try {
     const cur = (await pool.query('SELECT * FROM mail_signatures WHERE id=$1', [req.params.id])).rows[0];
     if (!cur) return res.status(404).json({ error: 'not found' });
@@ -498,7 +615,7 @@ app.put('/api/mail/signatures/:id', requireAuth, async (req, res) => {
     res.json({ item: r.rows[0] });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
-app.delete('/api/mail/signatures/:id', requireAuth, async (req, res) => {
+app.delete('/api/mail/signatures/:id', requireAuth, requirePerm('salesmail', 'del'), async (req, res) => {
   await pool.query('DELETE FROM mail_signatures WHERE id=$1', [req.params.id]); res.json({ ok: true });
 });
 
@@ -507,7 +624,7 @@ app.get('/api/mail/logs', requireAuth, async (_q, res) => {
   const r = await pool.query('SELECT * FROM mail_logs ORDER BY created_at DESC LIMIT 1000');
   res.json({ items: r.rows });
 });
-app.delete('/api/mail/logs/:id', requireAuth, async (req, res) => {
+app.delete('/api/mail/logs/:id', requireAuth, requirePerm('salesmail', 'del'), async (req, res) => {
   await pool.query('DELETE FROM mail_logs WHERE id=$1', [req.params.id]); res.json({ ok: true });
 });
 
@@ -516,7 +633,7 @@ app.get('/api/mail/drafts', requireAuth, async (_q, res) => {
   const r = await pool.query('SELECT * FROM mail_drafts ORDER BY updated_at DESC');
   res.json({ items: r.rows.map(d => ({ ...d, attach_ids: jparse(d.attach_ids, []) })) });
 });
-app.post('/api/mail/drafts', requireAuth, async (req, res) => {   // upsert
+app.post('/api/mail/drafts', requireAuth, requireMail, async (req, res) => {   // upsert
   try {
     const b = req.body || {};
     if (b.id) {
@@ -529,7 +646,7 @@ app.post('/api/mail/drafts', requireAuth, async (req, res) => {   // upsert
     res.json({ item: { ...r.rows[0], attach_ids: jparse(r.rows[0].attach_ids, []) } });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
-app.delete('/api/mail/drafts/:id', requireAuth, async (req, res) => {
+app.delete('/api/mail/drafts/:id', requireAuth, requireMail, async (req, res) => {
   await pool.query('DELETE FROM mail_drafts WHERE id=$1', [req.params.id]); res.json({ ok: true });
 });
 
@@ -538,7 +655,7 @@ app.get('/api/mail/meta', requireAuth, async (_q, res) => {
   const r = await pool.query("SELECT key,val FROM mail_meta WHERE key IN ('tpl_cats','file_cats')");
   const o = { tpl_cats: [], file_cats: [] }; r.rows.forEach(x => { o[x.key] = x.val || []; }); res.json(o);
 });
-app.put('/api/mail/meta/:key', requireAuth, async (req, res) => {
+app.put('/api/mail/meta/:key', requireAuth, requirePerm('salesmail', 'edit'), async (req, res) => {
   const key = req.params.key;
   if (!['tpl_cats', 'file_cats'].includes(key)) return res.status(400).json({ error: 'bad key' });
   const val = (req.body || {}).val || [];
@@ -546,10 +663,9 @@ app.put('/api/mail/meta/:key', requireAuth, async (req, res) => {
   res.json({ ok: true });
 });
 
-// ----- 送信 (SMTP) -----
-app.post('/api/mail/send', requireAuth, async (req, res) => {
+// ----- 送信 (GAS優先・SMTPフォールバック) -----
+app.post('/api/mail/send', requireAuth, requireMail, async (req, res) => {
   try {
-    if (!transporter) return res.status(400).json({ error: 'SMTP が設定されていません' });
     const b = req.body || {};
     const to = String(b.to || '').trim();
     if (!to) return res.status(400).json({ error: '宛先メールがありません' });
@@ -557,14 +673,7 @@ app.post('/api/mail/send', requireAuth, async (req, res) => {
     const subject = String(b.subject || '').trim();
     const body = String(b.body || '');
     const attachIds = (Array.isArray(b.attachIds) ? b.attachIds : []).map(x => parseInt(x, 10)).filter(Boolean);
-    let attachments = [];
-    if (attachIds.length) {
-      const mats = (await pool.query('SELECT * FROM materials WHERE id = ANY($1::bigint[])', [attachIds])).rows;
-      attachments = mats.filter(m => m.filename)
-        .map(m => ({ filename: (m.name || 'material') + matExt(m.filename), path: path.join(MAT_DIR, m.filename) }))
-        .filter(a => { try { return fs.existsSync(a.path); } catch (e) { return false; } });
-    }
-    await transporter.sendMail({ from: MAIL_FROM, to, replyTo: ADMIN_NOTIFY_TO, subject, text: body, attachments });
+    const result = await sendMailSmart(req, { to, subject, body, materialIds: attachIds });
     let rk = null, rid = null;
     if (b.recipientKey && String(b.recipientKey).indexOf(':') > 0) { const a = String(b.recipientKey).split(':'); rk = a[0]; rid = toInt(a[1]); }
     await pool.query(
@@ -586,7 +695,7 @@ app.get('/api/posts/:id', requireAuth, async (req, res) => {
   if (!r.rows[0]) return res.status(404).json({ error: 'not found' });
   res.json({ item: r.rows[0] });
 });
-app.post('/api/posts', requireAuth, async (req, res) => {
+app.post('/api/posts', requireAuth, requirePerm('posts', 'create'), async (req, res) => {
   try {
     const b = req.body || {};
     const title = String(b.title || '').trim();
@@ -606,7 +715,7 @@ app.post('/api/posts', requireAuth, async (req, res) => {
     news.regenerate(pool).catch(() => {});
   } catch (e) { console.error('POST /api/posts:', e.message); res.status(500).json({ error: e.message }); }
 });
-app.put('/api/posts/:id', requireAuth, async (req, res) => {
+app.put('/api/posts/:id', requireAuth, requirePerm('posts', 'edit'), async (req, res) => {
   try {
     const b = req.body || {};
     const cur = await pool.query('SELECT * FROM posts WHERE id=$1', [req.params.id]);
@@ -633,20 +742,20 @@ app.put('/api/posts/:id', requireAuth, async (req, res) => {
     news.regenerate(pool).catch(() => {});
   } catch (e) { console.error('PUT /api/posts:', e.message); res.status(500).json({ error: e.message }); }
 });
-app.delete('/api/posts/:id', requireAuth, async (req, res) => {
+app.delete('/api/posts/:id', requireAuth, requirePerm('posts', 'del'), async (req, res) => {
   const c = await pool.query('SELECT slug FROM posts WHERE id=$1', [req.params.id]);
   await pool.query('DELETE FROM posts WHERE id=$1', [req.params.id]);
   res.json({ ok: true });
   if (c.rows[0]) news.removeSlug(c.rows[0].slug);
   news.regenerate(pool).catch(() => {});
 });
-app.post('/api/news/regenerate', requireAuth, async (_q, res) => {
+app.post('/api/news/regenerate', requireAuth, requirePerm('posts', 'edit'), async (_q, res) => {
   try { const n = await news.regenerate(pool); res.json({ ok: true, count: n }); }
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // ----- アップロード画像 -----
-app.post('/api/upload', requireAuth, (req, res) => {
+app.post('/api/upload', requireAuth, requirePerm('posts', 'edit'), (req, res) => {
   upload.single('file')(req, res, err => {
     if (err) return res.status(400).json({ error: err.message });
     if (!req.file) return res.status(400).json({ error: 'ファイルが選択されていません' });
@@ -659,7 +768,7 @@ app.get('/api/categories', requireAuth, async (_q, res) => {
   const r = await pool.query('SELECT * FROM categories ORDER BY sort, id');
   res.json({ items: r.rows });
 });
-app.post('/api/categories', requireAuth, async (req, res) => {
+app.post('/api/categories', requireAuth, requirePerm('posts', 'edit'), async (req, res) => {
   try {
     const name = String((req.body || {}).name || '').trim();
     if (!name) return res.status(400).json({ error: 'カテゴリ名は必須です' });
@@ -670,7 +779,7 @@ app.post('/api/categories', requireAuth, async (req, res) => {
     res.json({ item: r.rows[0] });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
-app.delete('/api/categories/:id', requireAuth, async (req, res) => {
+app.delete('/api/categories/:id', requireAuth, requirePerm('posts', 'del'), async (req, res) => {
   await pool.query('DELETE FROM categories WHERE id=$1', [req.params.id]);
   res.json({ ok: true });
 });
@@ -682,7 +791,8 @@ app.use(express.static(path.join(__dirname, 'public'), {
 
 const PORT = process.env.PORT || 3000;
 init()
-  .then(() => {
+  .then(async () => {
+    await loadPerms();
     app.listen(PORT, () => console.log('BIGLIGHT admin listening on ' + PORT));
     news.regenerate(pool).then(n => console.log('news regenerated: ' + n)).catch(e => console.error('news regen:', e.message));
   })

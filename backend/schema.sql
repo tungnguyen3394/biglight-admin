@@ -107,6 +107,33 @@ INSERT INTO mail_meta(key,val) VALUES
   ('file_cats','["会社案内","候補者名簿","履歴書","営業資料","提案書","その他"]'::jsonb)
 ON CONFLICT (key) DO NOTHING;
 
+-- ============ ユーザー管理 (profiles) + 権限 ============
+CREATE TABLE IF NOT EXISTS profiles (
+  email        TEXT PRIMARY KEY,
+  name         TEXT,
+  picture      TEXT,
+  role         TEXT NOT NULL DEFAULT 'viewer',   -- admin | manager | staff | viewer
+  status       TEXT NOT NULL DEFAULT 'pending',  -- pending | active | disabled
+  mail_enabled BOOLEAN NOT NULL DEFAULT false,
+  gas_url      TEXT,
+  last_login   TIMESTAMPTZ,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- cấu hình chung (ma trận quyền theo role…)
+CREATE TABLE IF NOT EXISTS app_meta (
+  key TEXT PRIMARY KEY,
+  val JSONB
+);
+-- ロール別 権限: {app:{create,edit,del}}. viewer=全false, admin=常に全true(コード側)
+INSERT INTO app_meta(key,val) VALUES
+  ('role_perms','{
+    "manager":{"inquiries":{"create":true,"edit":true,"del":true},"downloads":{"create":true,"edit":true,"del":true},"posts":{"create":true,"edit":true,"del":true},"salesmail":{"create":true,"edit":true,"del":true}},
+    "staff":{"inquiries":{"create":false,"edit":true,"del":false},"downloads":{"create":false,"edit":true,"del":false},"posts":{"create":true,"edit":true,"del":false},"salesmail":{"create":true,"edit":true,"del":true}},
+    "viewer":{"inquiries":{"create":false,"edit":false,"del":false},"downloads":{"create":false,"edit":false,"del":false},"posts":{"create":false,"edit":false,"del":false},"salesmail":{"create":false,"edit":false,"del":false}}
+  }'::jsonb)
+ON CONFLICT (key) DO NOTHING;
+
 -- お知らせ・HR Magazine (bài viết)
 CREATE TABLE IF NOT EXISTS posts (
   id               BIGSERIAL PRIMARY KEY,
