@@ -57,7 +57,7 @@
   td .sub{color:var(--muted);font-size:12px}
   .pill{font-size:11px;font-weight:700;border-radius:20px;padding:3px 10px}
   .pill.new{background:#fdeccb;color:#9a5b00}.pill.replied{background:#e7eefb;color:var(--navy)}.pill.done{background:#e2f4ea;color:#1c7a47}
-  .pill.draft{background:#eceff3;color:#64748b}.pill.published{background:#e2f4ea;color:#1c7a47}
+  .pill.draft{background:#eceff3;color:#64748b}.pill.published{background:#e2f4ea;color:#1c7a47}.pill.scheduled{background:#fdeccb;color:#9a5b00}
   select.st{font-family:inherit;font-size:12.5px;padding:5px 8px;border:1px solid var(--line);border-radius:8px}
   .del{color:#e23b3b;cursor:pointer;font-size:12.5px;background:none;border:0}
   .lnk{color:var(--blue);cursor:pointer;font-size:12.5px;background:none;border:0;margin-right:10px}
@@ -152,6 +152,57 @@
   .matpick:last-of-type{border-bottom:0}
   .matpick .pn{font-weight:600}.matpick .pc{font-size:11.5px;color:var(--navy);background:#eef4fc;border-radius:12px;padding:1px 9px}
   .sent-badge{font-size:12px;color:#1c7a47;background:#e2f4ea;border-radius:16px;padding:3px 11px;font-weight:700}
+  /* ===== SEO標準エディタ ===== */
+  .epanel{background:#fff;border:1px solid var(--line);border-radius:14px;margin-bottom:16px;overflow:hidden}
+  .epanel-h{display:flex;align-items:center;gap:9px;padding:15px 20px;cursor:pointer;user-select:none;font-weight:700;color:var(--navy);font-size:15px}
+  .epanel-h .ep-badge{margin-left:auto;font-size:11.5px;font-weight:700;color:var(--muted);background:#f1f5fb;border-radius:12px;padding:2px 10px}
+  .epanel-h .ep-ar{transition:transform .2s;color:#94a3b8}
+  .epanel.closed .ep-ar{transform:rotate(-90deg)}
+  .epanel.closed .epanel-b{display:none}
+  .epanel-b{padding:6px 20px 20px}
+  .efg{margin-bottom:16px}
+  .efg>label{display:block;font-size:13px;font-weight:700;color:#334155;margin-bottom:6px}
+  .efg .cnt{float:right;font-weight:600;color:#94a3b8}
+  .efg input,.efg textarea,.efg select{width:100%;border:1px solid #e2e8f0;border-radius:9px;padding:10px 13px;font-size:14px;font-family:inherit;background:#f8fafc}
+  .efg input:focus,.efg textarea:focus{background:#fff;outline:2px solid #cfe0f7;border-color:#9dc0ee}
+  .efg textarea{resize:vertical;min-height:64px;line-height:1.6}
+  .seg{display:inline-flex;gap:6px;flex-wrap:wrap}
+  .seg button{border:1px solid #e2e8f0;background:#fff;border-radius:9px;padding:8px 16px;font-size:13px;font-weight:600;color:#64748b;cursor:pointer}
+  .seg button.on{background:#e23b3b;border-color:#e23b3b;color:#fff}
+  .seg.blue button.on{background:var(--navy);border-color:var(--navy)}
+  .tgl{display:inline-flex;align-items:center;gap:9px;cursor:pointer;font-size:13.5px;font-weight:600;color:#334155}
+  .tgl input{display:none}
+  .tgl .sw{width:40px;height:22px;background:#cbd5e1;border-radius:20px;position:relative;transition:.2s;flex-shrink:0}
+  .tgl .sw:after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;background:#fff;border-radius:50%;transition:.2s}
+  .tgl input:checked+.sw{background:#16a34a}.tgl input:checked+.sw:after{left:20px}
+  .btoolbar{display:flex;flex-wrap:wrap;gap:6px;background:#f8fafc;border:1px solid #e2e8f0;border-bottom:0;border-radius:9px 9px 0 0;padding:8px}
+  .btoolbar button{border:1px solid #e2e8f0;background:#fff;border-radius:7px;padding:5px 11px;font-size:12.5px;font-weight:600;color:#475569;cursor:pointer}
+  .btoolbar button:hover{background:#eef3fb;color:var(--navy)}
+  #qeditor .ncallout{border-left:4px solid var(--blue);background:#eef4fc;border-radius:8px;padding:12px 16px;margin:10px 0}
+  #qeditor .nbtn{display:inline-block;background:#e23b3b;color:#fff;padding:10px 22px;border-radius:9px;font-weight:700;margin:6px 0}
+  #qeditor .nacc{border:1px solid #e2e8f0;border-radius:8px;margin:10px 0;padding:10px 14px}
+  #qeditor .nacc>summary{font-weight:700;cursor:pointer}
+  #qeditor .ncheck{list-style:none;padding-left:22px}#qeditor .ncheck li{position:relative}#qeditor .ncheck li:before{content:"✔";position:absolute;left:-20px;color:#16a34a}
+  #qeditor .nembed{position:relative;padding-bottom:56.25%;height:0;margin:12px 0}#qeditor .nembed iframe{position:absolute;inset:0;width:100%;height:100%;border:0;border-radius:8px}
+  #qeditor .ntoc-here::before{content:"📑 目次（公開時に自動生成されます）";display:block;color:var(--navy);background:#eef4fc;border:1px dashed #9dc0ee;padding:9px 13px;border-radius:8px;font-size:12.5px;font-weight:700}
+  .repeat-item{border:1px solid #e2e8f0;border-radius:10px;padding:14px;margin-bottom:10px;background:#f8fafc;position:relative}
+  .repeat-item .rm{position:absolute;top:10px;right:10px;color:#e23b3b;cursor:pointer;font-size:12.5px;font-weight:600;background:none;border:0}
+  .addrow{width:100%;border:1px dashed #cbd5e1;background:#fff;border-radius:10px;padding:11px;font-size:13px;font-weight:600;color:var(--navy);cursor:pointer}
+  .jgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .analy{display:flex;align-items:center;gap:12px;font-size:12.5px;color:#64748b;padding:7px 0;border-top:1px solid #f1f5f9}
+  .analy .an-k{width:130px;flex-shrink:0;color:#475569;font-weight:600}
+  .analy .an-bar{flex:1;height:6px;background:#eef2f7;border-radius:4px;overflow:hidden}.analy .an-bar i{display:block;height:100%;background:#1e6fd6}
+  .analy .an-v{width:120px;text-align:right;flex-shrink:0}
+  .scorecard{display:flex;gap:22px;align-items:center;flex-wrap:wrap}
+  .ring{--v:0;--c:#e23b3b;width:110px;height:110px;border-radius:50%;flex-shrink:0;background:conic-gradient(var(--c) calc(var(--v)*1%),#eef2f7 0);display:flex;align-items:center;justify-content:center;position:relative}
+  .ring:after{content:"";position:absolute;inset:11px;background:#fff;border-radius:50%}
+  .ring b{position:relative;z-index:1;font-size:28px;color:var(--c)}.ring b small{font-size:12px;color:#94a3b8;font-weight:600}
+  .chk2{display:grid;grid-template-columns:1fr 1fr;gap:6px 20px}
+  .chk2 li{list-style:none;font-size:13px;color:#94a3b8;display:flex;align-items:center;gap:8px}
+  .chk2 li.ok{color:#16a34a}.chk2 li .x{font-weight:800}
+  .estatusbar{position:sticky;bottom:0;background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 18px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:8px;box-shadow:0 -6px 20px rgba(0,0,0,.05);z-index:10}
+  .btn.pub{background:#e23b3b;border-color:#e23b3b;color:#fff;font-weight:700}
+  @media(max-width:760px){.jgrid,.chk2{grid-template-columns:1fr}}
   /* ===== 営業メール管理 ===== */
   .sub{color:var(--muted);font-size:12px}
   .smtab{font-weight:600}
@@ -547,7 +598,7 @@ async function renderPosts(){
   if(!items.length){ $('#body').innerHTML='<div class="tablewrap"><div class="empty">まだ記事がありません。「+ 新規作成」で追加できます。</div></div>'; return; }
   $('#body').innerHTML=`<div class="tablewrap"><table><thead><tr><th style="width:34px;text-align:center"><input type="checkbox" id="chkall"></th><th style="width:46%">タイトル</th><th class="nowrap">カテゴリ</th><th>状態</th><th class="nowrap">公開日</th><th style="text-align:right">閲覧</th><th>操作</th></tr></thead><tbody>${items.map(p=>`
     <tr class="clk" data-open="renderEditor" data-id="${p.id}"><td style="text-align:center"><input type="checkbox" class="rowchk" value="${p.id}"></td><td class="ell"><b class="rowline" style="display:block">${esc(p.title)}</b><div class="sub rowline">/news/${esc(p.slug)}/${p.tags?' · '+esc(p.tags):''}</div></td>
-    <td class="nowrap">${esc(catName(p.category))}</td><td><span class="pill ${p.status}">${p.status==='published'?'公開':'下書き'}</span></td>
+    <td class="nowrap">${esc(catName(p.category))}</td><td><span class="pill ${p.status}">${p.status==='published'?'公開':p.status==='scheduled'?'予約':'下書き'}</span></td>
     <td class="nowrap">${fmtd(p.published_at)}</td>
     <td style="text-align:right;font-weight:600">${(p.views||0).toLocaleString()}</td>
     <td class="nowrap">${C(can('posts','edit'),`<button class="lnk" data-edit="${p.id}">編集</button>`)}${C(can('posts','del'),`<button class="del" data-del="${p.id}">削除</button>`)}${(!can('posts','edit')&&!can('posts','del'))?'<span class="sub">閲覧のみ</span>':''}</td></tr>`).join('')}</tbody></table></div>`;
@@ -567,105 +618,237 @@ function renderCatMgr(){
   document.querySelectorAll('button[data-cdel]').forEach(b=>b.onclick=async()=>{ if(!confirm('このカテゴリを削除しますか？'))return; await api('/api/categories/'+b.dataset.cdel,{method:'DELETE'}); await loadCats(); renderCatMgr(); });
 }
 let quill=null;
+function epToggle(h){ h.parentElement.classList.toggle('closed'); }
+function ytId(u){ const m=String(u||'').match(/(?:youtu\.be\/|[?&]v=|embed\/)([A-Za-z0-9_\-]{6,})/); return m?m[1]:''; }
+let _blocksReady=false;
+function ensureBlocks(){ ensureTableBlot(); if(_blocksReady||!window.Quill) return;
+  const BE=Quill.import('blots/block/embed');
+  class RawBlock extends BE{ static create(v){ const n=super.create(); n.setAttribute('contenteditable','false'); n.innerHTML=v; return n; } static value(n){ return n.innerHTML; } }
+  RawBlock.blotName='rawblock'; RawBlock.tagName='div'; RawBlock.className='nrawblock'; Quill.register(RawBlock,true); _blocksReady=true; }
+function epanel(icon,title,badge,body,open){ return `<div class="epanel${open===false?' closed':''}"><div class="epanel-h" onclick="epToggle(this)">${icon} ${esc(title)}${badge?`<span class="ep-badge">${badge}</span>`:'<span style="margin-left:auto"></span>'}<span class="ep-ar">▾</span></div><div class="epanel-b">${body}</div></div>`; }
 async function renderEditor(id){
   await loadCats();
-  let p={title:'',slug:'',category:'news',excerpt:'',body:'',cover_image:'',meta_description:'',status:'draft',author:'BIGLIGHT編集部',tags:'',focus_keyword:'',published_at:'',created_at:''};
+  let p={title:'',slug:'',category:'news',subcategory:'',excerpt:'',body:'',cover_image:'',cover_alt:'',cover_caption:'',cover_title:'',lazy_load:true,meta_description:'',seo_title:'',focus_keyword:'',sub_keyword:'',related_keywords:'',canonical_url:'',robots_index:true,robots_follow:true,og_title:'',og_description:'',og_image:'',status:'draft',author:'BIGLIGHT編集部',tags:'',faq:[],cta_blocks:[],jsonld_types:{article:true,breadcrumb:true,organization:true,faq:false,video:false,howto:false},related_articles:'',related_category:'',download_pdf:'',consult_block:false,pinned:false,featured:false,published_at:'',created_at:'',updated_at:''};
   if(id){ try{ p=Object.assign(p,(await(await api('/api/posts/'+id)).json()).item||{}); }catch(e){} }
   let TAGS=String(p.tags||'').split(',').map(s=>s.trim()).filter(Boolean);
+  let RELKW=String(p.related_keywords||'').split(',').map(s=>s.trim()).filter(Boolean);
+  let FAQS=Array.isArray(p.faq)?p.faq.slice():[]; let CTAS=Array.isArray(p.cta_blocks)?p.cta_blocks.slice():[];
+  const JLD=Object.assign({article:true,breadcrumb:true,organization:true,faq:false,video:false,howto:false},p.jsonld_types||{});
+  let statusVal=p.status||'draft', robotsIdx=p.robots_index!==false, robotsFol=p.robots_follow!==false;
   const authors=['BIGLIGHT編集部','代表取締役 Nguyễn Thanh Tùng','Admin'];
   const SUG=['特定技能','技人国','外国人採用','ベトナム人材','製造業','建設業','介護','定着支援','在留資格','法改正'];
   const catOpts=CATEGORIES.map(c=>`<option value="${esc(c.slug)}"${p.category===c.slug?' selected':''}>${esc(c.name)}</option>`).join('');
   const authOpts=authors.map(a=>`<option${p.author===a?' selected':''}>${esc(a)}</option>`).join('')+(p.author&&authors.indexOf(p.author)<0?`<option selected>${esc(p.author)}</option>`:'');
-  $('#main').innerHTML=`<div class="h1">${id?'記事を編集':'記事を作成'}</div><div class="crumb">SEO最適化された記事エディタ</div>
-    <div class="form">
-      <div class="fg"><label>タイトル <span class="hint">（SEOタイトル・30〜60字推奨）</span><span class="hint" id="cTitle" style="float:right"></span></label><input id="f_title" value="${esc(p.title)}"></div>
-      <div class="row2">
-        <div class="fg"><label>スラッグ（URL）<span class="hint">例: tokutei-ginou-2026</span></label><input id="f_slug" value="${esc(p.slug)}" placeholder="自動生成されます"></div>
-        <div class="fg"><label>カテゴリ</label><select id="f_cat">${catOpts}</select></div>
-      </div>
-      <div class="row2">
-        <div class="fg"><label>著者</label><select id="f_author">${authOpts}</select></div>
-        <div class="fg"><label>公開日時 <span class="hint">（編集可）</span></label><input type="datetime-local" id="f_pub" value="${toLocalInput(p.published_at||p.created_at)}"></div>
-      </div>
-      <div class="fg"><label>タグ <span class="hint">（Enter または , で追加・複数可）</span></label>
-        <div class="tagwrap" id="tagwrap"><span id="tagchips"></span><input id="f_tag" placeholder="タグを入力…"></div>
-        <div class="tagsug">${SUG.map(t=>`<span data-sug="${esc(t)}">＋ ${esc(t)}</span>`).join('')}</div>
-      </div>
-      <div class="fg"><label>アイキャッチ画像 <span class="hint">（JPG / PNG / WEBP）</span></label>
-        <div class="upbox">
-          <label class="upbtn" style="display:inline-flex;align-items:center;gap:7px">${IC.upload}<span id="upbtntext">画像をアップロード</span><input type="file" id="f_file" accept="image/jpeg,image/png,image/webp" hidden></label>
-          <img class="upprev" id="upprev" alt="">
-          <input id="f_cover" value="${esc(p.cover_image)}" placeholder="またはURLを貼り付け" style="flex:1;min-width:180px">
-        </div>
-      </div>
-      <div class="fg"><label>抜粋 <span class="hint">（一覧に表示・1〜2文）</span></label><textarea id="f_excerpt">${esc(p.excerpt)}</textarea></div>
-      <div class="fg"><label>フォーカスキーワード <span class="hint">（SEO評価対象・例：特定技能 採用）</span></label><input id="f_kw" value="${esc(p.focus_keyword)}"></div>
-      <div class="fg"><label>AIから貼り付け（Markdown対応）<span class="hint">ChatGPT等の記事をそのまま貼り付け→自動でSEO整形</span></label>
-        <div class="mdbox">
-          <div class="mdhint">見出しは <b>## 大見出し</b> / <b>### 小見出し</b>、太字 <b>**文字**</b>、箇条書き <b>- 項目</b> と書くと自動変換。【○○】も小見出しになります。</div>
-          <textarea id="f_md" placeholder="ここにChatGPTの記事をそのまま貼り付け…"></textarea>
-          <div style="margin-top:8px;display:flex;gap:10px;flex-wrap:wrap">
-            <button class="btn navy" id="mdfmt" type="button">${IC.refresh} 整形して本文に反映</button>
-            <button class="btn" id="mdapp" type="button">${IC.plus} 本文の末尾に追加</button>
-          </div>
-        </div>
-      </div>
-      <div class="fg"><label>本文 <span class="hint" id="rtime" style="float:right"></span></label><div id="qeditor"></div></div>
-      <div class="fg"><label>メタディスクリプション <span class="hint">（80〜120字推奨）</span><span class="hint" id="cMeta" style="float:right"></span></label><textarea id="f_meta">${esc(p.meta_description)}</textarea></div>
-      <div class="fg"><label>Google 検索プレビュー</label>
-        <div class="serp"><div class="serp-url">biglight.jp › news › <span id="sp_slug">${esc(p.slug)||'slug'}</span></div><div class="serp-title" id="sp_title">${esc(p.title)||'タイトル'}</div><div class="serp-desc" id="sp_desc">${esc(p.meta_description||p.excerpt)||'検索結果に表示される説明文がここに表示されます。'}</div></div></div>
-      <div class="fg"><label>SEOスコア</label><div class="seobox" id="seobox"></div></div>
-      <div class="fg" style="max-width:320px"><label>状態</label><select id="f_status">
-        <option value="draft"${p.status==='draft'?' selected':''}>下書き（非公開）</option>
-        <option value="published"${p.status==='published'?' selected':''}>公開</option></select></div>
-      <div class="formbtns">
-        <button class="btn gold" id="save">${id?'更新する':'保存する'}</button>
-        <button class="btn" id="back">← 一覧へ戻る</button>
-        <span id="msg" style="font-size:13px;color:#1c7a47;align-self:center"></span>
-      </div>
+  const tg=(k,label,on)=>`<label class="tgl"><input type="checkbox" id="${k}"${on?' checked':''}><span class="sw"></span>${esc(label)}</label>`;
+  const basic=`
+    <div class="efg"><label>タイトル <span style="color:#e23b3b">*</span></label><input id="f_title" value="${esc(p.title)}" placeholder="記事のタイトル"></div>
+    <div class="efg"><label>スラッグ（URL）</label><div style="display:flex;gap:8px"><input id="f_slug" value="${esc(p.slug)}" placeholder="article-url"><button class="btn" id="autoslug" title="タイトルから生成">✨</button></div></div>
+    <div class="jgrid">
+      <div class="efg"><label>カテゴリ</label><div style="display:flex;gap:8px"><select id="f_cat">${catOpts}</select><button class="btn" id="catbtn2">管理</button></div></div>
+      <div class="efg"><label>サブカテゴリ</label><input id="f_subcat" value="${esc(p.subcategory)}"></div>
+    </div>
+    <div class="jgrid">
+      <div class="efg"><label>著者</label><select id="f_author">${authOpts}</select></div>
+      <div class="efg"><label>公開日時</label><input type="datetime-local" id="f_pub" value="${toLocalInput(p.published_at||p.created_at)}"></div>
+    </div>
+    <div class="jgrid">
+      <div class="efg"><label>更新日時</label><input type="datetime-local" id="f_upd" value="${p.updated_at?toLocalInput(p.updated_at):''}"></div>
+      <div class="efg"><label>タグ <span class="hint">（Enter で追加）</span></label><div class="tagwrap" id="tagwrap"><span id="tagchips"></span><input id="f_tag" placeholder="タグを入力して Enter"></div><div class="tagsug">${SUG.map(t=>`<span data-sug="${esc(t)}">＋ ${esc(t)}</span>`).join('')}</div></div>
+    </div>
+    <div class="efg"><label>ステータス</label><div class="seg" id="segStatus">
+      <button data-st="draft" class="${statusVal==='draft'?'on':''}">下書き</button>
+      <button data-st="published" class="${statusVal==='published'?'on':''}">公開</button>
+      <button data-st="scheduled" class="${statusVal==='scheduled'?'on':''}">予約</button></div></div>
+    <div class="efg"><label>表示オプション</label><div style="display:flex;gap:22px;flex-wrap:wrap">${tg('f_pinned','固定（Pinned）',p.pinned)}${tg('f_featured','注目（Featured）',p.featured)}</div></div>`;
+  const seo=`
+    <div class="efg"><label>SEOタイトル <span class="cnt" id="cSeo">0 / 60</span></label><input id="f_seotitle" value="${esc(p.seo_title)}" placeholder="検索結果に表示されるタイトル"></div>
+    <div class="efg"><label>メタディスクリプション <span class="cnt" id="cMeta">0 / 160</span></label><textarea id="f_meta" placeholder="検索結果に表示される説明文（120〜160文字）">${esc(p.meta_description)}</textarea></div>
+    <div class="efg"><label>フォーカスキーワード</label><input id="f_kw" value="${esc(p.focus_keyword)}" placeholder="例）特定技能 介護"></div>
+    <div class="efg"><label>サブキーワード</label><input id="f_subkw" value="${esc(p.sub_keyword)}"></div>
+    <div class="efg"><label>関連キーワード <span class="hint">（Enter で追加）</span></label><div class="tagwrap" id="relkwWrap"><span id="relkwChips"></span><input id="f_relkw" placeholder="Enter で追加"></div></div>
+    <div class="efg"><label>Canonical URL</label><input id="f_canon" value="${esc(p.canonical_url)}" placeholder="https://biglight.jp/…（空欄=自動）"></div>
+    <div class="jgrid">
+      <div class="efg"><label>Robots（インデックス）</label><div class="seg" id="segIdx"><button data-v="1" class="${robotsIdx?'on':''}">Index</button><button data-v="0" class="${!robotsIdx?'on':''}">Noindex</button></div></div>
+      <div class="efg"><label>Robots（フォロー）</label><div class="seg" id="segFol"><button data-v="1" class="${robotsFol?'on':''}">Follow</button><button data-v="0" class="${!robotsFol?'on':''}">Nofollow</button></div></div>
+    </div>
+    <div class="efg" style="margin-bottom:0"><label>リアルタイム分析</label><div id="analyBox"></div></div>`;
+  const cover=`
+    <div class="efg"><label>画像URL</label><input id="f_cover" value="${esc(p.cover_image)}" placeholder="https://…"></div>
+    <div style="display:flex;gap:10px;margin-bottom:14px"><label class="upbtn" style="display:inline-flex;align-items:center;gap:7px">${IC.upload}<span id="upbtntext">アップロード</span><input type="file" id="f_file" accept="image/jpeg,image/png,image/webp" hidden></label><img class="upprev" id="upprev" alt=""></div>
+    <div class="efg"><label>Alt テキスト <span style="color:#e23b3b">*</span></label><input id="f_coveralt" value="${esc(p.cover_alt)}" placeholder="画像の説明（SEO必須）"></div>
+    <div class="jgrid"><div class="efg"><label>キャプション</label><input id="f_covercap" value="${esc(p.cover_caption)}"></div><div class="efg"><label>画像タイトル</label><input id="f_covertitle" value="${esc(p.cover_title)}"></div></div>
+    <div>${tg('f_lazy','遅延読み込み（Lazy Load）',p.lazy_load!==false)}</div>`;
+  const og=`<div class="efg"><label>OG タイトル</label><input id="f_ogtitle" value="${esc(p.og_title)}" placeholder="空欄=タイトルを使用"></div>
+    <div class="efg"><label>OG ディスクリプション</label><textarea id="f_ogdesc" placeholder="空欄=メタ説明を使用">${esc(p.og_description)}</textarea></div>
+    <div class="efg" style="margin-bottom:0"><label>OG 画像URL</label><input id="f_ogimg" value="${esc(p.og_image)}" placeholder="空欄=アイキャッチを使用"></div>`;
+  const bodyPanel=`
+    <div class="btoolbar" id="btb">
+      <button data-blk="toc">目次</button><button data-blk="callout">Callout</button><button data-blk="button">ボタン</button>
+      <button data-blk="accordion">アコーディオン</button><button data-blk="youtube">YouTube</button><button data-blk="check">チェック</button><button data-blk="html">&lt;/&gt; HTML</button>
+    </div>
+    <div id="qeditor"></div>
+    <div class="mdbox" style="margin-top:12px"><div class="mdhint">AIから貼り付け（Markdown対応）: <b>## 見出し</b> / <b>**太字**</b> / <b>- 箇条書き</b> / <b>| 表 |</b> を自動変換。</div>
+      <textarea id="f_md" placeholder="ここにChatGPT等の記事を貼り付け…"></textarea>
+      <div style="margin-top:8px;display:flex;gap:10px;flex-wrap:wrap"><button class="btn navy" id="mdfmt" type="button">${IC.refresh} 整形して反映</button><button class="btn" id="mdapp" type="button">${IC.plus} 末尾に追加</button></div></div>`;
+  const jld=`<div class="jgrid">${['article|Article','faq|FAQ','breadcrumb|Breadcrumb','organization|Organization','video|Video','howto|HowTo'].map(x=>{const[k,l]=x.split('|');return `<div>${tg('jld_'+k,l,JLD[k])}</div>`;}).join('')}</div><div class="sub" style="margin-top:12px">選択したスキーマは公開時に JSON-LD として自動出力されます（AI検索最適化）。</div>`;
+  const related=`<div class="efg"><label>関連記事 <span class="hint">（スラッグをカンマ区切り）</span></label><input id="f_relart" value="${esc(p.related_articles)}" placeholder="tokutei-ginou-2026, ginou-jisshu-chigai"></div>
+    <div class="efg"><label>関連カテゴリ</label><input id="f_relcat" value="${esc(p.related_category)}" placeholder="カテゴリ名"></div>
+    <div class="efg"><label>ダウンロード資料（PDF URL）</label><input id="f_dlpdf" value="${esc(p.download_pdf)}" placeholder="https://…/資料.pdf"></div>
+    <div>${tg('f_consult','記事末尾に相談予約フォームを表示',p.consult_block)}</div>`;
+  $('#main').innerHTML=`<div class="h1">${id?'記事を編集':'記事を作成'}</div><div class="crumb">SEO標準エディタ（公開先: biglight.jp/news/）</div>
+    ${epanel('📄','基本情報','',basic,true)}
+    ${epanel('🔍','SEO設定','RankMath',seo,true)}
+    ${epanel('🖼','アイキャッチ画像','',cover,true)}
+    ${epanel('🔗','Open Graph / SNS','',og,false)}
+    ${epanel('📝','抜粋（Summary）','',`<div class="efg" style="margin-bottom:0"><label>抜粋 <span class="hint">（一覧・SNSに表示・1〜2文）</span></label><textarea id="f_excerpt" style="min-height:80px">${esc(p.excerpt)}</textarea></div>`,false)}
+    ${epanel('📃','本文エディター','Rich Text',bodyPanel,true)}
+    ${epanel('❓','FAQ','Schema自動',`<div id="faqList"></div><button class="addrow" id="faqAdd">＋ FAQを追加</button>`,false)}
+    ${epanel('🔗','関連コンテンツ','',related,false)}
+    ${epanel('📣','CTA ブロック','',`<div id="ctaList"></div><button class="addrow" id="ctaAdd">＋ CTAを追加</button>`,false)}
+    ${epanel('🧩','構造化データ（JSON-LD）','自動生成',jld,false)}
+    ${epanel('🔎','Google プレビュー','',`<div class="serp"><div class="serp-url">biglight.jp › news › <span id="sp_slug">slug</span></div><div class="serp-title" id="sp_title">タイトル</div><div class="serp-desc" id="sp_desc"></div></div>`,true)}
+    ${epanel('🛡','SEOスコア / チェックリスト','',`<div class="scorecard"><div class="ring" id="seoRing"><b id="ringN">0<small>/100</small></b></div><div style="flex:1;min-width:260px"><div id="seoVerdict" style="font-weight:800;margin-bottom:4px"></div><ul class="chk2" id="chkList" style="margin:0;padding:0"></ul></div></div>`,true)}
+    <div class="estatusbar">
+      <button class="btn" id="back">${IC.back} 一覧へ</button>
+      <span id="msg" class="sub" style="margin-left:6px"></span>
+      <button class="btn" id="dup" style="margin-left:auto">複製</button>
+      ${id?`<button class="btn red" id="del">削除</button>`:''}
+      <button class="btn" id="prev">プレビュー</button>
+      <button class="btn" id="draft">下書き保存</button>
+      <button class="btn" id="sched">予約投稿</button>
+      <button class="btn pub" id="pub">公開する</button>
     </div>`;
   async function uploadFile(f){ const fd=new FormData(); fd.append('file',f); try{ const r=await fetch('/api/upload',{method:'POST',body:fd}); const d=await r.json(); if(r.ok) return d.url; alert('アップロード失敗: '+(d.error||'')); }catch(e){alert('アップロードに失敗しました');} return null; }
-  ensureTableBlot();
-  quill=new Quill('#qeditor',{theme:'snow',placeholder:'本文を入力…（H2/H3 見出しを使うとSEOに有利）',modules:{toolbar:{container:[[{header:[2,3,4,false]}],['bold','italic','underline','strike'],[{list:'ordered'},{list:'bullet'}],['blockquote','code-block'],[{align:[]}],['link','image'],['clean']],handlers:{image:function(){ const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.onchange=async()=>{ const f=inp.files[0]; if(!f)return; const url=await uploadFile(f); if(url){ const rg=quill.getSelection(true)||{index:quill.getLength()}; quill.insertEmbed(rg.index,'image',url); quill.setSelection(rg.index+1); upd(); } }; inp.click(); }}}}});
-  try{ const D=Quill.import('delta'); quill.clipboard.addMatcher('TABLE',node=>new D().insert({bltable:node.outerHTML}).insert('\n')); }catch(e){}
+  ensureBlocks();
+  quill=new Quill('#qeditor',{theme:'snow',placeholder:'本文を入力…（Markdown 貼り付け対応）',modules:{toolbar:{container:[[{header:[2,3,false]}],['bold','italic','underline'],[{list:'ordered'},{list:'bullet'}],['blockquote'],['link','image'],['clean']],handlers:{image:function(){ const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.onchange=async()=>{ const f=inp.files[0]; if(!f)return; const url=await uploadFile(f); if(url){ const rg=quill.getSelection(true)||{index:quill.getLength()}; quill.insertEmbed(rg.index,'image',url); quill.setSelection(rg.index+1); upd(); } }; inp.click(); }}}}});
+  try{ const D=Quill.import('delta'); quill.clipboard.addMatcher('TABLE',node=>new D().insert({bltable:node.outerHTML}).insert('\n')); quill.clipboard.addMatcher('.nrawblock',node=>new D().insert({rawblock:node.innerHTML}).insert('\n')); }catch(e){}
   if(p.body){ quill.clipboard.dangerouslyPasteHTML(p.body); } else { quill.setText(''); }
-  function autoMeta(){ if(!$('#f_meta').value.trim()){ const tmp=document.createElement('div'); tmp.innerHTML=quill.root.innerHTML; let txt=''; tmp.querySelectorAll('p').forEach(x=>{ if(!txt&&x.textContent.trim().length>20) txt=x.textContent.trim(); }); if(txt) $('#f_meta').value=txt.slice(0,118); } }
-  $('#mdfmt').onclick=()=>{ const md=$('#f_md').value.trim(); if(!md){ alert('上のテキスト欄にAIの記事を貼り付けてください'); return; } quill.clipboard.dangerouslyPasteHTML(md2html(md)); autoMeta(); upd(); $('#f_md').value=''; };
+  function insBlock(html){ const rg=quill.getSelection(true)||{index:quill.getLength()}; quill.insertEmbed(rg.index,'rawblock',html,'user'); quill.setSelection(rg.index+1); upd(); }
+  document.querySelectorAll('#btb button[data-blk]').forEach(b=>b.onclick=()=>{ const k=b.dataset.blk;
+    if(k==='toc'){ insBlock('<div class="ntoc-here"></div>'); }
+    else if(k==='callout'){ const t=prompt('Callout の内容'); if(t) insBlock('<div class="ncallout">'+esc(t)+'</div>'); }
+    else if(k==='button'){ const l=prompt('ボタンのラベル'); if(!l)return; const u=prompt('リンクURL','/contact/')||'#'; insBlock('<a class="nbtn" href="'+esc(u)+'">'+esc(l)+'</a>'); }
+    else if(k==='accordion'){ const t=prompt('見出し'); if(!t)return; const c=prompt('中身')||''; insBlock('<details class="nacc"><summary>'+esc(t)+'</summary><div>'+esc(c)+'</div></details>'); }
+    else if(k==='youtube'){ const u=prompt('YouTube URL'); const vid=ytId(u); if(!vid){ if(u)alert('URLが正しくありません'); return; } insBlock('<div class="nembed"><iframe src="https://www.youtube.com/embed/'+vid+'" allowfullscreen loading="lazy"></iframe></div>'); }
+    else if(k==='check'){ const t=prompt('チェック項目（改行で複数）'); if(!t)return; insBlock('<ul class="ncheck">'+t.split('\n').map(x=>x.trim()).filter(Boolean).map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>'); }
+    else if(k==='html'){ const h=prompt('HTMLコードを貼り付け'); if(h) insBlock(h); }
+  });
+  function autoMeta(){ if(!$('#f_meta').value.trim()){ const tmp=document.createElement('div'); tmp.innerHTML=quill.root.innerHTML; let txt=''; tmp.querySelectorAll('p').forEach(x=>{ if(!txt&&x.textContent.trim().length>20) txt=x.textContent.trim(); }); if(txt){ $('#f_meta').value=txt.slice(0,158); upd(); } } }
+  $('#mdfmt').onclick=()=>{ const md=$('#f_md').value.trim(); if(!md){ alert('AIの記事を貼り付けてください'); return; } quill.clipboard.dangerouslyPasteHTML(md2html(md)); autoMeta(); upd(); $('#f_md').value=''; };
   $('#mdapp').onclick=()=>{ const md=$('#f_md').value.trim(); if(!md)return; quill.clipboard.dangerouslyPasteHTML(quill.getLength(),md2html(md)); upd(); $('#f_md').value=''; };
   function setPrev(u){ const im=$('#upprev'); if(u){ im.src=u; im.classList.add('on'); } else im.classList.remove('on'); }
   setPrev(p.cover_image);
-  $('#f_file').onchange=async e=>{ const f=e.target.files[0]; if(!f)return; $('#upbtntext').textContent='アップロード中…'; const url=await uploadFile(f); $('#upbtntext').textContent='画像をアップロード'; if(url){ $('#f_cover').value=url; setPrev(url); upd(); } e.target.value=''; };
-  function renderChips(){ $('#tagchips').innerHTML=TAGS.map((t,i)=>`<span class="chip">${esc(t)} <b data-ti="${i}">×</b></span>`).join(''); document.querySelectorAll('#tagchips b[data-ti]').forEach(b=>b.onclick=()=>{ TAGS.splice(+b.dataset.ti,1); renderChips(); }); }
-  function addTag(t){ t=String(t||'').trim().replace(/,+$/,'').trim(); if(t&&TAGS.indexOf(t)<0&&TAGS.length<12){ TAGS.push(t); renderChips(); } }
-  renderChips();
-  $('#f_tag').addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===','){ e.preventDefault(); addTag($('#f_tag').value); $('#f_tag').value=''; } });
-  document.querySelectorAll('.tagsug span[data-sug]').forEach(s=>s.onclick=()=>addTag(s.dataset.sug));
-  function upd(){ const t=$('#f_title').value,m=$('#f_meta').value,s=$('#f_slug').value,ex=$('#f_excerpt').value,cover=$('#f_cover').value.trim(),kw=$('#f_kw').value,bd=quill?quill.root.innerHTML:'';
-    $('#sp_title').textContent=t||'タイトル'; $('#sp_desc').textContent=m||ex||'検索結果に表示される説明文がここに表示されます。'; $('#sp_slug').textContent=s||'slug';
-    $('#cTitle').textContent=t.length+'字'; $('#cTitle').className='hint '+(t.length>=30&&t.length<=60?'cok':(t.length>60?'cwarn':''));
-    $('#cMeta').textContent=m.length+'字'; $('#cMeta').className='hint '+(m.length>=80&&m.length<=120?'cok':(m.length>120?'cwarn':''));
-    $('#rtime').textContent='約'+readMin(bd)+'分で読めます';
-    const r=seoScore({title:t,meta:m,cover:cover,body:bd,kw:kw,slug:s});
-    const col=r.score>=80?'#16a34a':(r.score>=50?'#f5a623':'#e23b3b');
-    $('#seobox').innerHTML=`<div class="seoscore"><div class="seoring" style="color:${col}">${r.score}<span style="font-size:14px;color:#94a3b8">/100</span></div><div class="seobar"><i style="width:${r.score}%;background:${col}"></i></div></div><ul class="seochk">${r.checks.map(c=>`<li class="${c.ok?'ok':'no'}">${c.ok?'✓':'•'} ${c.k}</li>`).join('')}</ul>`;
+  $('#f_file').onchange=async e=>{ const f=e.target.files[0]; if(!f)return; $('#upbtntext').textContent='アップロード中…'; const url=await uploadFile(f); $('#upbtntext').textContent='アップロード'; if(url){ $('#f_cover').value=url; setPrev(url); upd(); } e.target.value=''; };
+  // タグ + 関連KW チップ
+  function chips(box,arr,upfn){ $(box).innerHTML=arr.map((t,i)=>`<span class="chip">${esc(t)} <b data-i="${i}">×</b></span>`).join(''); document.querySelectorAll(box+' b[data-i]').forEach(b=>b.onclick=()=>{ arr.splice(+b.dataset.i,1); upfn(); }); }
+  function renderChips(){ chips('#tagchips',TAGS,renderChips); }
+  function renderRelkw(){ chips('#relkwChips',RELKW,renderRelkw); }
+  function addTo(arr,t,fn){ t=String(t||'').trim().replace(/,+$/,'').trim(); if(t&&arr.indexOf(t)<0&&arr.length<15){ arr.push(t); fn(); } }
+  renderChips(); renderRelkw();
+  $('#f_tag').addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===','){ e.preventDefault(); addTo(TAGS,$('#f_tag').value,renderChips); $('#f_tag').value=''; } });
+  $('#f_relkw').addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===','){ e.preventDefault(); addTo(RELKW,$('#f_relkw').value,renderRelkw); $('#f_relkw').value=''; } });
+  document.querySelectorAll('.tagsug span[data-sug]').forEach(s=>s.onclick=()=>addTo(TAGS,s.dataset.sug,renderChips));
+  $('#autoslug').onclick=()=>{ const t=$('#f_title').value.trim(); if(!t)return; $('#f_slug').value=t.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9぀-ヿ一-龯\-]+/g,'').replace(/-+/g,'-').replace(/^-|-$/g,'').slice(0,80); upd(); };
+  $('#catbtn2').onclick=()=>{ renderPosts().then(()=>{ const cb=$('#catbtn'); if(cb) cb.click(); }); };
+  // segmented
+  document.querySelectorAll('#segStatus button').forEach(b=>b.onclick=()=>{ statusVal=b.dataset.st; document.querySelectorAll('#segStatus button').forEach(x=>x.classList.toggle('on',x===b)); });
+  document.querySelectorAll('#segIdx button').forEach(b=>b.onclick=()=>{ robotsIdx=b.dataset.v==='1'; document.querySelectorAll('#segIdx button').forEach(x=>x.classList.toggle('on',x===b)); upd(); });
+  document.querySelectorAll('#segFol button').forEach(b=>b.onclick=()=>{ robotsFol=b.dataset.v==='1'; document.querySelectorAll('#segFol button').forEach(x=>x.classList.toggle('on',x===b)); });
+  // FAQ + CTA repeatables
+  function renderFaq(){ $('#faqList').innerHTML=FAQS.map((f,i)=>`<div class="repeat-item"><button class="rm" data-i="${i}">× 削除</button><div class="efg"><label>質問</label><input class="fq" data-i="${i}" value="${esc(f.q||'')}"></div><div class="efg" style="margin-bottom:0"><label>回答</label><textarea class="fa" data-i="${i}">${esc(f.a||'')}</textarea></div></div>`).join(''); bindRepeat('#faqList',FAQS,{q:'.fq',a:'.fa'},renderFaq,upd); }
+  function renderCta(){ $('#ctaList').innerHTML=CTAS.map((c,i)=>`<div class="repeat-item"><button class="rm" data-i="${i}">× 削除</button><div class="efg"><label>種類</label><input class="ct" data-i="${i}" value="${esc(c.type||'相談予約')}"></div><div class="efg"><label>ラベル</label><input class="cl" data-i="${i}" value="${esc(c.label||'')}"></div><div class="efg" style="margin-bottom:0"><label>リンクURL</label><input class="cu" data-i="${i}" value="${esc(c.url||'')}" placeholder="/contact/ または https://…"></div></div>`).join(''); bindRepeat('#ctaList',CTAS,{type:'.ct',label:'.cl',url:'.cu'},renderCta,upd); }
+  function bindRepeat(box,arr,map,rerender,after){ document.querySelectorAll(box+' .rm').forEach(b=>b.onclick=()=>{ arr.splice(+b.dataset.i,1); rerender(); after&&after(); }); Object.entries(map).forEach(([field,sel])=>{ document.querySelectorAll(box+' '+sel).forEach(el=>el.oninput=()=>{ arr[+el.dataset.i][field]=el.value; after&&after(); }); }); }
+  renderFaq(); renderCta();
+  $('#faqAdd').onclick=()=>{ FAQS.push({q:'',a:''}); renderFaq(); upd(); };
+  $('#ctaAdd').onclick=()=>{ CTAS.push({type:'相談予約',label:'相談予約',url:''}); renderCta(); upd(); };
+  // ===== 分析 + チェックリスト + スコア =====
+  const CHK=[
+    ['SEOタイトル',d=>{ const t=(d.seo||d.title); return t.length>=30&&t.length<=60; }],
+    ['メタディスクリプション',d=>d.meta.length>=80&&d.meta.length<=160],
+    ['URL（スラッグ）',d=>/^[a-z0-9\-]{3,}$/.test(d.slug)],
+    ['フォーカスキーワード',d=>!!d.kw],
+    ['H1',d=>!!d.title],
+    ['H2',d=>d.h2>0],
+    ['H3',d=>d.h3>0],
+    ['内部リンク',d=>d.intl>0],
+    ['外部リンク',d=>d.extl>0],
+    ['画像ALT',d=>d.hasImg&&d.altOk],
+    ['アイキャッチ画像',d=>!!d.cover],
+    ['FAQ',d=>d.faqN>0],
+    ['CTA',d=>d.ctaN>0||d.consult],
+    ['構造化データ',d=>d.jldArticle],
+    ['Canonical',d=>!!d.slug||!!d.canon],
+    ['Open Graph',d=>!!d.cover||!!d.ogimg],
+    ['モバイル対応',()=>true],
+    ['可読性',d=>d.textLen>=300],
+    ['AI品質',d=>d.textLen>=600&&d.h2>0]
+  ];
+  function analyze(){
+    const bd=quill?quill.root.innerHTML:''; const tmp=document.createElement('div'); tmp.innerHTML=bd; const text=(tmp.textContent||'').replace(/\s+/g,'');
+    const imgs=[...tmp.querySelectorAll('img')];
+    const kw=$('#f_kw').value.trim().toLowerCase();
+    const dens= kw&&text? ((text.toLowerCase().split(kw).length-1)*kw.length/text.length*100):0;
+    return { title:$('#f_title').value.trim(), seo:$('#f_seotitle').value.trim(), meta:$('#f_meta').value.trim(), slug:$('#f_slug').value.trim(), kw:kw, canon:$('#f_canon').value.trim(), cover:$('#f_cover').value.trim(), ogimg:$('#f_ogimg').value.trim(),
+      h2:(bd.match(/<h2/gi)||[]).length, h3:(bd.match(/<h3/gi)||[]).length, intl:tmp.querySelectorAll('a[href^="/"]').length, extl:tmp.querySelectorAll('a[href^="http"]').length,
+      hasImg:!!($('#f_cover').value.trim())||imgs.length>0, altOk:(!$('#f_cover').value.trim()||!!$('#f_coveralt').value.trim())&&imgs.every(i=>i.getAttribute('alt')), textLen:text.length, dens:dens,
+      faqN:FAQS.filter(f=>f.q||f.a).length, ctaN:CTAS.filter(c=>c.label||c.url).length, consult:$('#f_consult')&&$('#f_consult').checked, jldArticle:$('#jld_article')&&$('#jld_article').checked };
   }
-  ['f_title','f_meta','f_slug','f_excerpt','f_kw','f_cover'].forEach(id=>$('#'+id).addEventListener('input',upd));
+  function upd(){ const d=analyze();
+    $('#sp_title').textContent=(d.seo||d.title)||'タイトル'; $('#sp_desc').textContent=d.meta||$('#f_excerpt').value||'検索結果に表示される説明文がここに表示されます。'; $('#sp_slug').textContent=d.slug||'slug';
+    $('#cSeo').textContent=(d.seo.length)+' / 60'; $('#cMeta').textContent=(d.meta.length)+' / 160';
+    // 分析
+    const bar=(v,max)=>Math.min(100,Math.round(v/max*100));
+    $('#analyBox').innerHTML=`
+      <div class="analy"><div class="an-k">タイトル長</div><div class="an-bar"><i style="width:${bar(d.seo.length||d.title.length,60)}%"></i></div><div class="an-v">${d.seo.length||d.title.length} 文字</div></div>
+      <div class="analy"><div class="an-k">ディスクリプション長</div><div class="an-bar"><i style="width:${bar(d.meta.length,160)}%"></i></div><div class="an-v">${d.meta.length} 文字</div></div>
+      <div class="analy"><div class="an-k">キーワード密度</div><div class="an-bar"><i style="width:${bar(d.dens,3)}%"></i></div><div class="an-v">${d.dens.toFixed(1)} %</div></div>
+      <div class="analy"><div class="an-k">見出し構成</div><div class="an-bar"><i style="width:${d.h2||d.h3?100:0}%"></i></div><div class="an-v">H1:${d.title?1:0} H2:${d.h2} H3:${d.h3}</div></div>
+      <div class="analy"><div class="an-k">画像SEO（ALT）</div><div class="an-bar"><i style="width:${d.hasImg&&d.altOk?100:0}%"></i></div><div class="an-v">${d.hasImg?(d.altOk?'ALT付き':'ALT不足'):'画像なし'}</div></div>
+      <div class="analy"><div class="an-k">内部リンク</div><div class="an-bar"><i style="width:${bar(d.intl,3)}%"></i></div><div class="an-v">${d.intl} 本</div></div>`;
+    // チェックリスト + スコア
+    const results=CHK.map(([k,fn])=>({k,ok:!!fn(d)})); const pass=results.filter(r=>r.ok).length; const score=Math.round(pass/CHK.length*100);
+    const col=score>=80?'#16a34a':(score>=50?'#f5a623':'#e23b3b');
+    const ring=$('#seoRing'); ring.style.setProperty('--v',score); ring.style.setProperty('--c',col); $('#ringN').innerHTML=score+'<small>/100</small>'; $('#ringN').style.color=col;
+    $('#seoVerdict').textContent=(score>=80?'良好':score>=50?'まずまず':'要改善')+` ・ ${pass}/${CHK.length} 項目クリア`; $('#seoVerdict').style.color=col;
+    $('#chkList').innerHTML=results.map(r=>`<li class="${r.ok?'ok':''}"><span class="x">${r.ok?'✓':'✕'}</span> ${esc(r.k)}</li>`).join('');
+  }
+  ['f_title','f_seotitle','f_meta','f_slug','f_kw','f_cover','f_coveralt','f_canon','f_ogimg','f_excerpt'].forEach(x=>{ const el=$('#'+x); if(el) el.addEventListener('input',upd); });
   $('#f_cover').addEventListener('input',()=>setPrev($('#f_cover').value.trim()));
+  if($('#f_consult')) $('#f_consult').addEventListener('change',upd);
+  if($('#jld_article')) $('#jld_article').addEventListener('change',upd);
   quill.on('text-change',upd); upd();
-  $('#back').onclick=renderPosts;
-  $('#save').onclick=async()=>{
-    if($('#f_tag').value.trim()){ addTag($('#f_tag').value); $('#f_tag').value=''; }
-    const body={ title:$('#f_title').value.trim(), slug:$('#f_slug').value.trim(), category:$('#f_cat').value,
-      author:$('#f_author').value, published_at:$('#f_pub').value||null, tags:TAGS, focus_keyword:$('#f_kw').value.trim(),
-      cover_image:$('#f_cover').value.trim(), excerpt:$('#f_excerpt').value.trim(), body:quill.root.innerHTML,
-      meta_description:$('#f_meta').value.trim(), status:$('#f_status').value };
+  // ===== 保存 =====
+  function collect(status){
+    if($('#f_tag').value.trim()){ addTo(TAGS,$('#f_tag').value,renderChips); $('#f_tag').value=''; }
+    return { title:$('#f_title').value.trim(), slug:$('#f_slug').value.trim(), category:$('#f_cat').value, subcategory:$('#f_subcat').value.trim(),
+      author:$('#f_author').value, published_at:$('#f_pub').value||null, updated_at:$('#f_upd').value||null, tags:TAGS,
+      seo_title:$('#f_seotitle').value.trim(), meta_description:$('#f_meta').value.trim(), focus_keyword:$('#f_kw').value.trim(), sub_keyword:$('#f_subkw').value.trim(), related_keywords:RELKW.join(', '),
+      canonical_url:$('#f_canon').value.trim(), robots_index:robotsIdx, robots_follow:robotsFol,
+      cover_image:$('#f_cover').value.trim(), cover_alt:$('#f_coveralt').value.trim(), cover_caption:$('#f_covercap').value.trim(), cover_title:$('#f_covertitle').value.trim(), lazy_load:$('#f_lazy').checked,
+      og_title:$('#f_ogtitle').value.trim(), og_description:$('#f_ogdesc').value.trim(), og_image:$('#f_ogimg').value.trim(),
+      excerpt:$('#f_excerpt').value.trim(), body:quill.root.innerHTML,
+      faq:FAQS.filter(f=>f.q||f.a), cta_blocks:CTAS.filter(c=>c.label||c.url),
+      jsonld_types:{article:$('#jld_article').checked,faq:$('#jld_faq').checked,breadcrumb:$('#jld_breadcrumb').checked,organization:$('#jld_organization').checked,video:$('#jld_video').checked,howto:$('#jld_howto').checked},
+      related_articles:$('#f_relart').value.trim(), related_category:$('#f_relcat').value.trim(), download_pdf:$('#f_dlpdf').value.trim(), consult_block:$('#f_consult').checked,
+      pinned:$('#f_pinned').checked, featured:$('#f_featured').checked, status:status };
+  }
+  async function save(status){
+    const body=collect(status);
     if(!body.title){ alert('タイトルを入力してください'); return; }
-    const sv=$('#save'); sv.textContent='保存中…';
+    if(status==='scheduled'&&!body.published_at){ alert('予約投稿には公開日時（未来）を設定してください'); return; }
+    $('#msg').style.color='var(--muted)'; $('#msg').textContent='保存中…';
     const r=await api(id?'/api/posts/'+id:'/api/posts',{method:id?'PUT':'POST',body:JSON.stringify(body)});
-    const d=await r.json(); sv.textContent=id?'更新する':'保存する';
-    if(r.ok){ $('#msg').textContent='✓ 保存しました'; setTimeout(renderPosts,800); }
-    else alert('保存に失敗: '+(d.error||''));
-  };
+    const dd=await r.json();
+    if(r.ok){ $('#msg').style.color='#1c7a47'; $('#msg').textContent='✓ 保存しました'; setTimeout(renderPosts,700); }
+    else { $('#msg').style.color='#e23b3b'; $('#msg').textContent='失敗: '+(dd.error||''); }
+  }
+  $('#back').onclick=renderPosts;
+  $('#draft').onclick=()=>save('draft');
+  $('#pub').onclick=()=>save('published');
+  $('#sched').onclick=()=>save('scheduled');
+  $('#dup').onclick=async()=>{ const body=collect('draft'); body.title=(body.title||'記事')+'（コピー）'; body.slug=''; const r=await api('/api/posts',{method:'POST',body:JSON.stringify(body)}); const dd=await r.json(); if(r.ok){ alert('複製しました（下書き）'); renderEditor(dd.item.id); } else alert('複製に失敗: '+(dd.error||'')); };
+  if(id) $('#del').onclick=async()=>{ if(!confirm('この記事を削除しますか？'))return; await api('/api/posts/'+id,{method:'DELETE'}); renderPosts(); };
+  $('#prev').onclick=()=>{ const d=collect(statusVal); openModal(`<h3>プレビュー</h3><div style="max-height:70vh;overflow:auto"><div class="serp" style="margin-bottom:14px"><div class="serp-url">biglight.jp › news › ${esc(d.slug||'slug')}</div><div class="serp-title">${esc(d.seo_title||d.title)}</div><div class="serp-desc">${esc(d.meta_description||d.excerpt)}</div></div>${d.cover_image?`<img src="${esc(d.cover_image)}" style="max-width:100%;border-radius:10px;margin-bottom:12px">`:''}<h2 style="color:var(--navy)">${esc(d.title)}</h2><div style="line-height:1.8">${d.body}</div></div><div class="modal-actions"><button class="btn" onclick="closeModal()">閉じる</button></div>`); };
 }
 
 /* ===== 営業メール管理 (Sales Email Center) ===== */

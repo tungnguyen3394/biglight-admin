@@ -27,28 +27,48 @@ function fixMdTables(html) {
   });
 }
 
+function jt(p) { const d = { article: true, faq: false, breadcrumb: true, organization: true, video: false, howto: false }; try { const o = typeof p.jsonld_types === 'string' ? JSON.parse(p.jsonld_types) : (p.jsonld_types || {}); return Object.assign(d, o); } catch (e) { return d; } }
+function jarr(v) { try { return typeof v === 'string' ? JSON.parse(v) : (Array.isArray(v) ? v : []); } catch (e) { return []; } }
+// 見出しに id を付与し、目次(TOC)を生成
+function buildToc(html) {
+  if (!html) return { html: '', toc: '' };
+  let n = 0; const items = [];
+  const withIds = String(html).replace(/<(h[23])(\s[^>]*)?>([\s\S]*?)<\/\1>/gi, (m, tag, attr, inner) => {
+    const text = inner.replace(/<[^>]*>/g, '').trim(); if (!text) return m;
+    const id = 'toc-' + (++n);
+    items.push({ id, text, lv: tag.toLowerCase() === 'h2' ? 2 : 3 });
+    return `<${tag}${attr || ''} id="${id}">${inner}</${tag}>`;
+  });
+  if (!items.length) return { html: withIds, toc: '' };
+  const toc = `<nav class="ntoc" aria-label="目次"><div class="ntoc-h">目次</div><ol>${items.map(it => `<li class="lv${it.lv}"><a href="#${it.id}">${esc(it.text)}</a></li>`).join('')}</ol></nav>`;
+  return { html: withIds, toc };
+}
+function lazyImgs(html) { return String(html || '').replace(/<img (?![^>]*\bloading=)/gi, '<img loading="lazy" '); }
+
 function head(opts) {
   const img = opts.image || (BASE + '/assets/og-image.jpg');
+  const ogTitle = opts.ogTitle || opts.title;
+  const ogDesc = opts.ogDesc || opts.desc;
   return `<!DOCTYPE html>
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="robots" content="index, follow">
+<meta name="robots" content="${opts.robots || 'index, follow'}">
 <title>${esc(opts.title)}</title>
 <meta name="description" content="${esc(opts.desc)}">
-<link rel="canonical" href="${opts.url}">
+<link rel="canonical" href="${opts.canonical || opts.url}">
 <meta property="og:type" content="${opts.ogtype || 'website'}">
 <meta property="og:site_name" content="BIGLIGHT株式会社">
 <meta property="og:locale" content="ja_JP">
-<meta property="og:title" content="${esc(opts.title)}">
-<meta property="og:description" content="${esc(opts.desc)}">
+<meta property="og:title" content="${esc(ogTitle)}">
+<meta property="og:description" content="${esc(ogDesc)}">
 <meta property="og:url" content="${opts.url}">
-<meta property="og:image" content="${img}">
+<meta property="og:image" content="${opts.ogImage || img}">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="${esc(opts.title)}">
-<meta name="twitter:description" content="${esc(opts.desc)}">
-<meta name="twitter:image" content="${img}">
+<meta name="twitter:title" content="${esc(ogTitle)}">
+<meta name="twitter:description" content="${esc(ogDesc)}">
+<meta name="twitter:image" content="${opts.ogImage || img}">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Parisienne&display=swap" rel="stylesheet">
@@ -61,6 +81,35 @@ function head(opts) {
 .nbody tbody tr:nth-child(even){background:#f8fafc}
 .nbody img{max-width:100%;height:auto}
 @media(max-width:600px){.nbody th,.nbody td{padding:10px;font-size:13.5px}}
+.ntoc{background:#f6f9fe;border:1px solid #dbe6f4;border-radius:12px;padding:16px 20px;margin:0 0 28px}
+.ntoc-h{font-weight:800;color:#0f4c81;margin-bottom:8px;font-size:15px}
+.ntoc ol{margin:0;padding-left:20px}.ntoc li{margin:5px 0;line-height:1.6}
+.ntoc li.lv3{margin-left:16px;list-style:circle;font-size:14px}
+.ntoc a{color:#1e6fd6;text-decoration:none}.ntoc a:hover{text-decoration:underline}
+.nbody .ncallout{border-left:4px solid #1e6fd6;background:#eef4fc;border-radius:8px;padding:14px 18px;margin:20px 0}
+.nbody .ncallout.warn{border-color:#f5a623;background:#fff7ea}
+.nbody .nbtn{display:inline-block;background:#e23b3b;color:#fff!important;padding:12px 26px;border-radius:10px;font-weight:700;text-decoration:none;margin:8px 0}
+.nbody .nacc{border:1px solid #e2e8f0;border-radius:8px;margin:12px 0;overflow:hidden}
+.nbody .nacc>summary{cursor:pointer;padding:13px 16px;font-weight:700;background:#f8fafc;list-style:none}
+.nbody .nacc>summary::-webkit-details-marker{display:none}
+.nbody .nacc>div{padding:13px 16px}
+.nbody .ncheck{list-style:none;padding-left:0}.nbody .ncheck li{padding-left:28px;position:relative;margin:6px 0}
+.nbody .ncheck li:before{content:"\\2714";position:absolute;left:0;color:#16a34a;font-weight:900}
+.nbody .nembed{position:relative;padding-bottom:56.25%;height:0;margin:20px 0;border-radius:12px;overflow:hidden}
+.nbody .nembed iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.ncaption{font-size:13px;color:#64748b;text-align:center;margin:-14px 0 22px}
+.nfaq{margin:34px 0}.nfaq h2{font-size:22px;color:#0f4c81;margin-bottom:14px}
+.nfaq-i{border:1px solid #e2e8f0;border-radius:10px;margin:10px 0;overflow:hidden}
+.nfaq-i>summary{cursor:pointer;padding:15px 18px;font-weight:700;list-style:none;background:#f8fafc}
+.nfaq-i>summary::-webkit-details-marker{display:none}
+.nfaq-i>div{padding:15px 18px;line-height:1.8;white-space:pre-wrap}
+.ncta{display:flex;gap:12px;flex-wrap:wrap;margin:28px 0}
+.ncta-btn{display:inline-block;background:#e23b3b;color:#fff;padding:14px 30px;border-radius:12px;font-weight:700;text-decoration:none}
+.nconsult{background:linear-gradient(135deg,#0f4c81,#1e6fd6);color:#fff;border-radius:16px;padding:28px;text-align:center;margin:34px 0}
+.nconsult h3{font-size:20px;margin-bottom:8px}.nconsult p{opacity:.92;margin-bottom:16px}
+.nconsult .btn-primary{display:inline-block;background:#fff;color:#0f4c81;padding:12px 30px;border-radius:10px;font-weight:800;text-decoration:none}
+.ndl{margin:24px 0}.nrelated{margin:30px 0}.nrelated h3{font-size:18px;color:#0f4c81;margin-bottom:10px}
+.nrelated ul{padding-left:20px}.nrelated li{margin:6px 0}
 </style>
 ${opts.jsonld || ''}
 </head>
@@ -172,29 +221,55 @@ function card(p, map) {
 
 function articleHTML(p, map) {
   const url = `${BASE}/news/${p.slug}/`;
+  const seoTitle = (p.seo_title || '').trim() || `${p.title}｜お知らせ｜BIGLIGHT株式会社`;
   const desc = (p.meta_description || p.excerpt || p.title || '').replace(/\s+/g, ' ').slice(0, 200);
-  const img = p.cover_image || (BASE + '/assets/og-image.jpg');
+  const img = p.cover_image || p.og_image || (BASE + '/assets/og-image.jpg');
   const tags = tagsOf(p);
   const rt = readingMin(p.body);
   const author = p.author || 'BIGLIGHT編集部';
   const updated = p.updated_at && p.published_at && new Date(p.updated_at) - new Date(p.published_at) > 86400000;
-  const jsonld =
-`<script type="application/ld+json">${JSON.stringify({
-  '@context': 'https://schema.org', '@type': 'BlogPosting',
-  mainEntityOfPage: { '@type': 'WebPage', '@id': url },
-  headline: p.title, description: desc, image: [img],
-  datePublished: iso(p.published_at), dateModified: iso(p.updated_at || p.published_at),
-  author: { '@type': /編集部|Admin/.test(author) ? 'Organization' : 'Person', name: author },
-  publisher: { '@type': 'Organization', name: 'BIGLIGHT株式会社', logo: { '@type': 'ImageObject', url: BASE + '/assets/logo.png' } },
-  keywords: tags.join(', '), articleSection: catName(map, p.category), inLanguage: 'ja'
-})}</script>
-<script type="application/ld+json">${JSON.stringify({
-  '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [
-    { '@type': 'ListItem', position: 1, name: 'ホーム', item: BASE + '/' },
-    { '@type': 'ListItem', position: 2, name: 'お知らせ', item: BASE + '/news/' },
-    { '@type': 'ListItem', position: 3, name: p.title, item: url }]
-})}</script>`;
-  return head({ title: `${p.title}｜お知らせ｜BIGLIGHT株式会社`, desc, url, image: img, ogtype: 'article', jsonld })
+  const types = jt(p);
+  const faqs = jarr(p.faq).filter(f => f && (f.q || f.a));
+  const ctas = jarr(p.cta_blocks).filter(c => c && (c.label || c.url));
+  const robots = `${p.robots_index === false ? 'noindex' : 'index'}, ${p.robots_follow === false ? 'nofollow' : 'follow'}`;
+  // 本文: 見出しID付与 + 目次 + 遅延読み込み
+  let body = fixMdTables(p.body) || '';
+  const built = buildToc(body); body = built.html;
+  if (built.toc && /\[\[TOC\]\]|\[\[目次\]\]|<div class="ntoc-here"><\/div>/.test(body)) {
+    body = body.replace(/\[\[TOC\]\]|\[\[目次\]\]|<div class="ntoc-here"><\/div>/g, built.toc);
+  }
+  if (p.lazy_load !== false) body = lazyImgs(body);
+  // JSON-LD (種類ごとに出力)
+  const ld = [];
+  if (types.article) ld.push({
+    '@context': 'https://schema.org', '@type': 'BlogPosting', mainEntityOfPage: { '@type': 'WebPage', '@id': url },
+    headline: p.title, description: desc, image: [img],
+    datePublished: iso(p.published_at), dateModified: iso(p.updated_at || p.published_at),
+    author: { '@type': /編集部|Admin/.test(author) ? 'Organization' : 'Person', name: author },
+    publisher: { '@type': 'Organization', name: 'BIGLIGHT株式会社', logo: { '@type': 'ImageObject', url: BASE + '/assets/logo.png' } },
+    keywords: tags.join(', '), articleSection: catName(map, p.category), inLanguage: 'ja'
+  });
+  if (types.breadcrumb) ld.push({
+    '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'ホーム', item: BASE + '/' },
+      { '@type': 'ListItem', position: 2, name: 'お知らせ', item: BASE + '/news/' },
+      { '@type': 'ListItem', position: 3, name: p.title, item: url }]
+  });
+  if (types.organization) ld.push({ '@context': 'https://schema.org', '@type': 'Organization', name: 'BIGLIGHT株式会社', url: BASE + '/', logo: BASE + '/assets/logo.png' });
+  if (types.faq && faqs.length) ld.push({
+    '@context': 'https://schema.org', '@type': 'FAQPage',
+    mainEntity: faqs.map(f => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } }))
+  });
+  const jsonld = ld.map(o => `<script type="application/ld+json">${JSON.stringify(o)}</script>`).join('\n');
+  // 記事末尾ブロック
+  const faqHtml = faqs.length ? `<div class="nfaq"><h2>よくある質問</h2>${faqs.map(f => `<details class="nfaq-i"><summary>${esc(f.q)}</summary><div>${esc(f.a)}</div></details>`).join('')}</div>` : '';
+  const ctaHtml = ctas.length ? `<div class="ncta">${ctas.map(c => `<a class="ncta-btn" href="${esc(c.url || '#')}"${/^https?:/.test(c.url || '') ? ' target="_blank" rel="noopener"' : ''}>${esc(c.label || c.type || '詳しく見る')}</a>`).join('')}</div>` : '';
+  const dl = String(p.download_pdf || '').trim();
+  const dlHtml = dl ? `<div class="ndl"><a class="btn-outline" href="${esc(dl.split(/\s+/)[0])}" target="_blank" rel="noopener">📄 資料をダウンロード</a></div>` : '';
+  const rel = String(p.related_articles || '').split(',').map(s => s.trim()).filter(Boolean);
+  const relHtml = rel.length ? `<div class="nrelated"><h3>関連記事</h3><ul>${rel.map(x => /^[a-z0-9\-]+$/.test(x) ? `<li><a href="/news/${esc(x)}/">${esc(x)}</a></li>` : `<li>${esc(x)}</li>`).join('')}</ul></div>` : '';
+  const consultHtml = p.consult_block ? `<div class="nconsult"><h3>無料相談のご案内</h3><p>外国人材の採用・特定技能についてお気軽にご相談ください。</p><a class="btn-primary" href="/contact/">無料相談する</a></div>` : '';
+  return head({ title: seoTitle, desc, url, image: img, ogtype: 'article', jsonld, robots, canonical: (p.canonical_url || '').trim() || url, ogTitle: p.og_title || p.title, ogDesc: p.og_description || desc, ogImage: p.og_image || img })
     + HEADER
     + `<nav class="crumb" aria-label="パンくず"><a href="/">ホーム</a> ＞ <a href="/news/">お知らせ</a> ＞ <span>${esc(p.title)}</span></nav>
 <article class="sec narticle"><div class="wrap nart">
@@ -207,8 +282,13 @@ function articleHTML(p, map) {
     <span>📖 約${rt}分で読めます</span>
     <span>👁 <span id="vcount">${(p.views || 0).toLocaleString()}</span> views</span>
   </div>
-  ${p.cover_image ? `<img class="ncover" src="${esc(p.cover_image)}" alt="${esc(p.title)}">` : ''}
-  <div class="nbody">${fixMdTables(p.body) || ''}</div>
+  ${p.cover_image ? `<img class="ncover" src="${esc(p.cover_image)}" alt="${esc(p.cover_alt || p.title)}"${p.cover_title ? ` title="${esc(p.cover_title)}"` : ''}>${p.cover_caption ? `<div class="ncaption">${esc(p.cover_caption)}</div>` : ''}` : ''}
+  <div class="nbody">${body}</div>
+  ${faqHtml}
+  ${dlHtml}
+  ${ctaHtml}
+  ${consultHtml}
+  ${relHtml}
   ${tags.length ? `<div class="ntags">${tags.map(t => `<a href="/news/tag/${encodeURIComponent(t)}/">#${esc(t)}</a>`).join('')}</div>` : ''}
   <div class="nshare">
     <span>シェア：</span>

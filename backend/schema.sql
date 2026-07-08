@@ -158,6 +158,31 @@ ALTER TABLE posts ADD COLUMN IF NOT EXISTS focus_keyword TEXT;
 ALTER TABLE posts ADD COLUMN IF NOT EXISTS views         BIGINT NOT NULL DEFAULT 0;
 ALTER TABLE posts ALTER COLUMN author SET DEFAULT 'BIGLIGHT編集部';
 
+-- SEO標準エディタ 拡張フィールド
+ALTER TABLE posts ADD COLUMN IF NOT EXISTS seo_title        TEXT;
+ALTER TABLE posts ADD COLUMN IF NOT EXISTS subcategory      TEXT;
+ALTER TABLE posts ADD COLUMN IF NOT EXISTS sub_keyword      TEXT;
+ALTER TABLE posts ADD COLUMN IF NOT EXISTS related_keywords TEXT;
+ALTER TABLE posts ADD COLUMN IF NOT EXISTS canonical_url    TEXT;
+ALTER TABLE posts ADD COLUMN IF NOT EXISTS robots_index     BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE posts ADD COLUMN IF NOT EXISTS robots_follow    BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE posts ADD COLUMN IF NOT EXISTS cover_alt        TEXT;
+ALTER TABLE posts ADD COLUMN IF NOT EXISTS cover_caption    TEXT;
+ALTER TABLE posts ADD COLUMN IF NOT EXISTS cover_title      TEXT;
+ALTER TABLE posts ADD COLUMN IF NOT EXISTS lazy_load        BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE posts ADD COLUMN IF NOT EXISTS og_title         TEXT;
+ALTER TABLE posts ADD COLUMN IF NOT EXISTS og_description   TEXT;
+ALTER TABLE posts ADD COLUMN IF NOT EXISTS og_image         TEXT;
+ALTER TABLE posts ADD COLUMN IF NOT EXISTS faq              JSONB;   -- [{q,a}]
+ALTER TABLE posts ADD COLUMN IF NOT EXISTS cta_blocks       JSONB;   -- [{type,label,url}]
+ALTER TABLE posts ADD COLUMN IF NOT EXISTS jsonld_types     JSONB;   -- {article,faq,breadcrumb,organization,video,howto}
+ALTER TABLE posts ADD COLUMN IF NOT EXISTS related_articles TEXT;
+ALTER TABLE posts ADD COLUMN IF NOT EXISTS related_category TEXT;
+ALTER TABLE posts ADD COLUMN IF NOT EXISTS download_pdf     TEXT;
+ALTER TABLE posts ADD COLUMN IF NOT EXISTS consult_block    BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE posts ADD COLUMN IF NOT EXISTS pinned           BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE posts ADD COLUMN IF NOT EXISTS featured         BOOLEAN NOT NULL DEFAULT false;
+
 -- カテゴリ (管理画面から追加可能)
 CREATE TABLE IF NOT EXISTS categories (
   id         BIGSERIAL PRIMARY KEY,

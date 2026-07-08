@@ -51,6 +51,50 @@ function normTags(t) {
   const out = arr.map(s => String(s).trim()).filter(Boolean).slice(0, 12);
   return out.length ? out.join(', ') : null;
 }
+// ----- posts: danh sách cột + builder giá trị (SEO標準エディタ) -----
+const PCOLS = ['slug', 'title', 'category', 'subcategory', 'excerpt', 'body', 'cover_image', 'cover_alt', 'cover_caption', 'cover_title', 'lazy_load', 'meta_description', 'seo_title', 'focus_keyword', 'sub_keyword', 'related_keywords', 'canonical_url', 'robots_index', 'robots_follow', 'og_title', 'og_description', 'og_image', 'status', 'published_at', 'author', 'tags', 'faq', 'cta_blocks', 'jsonld_types', 'related_articles', 'related_category', 'download_pdf', 'consult_block', 'pinned', 'featured'];
+function postVals(b, old, slug, status, pub) {
+  const t = k => (b[k] != null ? b[k] : (old ? old[k] : null));
+  const bl = (k, def) => (b[k] !== undefined ? !!b[k] : (old ? old[k] : def));
+  const js = (k, def) => (b[k] !== undefined ? JSON.stringify(b[k]) : (old && old[k] != null ? JSON.stringify(old[k]) : JSON.stringify(def)));
+  return [
+    slug,
+    String(t('title') || '').trim(),
+    t('category') || 'news',
+    t('subcategory') || null,
+    t('excerpt') || null,
+    t('body') || null,
+    t('cover_image') || null,
+    t('cover_alt') || null,
+    t('cover_caption') || null,
+    t('cover_title') || null,
+    bl('lazy_load', true),
+    t('meta_description') || null,
+    t('seo_title') || null,
+    (String(t('focus_keyword') || '').trim().slice(0, 120)) || null,
+    t('sub_keyword') || null,
+    t('related_keywords') || null,
+    t('canonical_url') || null,
+    bl('robots_index', true),
+    bl('robots_follow', true),
+    t('og_title') || null,
+    t('og_description') || null,
+    t('og_image') || null,
+    status,
+    pub,
+    String(t('author') || 'BIGLIGHT編集部').trim().slice(0, 120),
+    (b.tags != null ? normTags(b.tags) : (old ? old.tags : null)),
+    js('faq', []),
+    js('cta_blocks', []),
+    js('jsonld_types', { article: true, breadcrumb: true, organization: true }),
+    t('related_articles') || null,
+    t('related_category') || null,
+    t('download_pdf') || null,
+    bl('consult_block', false),
+    bl('pinned', false),
+    bl('featured', false)
+  ];
+}
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '')
   .split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
@@ -703,14 +747,11 @@ app.post('/api/posts', requireAuth, requirePerm('posts', 'create'), async (req, 
     let slug = slugify(b.slug) || ('post-' + Date.now());
     const ex = await pool.query('SELECT 1 FROM posts WHERE slug=$1', [slug]);
     if (ex.rows[0]) slug = slug + '-' + Date.now().toString(36);
-    const status = b.status === 'published' ? 'published' : 'draft';
-    const pub = status === 'published' ? (b.published_at ? new Date(b.published_at) : new Date()) : (b.published_at ? new Date(b.published_at) : null);
-    const author = String(b.author || 'BIGLIGHT編集部').trim().slice(0, 120);
-    const fk = String(b.focus_keyword || '').trim().slice(0, 120) || null;
+    const status = b.status === 'published' ? 'published' : (b.status === 'scheduled' ? 'scheduled' : 'draft');
+    const pub = (status === 'published' || status === 'scheduled') ? (b.published_at ? new Date(b.published_at) : new Date()) : (b.published_at ? new Date(b.published_at) : null);
+    const vals = postVals(b, null, slug, status, pub);
     const r = await pool.query(
-      `INSERT INTO posts(slug,title,category,excerpt,body,cover_image,meta_description,status,published_at,author,tags,focus_keyword,updated_at)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,now()) RETURNING *`,
-      [slug, title, b.category || 'news', b.excerpt || null, b.body || null, b.cover_image || null, b.meta_description || null, status, pub, author, normTags(b.tags), fk]);
+      `INSERT INTO posts(${PCOLS.join(',')},updated_at) VALUES(${PCOLS.map((_, i) => '$' + (i + 1)).join(',')},now()) RETURNING *`, vals);
     res.json({ item: r.rows[0] });
     news.regenerate(pool).catch(() => {});
   } catch (e) { console.error('POST /api/posts:', e.message); res.status(500).json({ error: e.message }); }
@@ -727,15 +768,15 @@ app.put('/api/posts/:id', requireAuth, requirePerm('posts', 'edit'), async (req,
       const ex = await pool.query('SELECT 1 FROM posts WHERE slug=$1 AND id<>$2', [slug, req.params.id]);
       if (ex.rows[0]) slug = slug + '-' + Date.now().toString(36);
     }
-    const status = b.status != null ? (b.status === 'published' ? 'published' : 'draft') : old.status;
+    const status = b.status != null ? (b.status === 'published' ? 'published' : (b.status === 'scheduled' ? 'scheduled' : 'draft')) : old.status;
     let pub = old.published_at;
-    if (status === 'published' && !old.published_at) pub = b.published_at ? new Date(b.published_at) : new Date();
-    if (status === 'published' && b.published_at) pub = new Date(b.published_at);
+    if ((status === 'published' || status === 'scheduled') && !old.published_at) pub = b.published_at ? new Date(b.published_at) : new Date();
+    if ((status === 'published' || status === 'scheduled') && b.published_at) pub = new Date(b.published_at);
     if (status === 'draft') pub = null;
+    const vals = postVals(b, old, slug, status, pub);
     const r = await pool.query(
-      `UPDATE posts SET slug=$1,title=$2,category=$3,excerpt=$4,body=$5,cover_image=$6,meta_description=$7,status=$8,published_at=$9,author=$10,tags=$11,focus_keyword=$12,updated_at=now() WHERE id=$13 RETURNING *`,
-      [slug, title, b.category || old.category, b.excerpt != null ? b.excerpt : old.excerpt, b.body != null ? b.body : old.body, b.cover_image != null ? b.cover_image : old.cover_image, b.meta_description != null ? b.meta_description : old.meta_description, status, pub,
-       b.author != null ? String(b.author).trim().slice(0, 120) : old.author, b.tags != null ? normTags(b.tags) : old.tags, b.focus_keyword != null ? (String(b.focus_keyword).trim().slice(0, 120) || null) : old.focus_keyword, req.params.id]);
+      `UPDATE posts SET ${PCOLS.map((c, i) => c + '=$' + (i + 1)).join(',')},updated_at=now() WHERE id=$${PCOLS.length + 1} RETURNING *`,
+      [...vals, req.params.id]);
     res.json({ item: r.rows[0] });
     if (old.slug !== slug) news.removeSlug(old.slug);
     if (r.rows[0].status !== 'published') news.removeSlug(slug);
@@ -790,10 +831,18 @@ app.use(express.static(path.join(__dirname, 'public'), {
 }));
 
 const PORT = process.env.PORT || 3000;
+async function publishDue() {
+  try {
+    const r = await pool.query("UPDATE posts SET status='published' WHERE status='scheduled' AND published_at<=now() RETURNING id");
+    if (r.rowCount) { console.log('auto-published ' + r.rowCount + ' scheduled post(s)'); news.regenerate(pool).catch(() => {}); }
+  } catch (e) { console.error('publishDue:', e.message); }
+}
 init()
   .then(async () => {
     await loadPerms();
     app.listen(PORT, () => console.log('BIGLIGHT admin listening on ' + PORT));
+    publishDue();
+    setInterval(publishDue, 5 * 60 * 1000);   // 予約投稿の自動公開（5分毎）
     news.regenerate(pool).then(n => console.log('news regenerated: ' + n)).catch(e => console.error('news regen:', e.message));
   })
   .catch(e => { console.error('init failed:', e); process.exit(1); });
