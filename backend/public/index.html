@@ -184,7 +184,7 @@
   #qeditor .nacc>summary{font-weight:700;cursor:pointer}
   #qeditor .ncheck{list-style:none;padding-left:22px}#qeditor .ncheck li{position:relative}#qeditor .ncheck li:before{content:"✔";position:absolute;left:-20px;color:#16a34a}
   #qeditor .nembed{position:relative;padding-bottom:56.25%;height:0;margin:12px 0}#qeditor .nembed iframe{position:absolute;inset:0;width:100%;height:100%;border:0;border-radius:8px}
-  #qeditor .ntoc-here::before{content:"📑 目次（公開時に自動生成されます）";display:block;color:var(--navy);background:#eef4fc;border:1px dashed #9dc0ee;padding:9px 13px;border-radius:8px;font-size:12.5px;font-weight:700}
+  #qeditor .ntoc-here::before{content:"目次（公開時に自動生成されます）";display:block;color:var(--navy);background:#eef4fc;border:1px dashed #9dc0ee;padding:9px 13px;border-radius:8px;font-size:12.5px;font-weight:700}
   .repeat-item{border:1px solid #e2e8f0;border-radius:10px;padding:14px;margin-bottom:10px;background:#f8fafc;position:relative}
   .repeat-item .rm{position:absolute;top:10px;right:10px;color:#e23b3b;cursor:pointer;font-size:12.5px;font-weight:600;background:none;border:0}
   .addrow{width:100%;border:1px dashed #cbd5e1;background:#fff;border-radius:10px;padding:11px;font-size:13px;font-weight:600;color:var(--navy);cursor:pointer}
@@ -240,7 +240,50 @@
   .preview{border:1px solid var(--line);border-radius:10px;padding:14px 16px;background:#f8fafd}
   .pv-subj{font-weight:700;font-size:13.5px;border-bottom:1px solid var(--line);padding:6px 0 8px;margin:6px 0 10px}
   .pv-body{white-space:pre-wrap;font-size:13px;line-height:1.75}
-  @media(max-width:760px){#app{grid-template-columns:1fr}#app.collapsed{grid-template-columns:1fr}.side{flex-direction:row;flex-wrap:wrap;align-items:center}.side .me{margin:0 0 0 auto;border:0;padding:0}.cards{grid-template-columns:repeat(2,1fr)}.row2{grid-template-columns:1fr}.dk{width:110px}}
+  /* ===== mobile top bar + drawer ===== */
+  #mtop,#sideOv{display:none}
+  .mtbtn{background:#ffffff1f;border:0;color:#fff;width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer}
+  .mbrand{color:#fff;font-weight:800;letter-spacing:2px;font-size:16px}
+  .mbrand small{font-size:9px;color:var(--gold);letter-spacing:2px;margin-left:5px}
+  #mtitle{margin-left:auto;color:#cfe0f7;font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:44vw}
+  @media(max-width:820px){
+    body.app-on #mtop{display:flex;position:fixed;top:0;left:0;right:0;height:56px;z-index:260;background:#071e46;align-items:center;gap:12px;padding:0 14px;box-shadow:0 2px 12px rgba(0,0,0,.22)}
+    #app,#app.collapsed{grid-template-columns:1fr}
+    .side{position:fixed;top:0;left:0;bottom:0;width:272px;max-width:82vw;transform:translateX(-100%);transition:transform .26s ease;z-index:320;flex-direction:column;overflow-y:auto;padding:18px 14px}
+    .side.open{transform:none;box-shadow:0 0 50px rgba(0,0,0,.55)}
+    #menuBtn{display:none}
+    .side .brand{padding-left:4px}
+    .nav a{padding:13px 14px;font-size:14.5px}
+    #sideOv{position:fixed;inset:0;background:rgba(2,8,23,.55);z-index:300}
+    #sideOv.on{display:block}
+    .main{padding:72px 13px 32px;overflow-x:hidden}
+    .h1{font-size:19px}.crumb{margin-bottom:16px;font-size:12px}
+    .cards{grid-template-columns:repeat(2,1fr);gap:11px;margin-bottom:22px}
+    .stat{padding:15px 14px}.stat .n{font-size:24px}
+    .panel{padding:18px 16px}
+    .toolbar{gap:7px}.tab{padding:8px 14px}
+    .btn{padding:9px 13px}
+    .tablewrap{border-radius:12px}
+    table{min-width:560px;font-size:13px}
+    th,td{padding:10px 11px}
+    .rowline,#app.collapsed .rowline{max-width:62vw}
+    .row2,.jgrid,.chk2{grid-template-columns:1fr}
+    .dk{width:96px}
+    .detail{padding:4px 16px}.drow{flex-direction:column;gap:4px;padding:12px 0}
+    .form{padding:18px 15px}
+    .epanel-h{padding:14px 15px}.epanel-b{padding:6px 15px 18px}
+    .cardgrid,.matgrid{grid-template-columns:1fr}
+    .modalbg{padding:0}
+    .modalbox{border-radius:16px 16px 0 0;max-width:100%;margin:auto 0 0;padding:20px 17px;max-height:94vh;overflow-y:auto}
+    .estatusbar{padding:11px 12px;gap:8px;border-radius:14px 14px 0 0}
+    .estatusbar .btn{flex:1 1 40%;justify-content:center;padding:11px 8px}
+    .estatusbar #back,.estatusbar #msg{flex-basis:100%}
+    .scorecard{gap:14px}.ring{width:96px;height:96px}
+  }
+  @media(max-width:420px){
+    .cards{grid-template-columns:1fr}
+    .btoolbar button,.seg button{padding:8px 10px}
+  }
 </style>
 </head>
 <body>
@@ -254,6 +297,14 @@
   </div>
 </div>
 
+<div id="mtop">
+  <button class="mtbtn" id="mMenu" aria-label="メニュー">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+  </button>
+  <div class="mbrand">BIGLIGHT<small>ADMIN</small></div>
+  <div id="mtitle"></div>
+</div>
+<div id="sideOv" onclick="closeDrawer()"></div>
 <div id="app">
   <aside class="side">
     <div class="top">
@@ -309,6 +360,20 @@ const IC = {
   ext:_svg('<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>'),
   file:_svg('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>'),
   fire:_svg('<path d="M12 2s4 4 4 8a4 4 0 0 1-8 0c0-1 .5-2 1-3-2 1-4 3-4 6a7 7 0 0 0 14 0c0-5-7-11-7-11z"/>'),
+  magic:_svg('<path d="M12 3l1.6 3.9L17.5 8l-3.9 1.1L12 13l-1.6-3.9L6.5 8l3.9-1.1z"/><path d="M5 15v4M3 17h4M18 14v3M16.5 15.5h3"/>'),
+  check:_svg('<polyline points="20 6 9 17 4 12"/>'),
+  doc:_svg('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/>'),
+  search:_svg('<circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.5" y2="16.5"/>'),
+  image:_svg('<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/>'),
+  align:_svg('<line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="14" y2="18"/>'),
+  help:_svg('<circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 1 1 4.5 2.6c-.9.6-1.6 1.1-1.6 2.4"/><line x1="12" y1="17" x2="12.01" y2="17"/>'),
+  mega:_svg('<path d="M3 11v2a1 1 0 0 0 1 1h2l4 4V6L6 10H4a1 1 0 0 0-1 1z"/><path d="M15 8a5 5 0 0 1 0 8"/>'),
+  puzzle:_svg('<path d="M9 4a2 2 0 1 1 4 0h3a1 1 0 0 1 1 1v3a2 2 0 1 1 0 4v3a1 1 0 0 1-1 1h-3a2 2 0 1 0-4 0H6a1 1 0 0 1-1-1v-3a2 2 0 1 0 0-4V5a1 1 0 0 1 1-1z"/>'),
+  eye:_svg('<path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/>'),
+  shield:_svg('<path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6z"/>'),
+  link:_svg('<path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/>'),
+  clock:_svg('<circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/>'),
+  menu:_svg('<line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>'),
 };
 const ST = { new:'未対応', replied:'対応中', done:'完了' };
 const CAT = { news:'お知らせ', magazine:'HR Magazine', seido:'制度・法改正情報', press:'プレス' };
@@ -384,7 +449,10 @@ function selInfo(){ const n=checkedIds().length, e=$('#selcnt'); if(e) e.textCon
 async function bulkDelete(base, after){ const ids=checkedIds(); if(!ids.length){ alert('行を選択してください（左のチェックボックス）'); return; } if(!confirm('選択した '+ids.length+' 件を削除しますか？'))return; for(const id of ids){ try{ await api(base+'/'+id,{method:'DELETE'}); }catch(e){} } after(); }
 
 async function boot(){ const me=await(await api('/api/me')).json(); if(me.user) showApp(me.user); else showLogin(); }
+function openDrawer(){ const s=document.querySelector('.side'); if(s)s.classList.add('open'); const o=$('#sideOv'); if(o)o.classList.add('on'); }
+function closeDrawer(){ const s=document.querySelector('.side'); if(s)s.classList.remove('open'); const o=$('#sideOv'); if(o)o.classList.remove('on'); }
 async function showLogin(){
+  document.body.classList.remove('app-on');
   $('#app').style.display='none'; $('#login').style.display='flex';
   const cfg=await(await api('/api/config')).json();
   if(!cfg.googleClientId){ $('#lerr').textContent='GOOGLE_CLIENT_ID chưa cấu hình'; return; }
@@ -406,16 +474,18 @@ function canMail(){ return !!(PERM.isAdmin||PERM.mail_enabled); }
 const C=(cond,html)=>cond?html:'';
 function showApp(user){
   CURRENT_USER=user;
+  document.body.classList.add('app-on');
   $('#login').style.display='none'; $('#app').style.display='grid';
   $('#me').innerHTML=(user.picture?`<img src="${user.picture}" referrerpolicy="no-referrer">`:'')+`<span class="who">${esc(user.name||user.email)}</span><div class="logout" id="logout">ログアウト</div>`;
   $('#logout').onclick=async()=>{ await api('/api/logout',{method:'POST'}); location.reload(); };
-  document.querySelectorAll('.nav a').forEach(a=>a.onclick=()=>go(a.dataset.page));
+  document.querySelectorAll('.nav a').forEach(a=>a.onclick=()=>{ closeDrawer(); go(a.dataset.page); });
   if(localStorage.getItem('sideCollapsed')==='1') $('#app').classList.add('collapsed');
   $('#menuBtn').onclick=()=>{ const c=$('#app').classList.toggle('collapsed'); localStorage.setItem('sideCollapsed',c?'1':'0'); };
+  if($('#mMenu')) $('#mMenu').onclick=openDrawer;
   refreshBadge();
   Promise.all([loadPerm(),loadCats()]).then(()=>{ if($('#navUsers')) $('#navUsers').style.display=PERM.isAdmin?'':'none'; go('dashboard'); });
 }
-function setActive(p){ document.querySelectorAll('.nav a').forEach(a=>a.classList.toggle('active',a.dataset.page===p)); }
+function setActive(p){ document.querySelectorAll('.nav a').forEach(a=>a.classList.toggle('active',a.dataset.page===p)); const act=document.querySelector('.nav a[data-page="'+p+'"] .label'); const mt=$('#mtitle'); if(mt) mt.textContent=act?act.textContent:''; }
 async function refreshBadge(){ try{ const s=await(await api('/api/stats')).json(); const nb=$('#nbInq');
   if(s.inquiriesNew>0){nb.style.display='inline-block';nb.textContent=s.inquiriesNew;}else nb.style.display='none'; }catch(e){} }
 function go(page){ setActive(page);
@@ -642,7 +712,7 @@ async function renderEditor(id){
   const tg=(k,label,on)=>`<label class="tgl"><input type="checkbox" id="${k}"${on?' checked':''}><span class="sw"></span>${esc(label)}</label>`;
   const basic=`
     <div class="efg"><label>タイトル <span style="color:#e23b3b">*</span></label><input id="f_title" value="${esc(p.title)}" placeholder="記事のタイトル"></div>
-    <div class="efg"><label>スラッグ（URL）</label><div style="display:flex;gap:8px"><input id="f_slug" value="${esc(p.slug)}" placeholder="article-url"><button class="btn" id="autoslug" title="タイトルから生成">✨</button></div></div>
+    <div class="efg"><label>スラッグ（URL）</label><div style="display:flex;gap:8px"><input id="f_slug" value="${esc(p.slug)}" placeholder="article-url"><button class="btn" id="autoslug" title="タイトルから生成">${IC.magic}</button></div></div>
     <div class="jgrid">
       <div class="efg"><label>カテゴリ</label><div style="display:flex;gap:8px"><select id="f_cat">${catOpts}</select><button class="btn" id="catbtn2">管理</button></div></div>
       <div class="efg"><label>サブカテゴリ</label><input id="f_subcat" value="${esc(p.subcategory)}"></div>
@@ -696,18 +766,18 @@ async function renderEditor(id){
     <div class="efg"><label>ダウンロード資料（PDF URL）</label><input id="f_dlpdf" value="${esc(p.download_pdf)}" placeholder="https://…/資料.pdf"></div>
     <div>${tg('f_consult','記事末尾に相談予約フォームを表示',p.consult_block)}</div>`;
   $('#main').innerHTML=`<div class="h1">${id?'記事を編集':'記事を作成'}</div><div class="crumb">SEO標準エディタ（公開先: biglight.jp/news/）</div>
-    ${epanel('📄','基本情報','',basic,true)}
-    ${epanel('🔍','SEO設定','RankMath',seo,true)}
-    ${epanel('🖼','アイキャッチ画像','',cover,true)}
-    ${epanel('🔗','Open Graph / SNS','',og,false)}
-    ${epanel('📝','抜粋（Summary）','',`<div class="efg" style="margin-bottom:0"><label>抜粋 <span class="hint">（一覧・SNSに表示・1〜2文）</span></label><textarea id="f_excerpt" style="min-height:80px">${esc(p.excerpt)}</textarea></div>`,false)}
-    ${epanel('📃','本文エディター','Rich Text',bodyPanel,true)}
-    ${epanel('❓','FAQ','Schema自動',`<div id="faqList"></div><button class="addrow" id="faqAdd">＋ FAQを追加</button>`,false)}
-    ${epanel('🔗','関連コンテンツ','',related,false)}
-    ${epanel('📣','CTA ブロック','',`<div id="ctaList"></div><button class="addrow" id="ctaAdd">＋ CTAを追加</button>`,false)}
-    ${epanel('🧩','構造化データ（JSON-LD）','自動生成',jld,false)}
-    ${epanel('🔎','Google プレビュー','',`<div class="serp"><div class="serp-url">biglight.jp › news › <span id="sp_slug">slug</span></div><div class="serp-title" id="sp_title">タイトル</div><div class="serp-desc" id="sp_desc"></div></div>`,true)}
-    ${epanel('🛡','SEOスコア / チェックリスト','',`<div class="scorecard"><div class="ring" id="seoRing"><b id="ringN">0<small>/100</small></b></div><div style="flex:1;min-width:260px"><div id="seoVerdict" style="font-weight:800;margin-bottom:4px"></div><ul class="chk2" id="chkList" style="margin:0;padding:0"></ul></div></div>`,true)}
+    ${epanel(IC.doc,'基本情報','',basic,true)}
+    ${epanel(IC.search,'SEO設定','RankMath',seo,true)}
+    ${epanel(IC.image,'アイキャッチ画像','',cover,true)}
+    ${epanel(IC.link,'Open Graph / SNS','',og,false)}
+    ${epanel(IC.align,'抜粋（Summary）','',`<div class="efg" style="margin-bottom:0"><label>抜粋 <span class="hint">（一覧・SNSに表示・1〜2文）</span></label><textarea id="f_excerpt" style="min-height:80px">${esc(p.excerpt)}</textarea></div>`,false)}
+    ${epanel(IC.file,'本文エディター','Rich Text',bodyPanel,true)}
+    ${epanel(IC.help,'FAQ','Schema自動',`<div id="faqList"></div><button class="addrow" id="faqAdd">＋ FAQを追加</button>`,false)}
+    ${epanel(IC.link,'関連コンテンツ','',related,false)}
+    ${epanel(IC.mega,'CTA ブロック','',`<div id="ctaList"></div><button class="addrow" id="ctaAdd">＋ CTAを追加</button>`,false)}
+    ${epanel(IC.puzzle,'構造化データ（JSON-LD）','自動生成',jld,false)}
+    ${epanel(IC.eye,'Google プレビュー','',`<div class="serp"><div class="serp-url">biglight.jp › news › <span id="sp_slug">slug</span></div><div class="serp-title" id="sp_title">タイトル</div><div class="serp-desc" id="sp_desc"></div></div>`,true)}
+    ${epanel(IC.shield,'SEOスコア / チェックリスト','',`<div class="scorecard"><div class="ring" id="seoRing"><b id="ringN">0<small>/100</small></b></div><div style="flex:1;min-width:260px"><div id="seoVerdict" style="font-weight:800;margin-bottom:4px"></div><ul class="chk2" id="chkList" style="margin:0;padding:0"></ul></div></div>`,true)}
     <div class="estatusbar">
       <button class="btn" id="back">${IC.back} 一覧へ</button>
       <span id="msg" class="sub" style="margin-left:6px"></span>
@@ -1160,7 +1230,7 @@ function _smAttChecks(cls,selIds){
   return groups.map(g=>{ const open=g.files.some(f=>sel.has(String(f.id)));
     return `<div class="attgrp">
       <div class="attgrp-h" onclick="const b=this.nextElementSibling;const o=b.style.display==='none';b.style.display=o?'':'none';this.querySelector('.arw').textContent=o?'▾':'▸'"><span class="arw">${open?'▾':'▸'}</span>${IC.tag} ${esc(g.c)}<span class="sub" style="font-weight:600">${g.files.length}件</span></div>
-      <div style="display:${open?'':'none'};padding:7px 10px"><div style="display:flex;flex-wrap:wrap;gap:8px">${g.files.map(f=>`<label class="attpick"><input type="checkbox" class="${cls}" value="${f.id}" ${sel.has(String(f.id))?'checked':''}> ${_smMatType(f)==='link'?'🔗':'📄'} ${esc(f.name)}</label>`).join('')}</div></div>
+      <div style="display:${open?'':'none'};padding:7px 10px"><div style="display:flex;flex-wrap:wrap;gap:8px">${g.files.map(f=>`<label class="attpick"><input type="checkbox" class="${cls}" value="${f.id}" ${sel.has(String(f.id))?'checked':''}> ${_smMatType(f)==='link'?IC.ext:IC.file} ${esc(f.name)}</label>`).join('')}</div></div>
     </div>`; }).join('');
 }
 
@@ -1240,7 +1310,7 @@ function smcPreview(){
     <div class="preview" style="max-height:60vh;overflow-y:auto">
       <div class="sub">宛先: ${d.recip?esc((d.recip.email||'（未登録）')+' — '+(d.recip.name||d.recip.company)):'未選択'}</div>
       <div class="pv-subj">件名: ${esc(d.subject)}</div><div class="pv-body">${esc(d.body)}</div>
-      ${d.fileIds.length?`<div class="sub" style="margin-top:8px">📎 添付ファイル: ${esc(d.atts.filter(m=>m.filename).map(m=>m.name).join(', '))}</div>`:''}
+      ${d.fileIds.length?`<div class="sub" style="margin-top:8px;display:flex;align-items:center;gap:5px">${IC.file} 添付ファイル: ${esc(d.atts.filter(m=>m.filename).map(m=>m.name).join(', '))}</div>`:''}
     </div>
     <div class="modal-actions"><button class="btn" onclick="smcRestore()">← 編集に戻る</button><button class="btn" style="background:#16a34a;border-color:#16a34a;color:#fff" onclick="smSendFromPreview()">${IC.send} 送信</button></div>`);
 }
@@ -1313,14 +1383,14 @@ async function smBulkSend(i){
   try{
     const resp=await api('/api/mail/send',{method:'POST',body:JSON.stringify({to:r.p.email,toName:r.p.name||r.p.company,recipientKey:r.p.key,subject:r.subject,body:r.body,attachIds:r.fileIds,templateId:r.tpl?r.tpl.id:null,templateName:r.tpl?r.tpl.name:'',att:r.att,note:'一括送信'})});
     const tr=document.getElementById('smbr-'+i);
-    if(resp.ok){ if(tr) tr.style.opacity='.55'; if(btn){ btn.textContent='✅ 済'; btn.style.background='#94a3b8'; btn.style.borderColor='#94a3b8'; } }
+    if(resp.ok){ if(tr) tr.style.opacity='.55'; if(btn){ btn.innerHTML=IC.check+' 済'; btn.style.background='#94a3b8'; btn.style.borderColor='#94a3b8'; } }
     else { const j=await resp.json(); if(btn){ btn.disabled=false; btn.textContent='再送'; } alert('失敗: '+(j.error||'')); }
   }catch(e){ if(btn){ btn.disabled=false; btn.textContent='再送'; } alert('送信に失敗しました'); }
 }
 
 /* ===== ユーザー管理 + 権限 + GAS ===== */
 const ROLE_LABEL={admin:'Admin',manager:'Manager',staff:'Staff',viewer:'Viewer'};
-const STATUS_LABEL={pending:'⏳ 承認待ち',active:'✅ 有効',disabled:'⛔ 無効'};
+const STATUS_LABEL={pending:'承認待ち',active:'有効',disabled:'無効'};
 const GAS_SCRIPT=`// Google Apps Script — Gmail送信 Web App
 // 1. script.google.com → 新しいプロジェクト → このコードを貼り付け
 // 2. デプロイ → 新しいデプロイ → ウェブアプリ → 実行者:自分 → アクセス:全員 → デプロイ
