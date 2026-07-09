@@ -8,6 +8,15 @@ const BASE = 'https://biglight.jp';
 const FALLBACK_CAT = { news: 'お知らせ', magazine: 'HR Magazine', seido: '制度・法改正情報', press: 'プレス' };
 
 const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+// meta 用 SVG ラインアイコン（絵文字の置き換え）
+const mi = d => `<svg class="mi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+const MI = {
+  cal: mi('<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>'),
+  upd: mi('<path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.5 9a9 9 0 0 1 14.9-3.4L23 10M1 14l4.6 4.4A9 9 0 0 0 20.5 15"/>'),
+  pen: mi('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>'),
+  book: mi('<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>'),
+  eye: mi('<path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/>')
+};
 function ymd(d) { if (!d) return ''; const t = new Date(d); const p = n => String(n).padStart(2, '0'); return `${t.getFullYear()}.${p(t.getMonth() + 1)}.${p(t.getDate())}`; }
 function iso(d) { return d ? new Date(d).toISOString() : ''; }
 function tagsOf(p) { return String(p.tags || '').split(',').map(s => s.trim()).filter(Boolean); }
@@ -110,6 +119,7 @@ function head(opts) {
 .nconsult .btn-primary{display:inline-block;background:#fff;color:#0f4c81;padding:12px 30px;border-radius:10px;font-weight:800;text-decoration:none}
 .ndl{margin:24px 0}.nrelated{margin:30px 0}.nrelated h3{font-size:18px;color:#0f4c81;margin-bottom:10px}
 .nrelated ul{padding-left:20px}.nrelated li{margin:6px 0}
+.mi{width:14px;height:14px;vertical-align:-2px;margin-right:4px;stroke:currentColor;flex-shrink:0}
 </style>
 ${opts.jsonld || ''}
 </head>
@@ -214,7 +224,7 @@ function card(p, map) {
         <div class="ncard-meta"><span class="ncat ${esc(p.category)}">${esc(catName(map, p.category))}</span><span class="ndate">${ymd(p.published_at)}</span></div>
         <h3>${esc(p.title)}</h3>
         <p>${esc((p.excerpt || '').slice(0, 90))}</p>
-        <div class="ncard-foot"><span>📖 約${rt}分</span><span>✍ ${esc(p.author || 'BIGLIGHT編集部')}</span></div>
+        <div class="ncard-foot"><span>${MI.book}約${rt}分</span><span>${MI.pen}${esc(p.author || 'BIGLIGHT編集部')}</span></div>
       </div>
     </a>`;
 }
@@ -276,11 +286,11 @@ function articleHTML(p, map) {
   <span class="ncat ${esc(p.category)}">${esc(catName(map, p.category))}</span>
   <h1>${esc(p.title)}</h1>
   <div class="nmeta">
-    <span>📅 公開 ${ymd(p.published_at)}</span>
-    ${updated ? `<span>🔄 更新 ${ymd(p.updated_at)}</span>` : ''}
-    <span>✍ ${esc(author)}</span>
-    <span>📖 約${rt}分で読めます</span>
-    <span>👁 <span id="vcount">${(p.views || 0).toLocaleString()}</span> views</span>
+    <span>${MI.cal}公開 ${ymd(p.published_at)}</span>
+    ${updated ? `<span>${MI.upd}更新 ${ymd(p.updated_at)}</span>` : ''}
+    <span>${MI.pen}${esc(author)}</span>
+    <span>${MI.book}約${rt}分で読めます</span>
+    <span>${MI.eye}<span id="vcount">${(p.views || 0).toLocaleString()}</span> views</span>
   </div>
   ${p.cover_image ? `<img class="ncover" src="${esc(p.cover_image)}" alt="${esc(p.cover_alt || p.title)}"${p.cover_title ? ` title="${esc(p.cover_title)}"` : ''}>${p.cover_caption ? `<div class="ncaption">${esc(p.cover_caption)}</div>` : ''}` : ''}
   <div class="nbody">${body}</div>
