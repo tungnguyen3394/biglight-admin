@@ -225,6 +225,8 @@
   .attgrp{border:1px solid var(--line);border-radius:8px;margin-bottom:6px;overflow:hidden}
   .attgrp-h{cursor:pointer;display:flex;align-items:center;gap:8px;background:#f5f8fd;padding:7px 10px;font-size:12px;font-weight:700;color:var(--navy);user-select:none}
   .attgrp-h .arw{font-size:10px}
+  .mform label.attpick{display:flex;margin:0;font-weight:500;color:var(--ink);white-space:nowrap}
+  .mform label.attpick input{width:auto;padding:0}
   .attpick{display:flex;align-items:center;gap:6px;font-size:12px;border:1px solid var(--line);border-radius:8px;padding:4px 9px;cursor:pointer;background:#fff}
   /* modal */
   .modalbg{position:fixed;inset:0;background:rgba(9,20,45,.55);display:none;z-index:200;overflow-y:auto;padding:34px 16px}
@@ -326,12 +328,12 @@
       <a data-page="posts">
         <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="14" y2="17"/></svg>
         <span class="label">お知らせ・Magazine</span></a>
-      <a data-page="salesmail">
-        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
-        <span class="label">営業メール管理</span></a>
       <a data-page="users" id="navUsers" style="display:none">
         <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
         <span class="label">ユーザー管理</span></a>
+      <a data-page="audit" id="navAudit" style="display:none">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6z"/><polyline points="9 12 11 14 15 10"/></svg>
+        <span class="label">監査ログ</span></a>
     </nav>
     <div class="me" id="me"></div>
   </aside>
@@ -467,7 +469,7 @@ async function onCred(resp){ $('#lerr').textContent='';
 }
 let CURRENT_USER=null;
 let PERM={role:'viewer',isAdmin:false,mail_enabled:false,gas_set:false,rolePerms:{}};
-const APPS=[['inquiries','お問い合わせ'],['downloads','資料請求'],['posts','お知らせ・Magazine'],['salesmail','営業メール']];
+const APPS=[['inquiries','お問い合わせ'],['downloads','資料請求'],['posts','お知らせ・Magazine'],['salesmail','メールテンプレート・資料']];
 async function loadPerm(){ try{ PERM=await(await api('/api/perms')).json(); }catch(e){} }
 function can(appKey,action){ if(PERM.isAdmin) return true; const rp=PERM.rolePerms&&PERM.rolePerms[PERM.role]; return !!(rp&&rp[appKey]&&rp[appKey][action]); }
 function canMail(){ return !!(PERM.isAdmin||PERM.mail_enabled); }
@@ -483,7 +485,7 @@ function showApp(user){
   $('#menuBtn').onclick=()=>{ const c=$('#app').classList.toggle('collapsed'); localStorage.setItem('sideCollapsed',c?'1':'0'); };
   if($('#mMenu')) $('#mMenu').onclick=openDrawer;
   refreshBadge();
-  Promise.all([loadPerm(),loadCats()]).then(()=>{ if($('#navUsers')) $('#navUsers').style.display=PERM.isAdmin?'':'none'; go('dashboard'); });
+  Promise.all([loadPerm(),loadCats()]).then(()=>{ ['#navUsers','#navAudit'].forEach(s=>{ if($(s)) $(s).style.display=PERM.isAdmin?'':'none'; }); go('dashboard'); });
 }
 function setActive(p){ document.querySelectorAll('.nav a').forEach(a=>a.classList.toggle('active',a.dataset.page===p)); const act=document.querySelector('.nav a[data-page="'+p+'"] .label'); const mt=$('#mtitle'); if(mt) mt.textContent=act?act.textContent:''; }
 async function refreshBadge(){ try{ const s=await(await api('/api/stats')).json(); const nb=$('#nbInq');
@@ -493,8 +495,8 @@ function go(page){ setActive(page);
   if(page==='inquiries') return renderInquiries();
   if(page==='downloads') return renderDownloads();
   if(page==='posts') return renderPosts();
-  if(page==='salesmail') return renderSalesMail();
   if(page==='users') return renderUsers();
+  if(page==='audit') return renderAudit();
 }
 // bỏ qua click vào input/nút/select/link khi mở chi tiết theo hàng
 function rowClickable(){ document.querySelectorAll('tr.clk').forEach(tr=>{ tr.onclick=e=>{ if(e.target.closest('input,button,select,a,label')) return; const fn=tr.dataset.open; if(fn) window[fn](tr.dataset.id); }; }); }
@@ -528,25 +530,27 @@ async function renderInquiries(){
       <span class="tab on" data-f="all">すべて</span><span class="tab" data-f="new">未対応</span>
       <span class="tab" data-f="replied">対応中</span><span class="tab" data-f="done">完了</span>
       <span id="selcnt" style="margin-left:auto;font-size:12.5px;color:var(--muted);align-self:center"></span>
-      <button class="btn" id="reload">${IC.reload} 更新</button>${C(can('inquiries','del'),`<button class="btn" id="delsel">${IC.trash} 選択削除</button>`)}<button class="btn gold" id="csv">CSV出力</button>
+      <button class="btn" id="reload">${IC.reload} 更新</button>${MAIL_TOOLBAR()}${C(can('inquiries','del'),`<button class="btn" id="delsel">${IC.trash} 選択削除</button>`)}<button class="btn gold" id="csv">CSV出力</button>
     </div><div id="body"></div>`;
+  bindMailToolbar('inquiry',()=>INQ,'inquiries');
   document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{INQF=t.dataset.f;document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x===t));paintInq();});
   $('#reload').onclick=loadInq;
   { const b=$('#delsel'); if(b) b.onclick=()=>bulkDelete('/api/inquiries',loadInq); }
-  $('#csv').onclick=()=>{ const ids=checkedIds(); const rows=ids.length?INQ.filter(r=>ids.includes(String(r.id))):INQ; csv(rows,['id','受信','会社','氏名','メール','電話','状態','内容'],r=>[r.id,fmt(r.created_at),r.company,r.name,r.email,r.tel,ST[r.status],r.message],'inquiries.csv'); };
+  $('#csv').onclick=()=>{ const ids=checkedIds(); const rows=ids.length?INQ.filter(r=>ids.includes(String(r.id))):INQ; csv(rows,['id','受信','会社','氏名','メール','電話','状態','内容','最終メール送信'],r=>[r.id,fmt(r.created_at),r.company,r.name,r.email,r.tel,ST[r.status],r.message,r.last_mail_at?fmt(r.last_mail_at):''],'inquiries.csv','inquiry'); };
   await loadInq();
 }
 async function loadInq(){ $('#body').innerHTML='<div class="empty">読み込み中…</div>';
   try{ INQ=(await(await api('/api/inquiries')).json()).items||[]; }catch(e){INQ=[];} paintInq(); refreshBadge(); }
 function paintInq(){
   const rows=INQ.filter(r=>INQF==='all'||r.status===INQF);
-  if(!rows.length){ $('#body').innerHTML='<div class="tablewrap"><div class="empty">該当する問い合わせはありません。</div></div>'; return; }
-  $('#body').innerHTML=`<div class="tablewrap"><table><thead><tr><th style="width:34px;text-align:center"><input type="checkbox" id="chkall"></th><th class="nowrap">受信日時</th><th>会社 / 氏名</th><th>連絡先</th><th style="width:40%">内容</th><th>状態</th><th>操作</th></tr></thead><tbody>${rows.map(r=>`
+  if(!rows.length){ $('#body').innerHTML='<div class="tablewrap"><div class="empty">該当する問い合わせはありません。</div></div>'; selInfo(); return; }
+  $('#body').innerHTML=`<div class="tablewrap"><table><thead><tr><th style="width:34px;text-align:center"><input type="checkbox" id="chkall"></th><th class="nowrap">受信日時</th><th>会社 / 氏名</th><th>連絡先</th><th style="width:36%">内容</th><th>状態</th><th class="nowrap">メール</th><th>操作</th></tr></thead><tbody>${rows.map(r=>`
     <tr class="clk" data-open="renderInquiryDetail" data-id="${r.id}"><td style="text-align:center"><input type="checkbox" class="rowchk" value="${r.id}"></td><td class="nowrap">${fmt(r.created_at)}</td>
     <td class="nowrap"><b>${esc(r.company)||'—'}</b><div class="sub">${esc(r.name)}</div></td>
     <td class="nowrap">${esc(r.email)}<div class="sub">${esc(r.tel)}</div></td>
     <td class="ell"><span class="rowline">${esc((r.message||'').replace(/\s+/g,' ').trim())||'—'}</span></td>
     <td><span class="pill ${r.status}">${ST[r.status]}</span></td>
+    <td class="nowrap">${mailBadge(r)}</td>
     <td class="nowrap">${C(can('inquiries','edit'),`<select class="st" data-id="${r.id}"><option value="new"${r.status==='new'?' selected':''}>未対応</option><option value="replied"${r.status==='replied'?' selected':''}>対応中</option><option value="done"${r.status==='done'?' selected':''}>完了</option></select>`)}${C(can('inquiries','del'),`<br><button class="del" data-del="${r.id}" style="margin-top:6px">削除</button>`)}${(!can('inquiries','edit')&&!can('inquiries','del'))?'<span class="sub">閲覧のみ</span>':''}</td></tr>`).join('')}</tbody></table></div>`;
   document.querySelectorAll('select.st').forEach(s=>s.onchange=async()=>{ await api('/api/inquiries/'+s.dataset.id,{method:'PATCH',body:JSON.stringify({status:s.value})}); const it=INQ.find(x=>String(x.id)===s.dataset.id); if(it)it.status=s.value; paintInq(); refreshBadge(); });
   document.querySelectorAll('button.del').forEach(b=>b.onclick=async()=>{ if(!confirm('削除しますか？'))return; await api('/api/inquiries/'+b.dataset.del,{method:'DELETE'}); INQ=INQ.filter(x=>String(x.id)!==b.dataset.del); paintInq(); refreshBadge(); });
@@ -554,6 +558,7 @@ function paintInq(){
   bindChkAll();
 }
 async function renderInquiryDetail(id){
+  _detailId=id;
   let r=INQ.find(x=>String(x.id)===String(id));
   if(!r){ try{ INQ=(await(await api('/api/inquiries')).json()).items||[]; r=INQ.find(x=>String(x.id)===String(id)); }catch(e){} }
   if(!r){ renderInquiries(); return; }
@@ -561,6 +566,7 @@ async function renderInquiryDetail(id){
     <div class="backbar">
       <button class="btn" id="back">${IC.back} 一覧へ戻る</button>
       <span class="pill ${r.status}" style="align-self:center">${ST[r.status]}</span>
+      ${C(canMail(),`<button class="btn" style="${MAIL_BTN_CSS}" onclick="openMailCompose('inquiry',['${r.id}'])">${IC.send} メール送信</button>`)}
       ${C(can('inquiries','edit'),`<select class="st" id="dst" style="margin-left:auto">${['new','replied','done'].map(s=>`<option value="${s}"${r.status===s?' selected':''}>${ST[s]}</option>`).join('')}</select>`)}
       ${C(can('inquiries','del'),`<button class="btn red" id="ddel" style="${can('inquiries','edit')?'':'margin-left:auto'}">${IC.trash} 削除</button>`)}
     </div>
@@ -571,8 +577,10 @@ async function renderInquiryDetail(id){
       <div class="drow"><div class="dk">メール</div><div class="dv"><a href="mailto:${esc(r.email)}">${esc(r.email)||'—'}</a></div></div>
       <div class="drow"><div class="dk">電話</div><div class="dv">${esc(r.tel)||'—'}</div></div>
       <div class="drow"><div class="dk">お問い合わせ内容</div><div class="dv">${esc(r.message)||'—'}</div></div>
-    </div>`;
+    </div>
+    ${mailHistoryBox('inquiry',r)}`;
   $('#back').onclick=renderInquiries;
+  loadMailHistory('inquiry',r.id);
   { const s=$('#dst'); if(s) s.onchange=async()=>{ await api('/api/inquiries/'+r.id,{method:'PATCH',body:JSON.stringify({status:s.value})}); r.status=s.value; refreshBadge(); renderInquiryDetail(id); }; }
   { const b=$('#ddel'); if(b) b.onclick=async()=>{ if(!confirm('削除しますか？'))return; await api('/api/inquiries/'+r.id,{method:'DELETE'}); INQ=INQ.filter(x=>String(x.id)!==String(id)); refreshBadge(); renderInquiries(); }; }
 }
@@ -581,34 +589,35 @@ async function renderInquiryDetail(id){
 let DL=[];
 async function renderDownloads(){
   $('#main').innerHTML=`<div class="h1">資料請求 管理</div><div class="crumb">資料ダウンロードフォームからの請求一覧</div>
-    <div class="toolbar"><span id="selcnt" style="margin-left:auto;font-size:12.5px;color:var(--muted);align-self:center"></span><button class="btn" id="reload">${IC.reload} 更新</button>${C(can('downloads','del'),`<button class="btn" id="delsel">${IC.trash} 選択削除</button>`)}<button class="btn gold" id="csv">CSV出力</button></div><div id="body"></div>`;
+    <div class="toolbar"><span id="selcnt" style="margin-left:auto;font-size:12.5px;color:var(--muted);align-self:center"></span><button class="btn" id="reload">${IC.reload} 更新</button>${MAIL_TOOLBAR()}${C(can('downloads','del'),`<button class="btn" id="delsel">${IC.trash} 選択削除</button>`)}<button class="btn gold" id="csv">CSV出力</button></div><div id="body"></div>`;
+  bindMailToolbar('download',()=>DL,'downloads');
   $('#reload').onclick=loadDl;
   { const b=$('#delsel'); if(b) b.onclick=()=>bulkDelete('/api/downloads',loadDl); }
-  $('#csv').onclick=()=>{ const ids=checkedIds(); const rows=ids.length?DL.filter(r=>ids.includes(String(r.id))):DL; csv(rows,['id','日時','会社','氏名','メール','関心内容','備考'],r=>[r.id,fmt(r.created_at),r.company,r.name,r.email,r.interest,r.note],'downloads.csv'); };
+  $('#csv').onclick=()=>{ const ids=checkedIds(); const rows=ids.length?DL.filter(r=>ids.includes(String(r.id))):DL; csv(rows,['id','日時','会社','氏名','メール','関心内容','備考','最終メール送信','送信資料'],r=>[r.id,fmt(r.created_at),r.company,r.name,r.email,r.interest,r.note,r.last_mail_at?fmt(r.last_mail_at):'',r.sent_note||''],'downloads.csv','download'); };
   await loadDl();
 }
 async function loadDl(){ $('#body').innerHTML='<div class="empty">読み込み中…</div>';
   try{ DL=(await(await api('/api/downloads')).json()).items||[]; }catch(e){DL=[];}
-  if(!DL.length){ $('#body').innerHTML='<div class="tablewrap"><div class="empty">まだ資料請求はありません。</div></div>'; return; }
-  $('#body').innerHTML=`<div class="tablewrap"><table><thead><tr><th style="width:34px;text-align:center"><input type="checkbox" id="chkall"></th><th class="nowrap">請求日時</th><th>会社名</th><th>氏名</th><th>メール</th><th>関心内容</th><th>備考</th><th>送信</th><th>操作</th></tr></thead><tbody>${DL.map(r=>`
+  if(!DL.length){ $('#body').innerHTML='<div class="tablewrap"><div class="empty">まだ資料請求はありません。</div></div>'; selInfo(); return; }
+  $('#body').innerHTML=`<div class="tablewrap"><table><thead><tr><th style="width:34px;text-align:center"><input type="checkbox" id="chkall"></th><th class="nowrap">請求日時</th><th>会社名</th><th>氏名</th><th>メール</th><th>関心内容</th><th>備考</th><th class="nowrap">メール</th><th>操作</th></tr></thead><tbody>${DL.map(r=>`
     <tr class="clk" data-open="renderDownloadDetail" data-id="${r.id}"><td style="text-align:center"><input type="checkbox" class="rowchk" value="${r.id}"></td><td class="nowrap">${fmt(r.created_at)}</td><td class="nowrap"><b>${esc(r.company)||'—'}</b></td><td class="nowrap">${esc(r.name)}</td><td class="nowrap">${esc(r.email)}</td>
     <td class="ell" style="max-width:180px"><span class="rowline">${esc(r.interest)||'—'}</span></td><td class="ell" style="max-width:220px"><span class="rowline">${esc((r.note||'').replace(/\s+/g,' ').trim())||'—'}</span></td>
-    <td class="nowrap">${r.sent_at?`<span class="sent-badge">送信済</span>`:'<span class="sub">—</span>'}</td>
+    <td class="nowrap">${mailBadge(r)}</td>
     <td class="nowrap">${C(can('downloads','del'),`<button class="del" data-del="${r.id}">削除</button>`)||'<span class="sub">—</span>'}</td></tr>`).join('')}</tbody></table></div>`;
   document.querySelectorAll('button.del').forEach(b=>b.onclick=async()=>{ if(!confirm('削除しますか？'))return; await api('/api/downloads/'+b.dataset.del,{method:'DELETE'}); DL=DL.filter(x=>String(x.id)!==b.dataset.del); loadDl(); });
   rowClickable();
   bindChkAll();
 }
-let MATS=[];
 async function renderDownloadDetail(id){
+  _detailId=id;
   let r=DL.find(x=>String(x.id)===String(id));
   if(!r){ try{ DL=(await(await api('/api/downloads')).json()).items||[]; r=DL.find(x=>String(x.id)===String(id)); }catch(e){} }
   if(!r){ renderDownloads(); return; }
-  try{ MATS=(await(await api('/api/materials')).json()).items||[]; }catch(e){MATS=[];}
   $('#main').innerHTML=`<div class="h1">資料請求 詳細</div><div class="crumb">請求 ${fmt(r.created_at)}</div>
     <div class="backbar">
       <button class="btn" id="back">${IC.back} 一覧へ戻る</button>
-      ${r.sent_at?`<span class="sent-badge" style="align-self:center">送信済 ${fmt(r.sent_at)}</span>`:''}
+      ${r.last_mail_at?`<span class="sent-badge" style="align-self:center">送信済 ${fmt(r.last_mail_at)}</span>`:''}
+      ${C(canMail(),`<button class="btn" style="${MAIL_BTN_CSS}" onclick="openMailCompose('download',['${r.id}'])">${IC.send} メール送信</button>`)}
       ${C(can('downloads','del'),`<button class="btn red" id="ddel" style="margin-left:auto">${IC.trash} 削除</button>`)}
     </div>
     <div class="detail">
@@ -618,33 +627,12 @@ async function renderDownloadDetail(id){
       <div class="drow"><div class="dk">メール</div><div class="dv"><a href="mailto:${esc(r.email)}">${esc(r.email)||'—'}</a></div></div>
       <div class="drow"><div class="dk">関心内容</div><div class="dv">${esc(r.interest)||'—'}</div></div>
       <div class="drow"><div class="dk">備考</div><div class="dv">${esc(r.note)||'—'}</div></div>
-      ${r.sent_note?`<div class="drow"><div class="dk">送信済み資料</div><div class="dv">${esc(r.sent_note)}</div></div>`:''}
+      ${r.sent_note?`<div class="drow"><div class="dk">最後に送った資料</div><div class="dv">${esc(r.sent_note)}</div></div>`:''}
     </div>
-    <div class="sendbox">
-      <h3>${IC.send} 資料をメールで送信</h3>
-      ${!canMail()?`<p class="sub">メール送信の権限がありません（管理者に許可を依頼してください）。</p>`:MATS.length?`<div style="margin-bottom:10px">${MATS.map(m=>`
-        <label class="matpick"><input type="checkbox" class="matchk" value="${m.id}">
-          <span class="pn">${esc(m.name)}</span>${m.category?`<span class="pc">${esc(m.category)}</span>`:''}
-          <span class="sub" style="margin-left:auto">${m.filename?IC.file:''}${m.link_url?IC.ext:''}</span></label>`).join('')}</div>
-        <div class="fg"><label>メッセージ（任意・本文に追記）</label><textarea id="sendmsg" placeholder="担当者からの一言を追加できます…"></textarea></div>
-        <div class="formbtns"><button class="btn gold" id="sendbtn">${IC.send} ${esc(r.email)} へ送信</button>
-          <span id="sendmsgres" style="font-size:13px;align-self:center"></span></div>`
-        :`<p class="sub">送信できる資料がありません。「資料管理」で追加してください。</p>`}
-    </div>`;
+    ${mailHistoryBox('download',r)}`;
   $('#back').onclick=renderDownloads;
   { const b=$('#ddel'); if(b) b.onclick=async()=>{ if(!confirm('削除しますか？'))return; await api('/api/downloads/'+r.id,{method:'DELETE'}); DL=DL.filter(x=>String(x.id)!==String(id)); renderDownloads(); }; }
-  const sb=$('#sendbtn'); if(sb) sb.onclick=async()=>{
-    const ids=[...document.querySelectorAll('.matchk:checked')].map(c=>c.value);
-    if(!ids.length){ alert('送信する資料を選択してください'); return; }
-    if(!confirm(r.email+' へ資料を送信しますか？')) return;
-    sb.disabled=true; const old=sb.innerHTML; sb.innerHTML='送信中…';
-    try{
-      const resp=await api('/api/downloads/'+r.id+'/send',{method:'POST',body:JSON.stringify({materialIds:ids,message:$('#sendmsg').value.trim()})});
-      const d=await resp.json();
-      if(resp.ok){ $('#sendmsgres').style.color='#1c7a47'; $('#sendmsgres').textContent='✓ 送信しました'; r.sent_at=d.sent_at; r.sent_note=d.sent_note; const it=DL.find(x=>String(x.id)===String(id)); if(it){it.sent_at=d.sent_at;it.sent_note=d.sent_note;} setTimeout(()=>renderDownloadDetail(id),900); }
-      else { $('#sendmsgres').style.color='#e23b3b'; $('#sendmsgres').textContent='失敗: '+(d.error||''); sb.disabled=false; sb.innerHTML=old; }
-    }catch(e){ $('#sendmsgres').style.color='#e23b3b'; $('#sendmsgres').textContent='送信に失敗しました'; sb.disabled=false; sb.innerHTML=old; }
-  };
+  loadMailHistory('download',r.id);
 }
 
 /* ===== お知らせ (posts) ===== */
@@ -676,7 +664,7 @@ async function renderPosts(){
   document.querySelectorAll('button.del[data-del]').forEach(b=>b.onclick=async()=>{ if(!confirm('この記事を削除しますか？'))return; await api('/api/posts/'+b.dataset.del,{method:'DELETE'}); renderPosts(); });
   rowClickable();
   const _ds=$('#delsel'); if(_ds) _ds.onclick=()=>bulkDelete('/api/posts',renderPosts);
-  $('#csv').onclick=()=>{ const ids=checkedIds(); const rows=ids.length?items.filter(p=>ids.includes(String(p.id))):items; csv(rows,['id','slug','タイトル','カテゴリ','状態','閲覧','公開日'],p=>[p.id,p.slug,p.title,catName(p.category),(p.status==='published'?'公開':'下書き'),p.views||0,fmtd(p.published_at)],'posts.csv'); };
+  $('#csv').onclick=()=>{ const ids=checkedIds(); const rows=ids.length?items.filter(p=>ids.includes(String(p.id))):items; csv(rows,['id','slug','タイトル','カテゴリ','状態','閲覧','公開日'],p=>[p.id,p.slug,p.title,catName(p.category),(p.status==='published'?'公開':'下書き'),p.views||0,fmtd(p.published_at)],'posts.csv','posts'); };
   bindChkAll();
 }
 function renderCatMgr(){
@@ -921,48 +909,45 @@ async function renderEditor(id){
   $('#prev').onclick=()=>{ const d=collect(statusVal); openModal(`<h3>プレビュー</h3><div style="max-height:70vh;overflow:auto"><div class="serp" style="margin-bottom:14px"><div class="serp-url">biglight.jp › news › ${esc(d.slug||'slug')}</div><div class="serp-title">${esc(d.seo_title||d.title)}</div><div class="serp-desc">${esc(d.meta_description||d.excerpt)}</div></div>${d.cover_image?`<img src="${esc(d.cover_image)}" style="max-width:100%;border-radius:10px;margin-bottom:12px">`:''}<h2 style="color:var(--navy)">${esc(d.title)}</h2><div style="line-height:1.8">${d.body}</div></div><div class="modal-actions"><button class="btn" onclick="closeModal()">閉じる</button></div>`); };
 }
 
-/* ===== 営業メール管理 (Sales Email Center) ===== */
+/* ===== メールテンプレート・資料（問い合わせ／資料請求 から開く） ===== */
 function fmtSize(b){ if(!b) return '-'; if(b<1024) return b+' B'; if(b<1048576) return (b/1024).toFixed(0)+' KB'; return (b/1048576).toFixed(1)+' MB'; }
 function openModal(html){ $('#modal').innerHTML=html; $('#modalBg').classList.add('show'); $('#modalBg').scrollTop=0; }
-function closeModal(){ $('#modalBg').classList.remove('show'); $('#modal').innerHTML=''; }
-let M={tpls:[],sigs:[],logs:[],drafts:[],mats:[],recips:[],tplCats:[],fileCats:[]};
+function closeModal(){ if(MC&&MC.sending&&!confirm('送信中です。閉じると残りは送信されません。閉じますか？')) return; $('#modalBg').classList.remove('show'); $('#modal').innerHTML=''; }
+let M={tpls:[],sigs:[],logs:[],mats:[],tplCats:[],fileCats:[]};
 let SM_TAB='tpl', SM_Q='', SM_CAT='', SM_FILE_Q='', SM_FILE_CAT2='', SM_FILE_SORT='cat';
-let _smDraftId=null, _smAutoTimer=null, _smRepId=null;
+let _smRepId=null, SM_BACK='inquiries';
 const SM_VARS=[['{{company_name}}','会社名'],['{{contact_name}}','担当者'],['{{today}}','本日日付'],['{{sales_name}}','差出人名'],['{{phone}}','電話番号'],['{{email}}','メール'],['{{industry}}','職種'],['{{address}}','住所']];
-function _smNow(){ return fmt(new Date()); }
-function _smDate(){ const d=new Date(),p=n=>String(n).padStart(2,'0'); return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate()); }
 function _smSender(){ return (CURRENT_USER&&(CURRENT_USER.name||CURRENT_USER.email))||''; }
 function smFillVars(text,p){ p=p||{}; const map={'{{company_name}}':p.company||'','{{contact_name}}':p.name||'','{{today}}':new Date().toLocaleDateString('ja-JP'),'{{sales_name}}':_smSender(),'{{phone}}':p.tel||'','{{email}}':p.email||'','{{industry}}':p.industry||'','{{address}}':p.address||''}; return String(text||'').replace(/\{\{\w+\}\}/g,m=>(m in map)?map[m]:m); }
 function _smSigDefault(){ return M.sigs.find(s=>s.is_default)||M.sigs[0]||null; }
-function _smRecip(key){ return M.recips.find(r=>r.key===key)||null; }
 function _smMatType(m){ return (m.link_url&&!m.filename)?'link':'file'; }
 
 async function loadMail(){
   const g=p=>p.then(r=>r.json()).catch(()=>({}));
-  const [tpl,sig,log,dr,mat,rec,meta]=await Promise.all([
-    g(api('/api/mail/templates')),g(api('/api/mail/signatures')),g(api('/api/mail/logs')),g(api('/api/mail/drafts')),g(api('/api/materials')),g(api('/api/recipients')),g(api('/api/mail/meta'))]);
-  M.tpls=tpl.items||[]; M.sigs=sig.items||[]; M.logs=log.items||[]; M.drafts=dr.items||[]; M.mats=mat.items||[]; M.recips=rec.items||[];
+  const [tpl,sig,log,mat,meta]=await Promise.all([
+    g(api('/api/mail/templates')),g(api('/api/mail/signatures')),g(api('/api/mail/logs')),g(api('/api/materials')),g(api('/api/mail/meta'))]);
+  M.tpls=tpl.items||[]; M.sigs=sig.items||[]; M.logs=log.items||[]; M.mats=mat.items||[];
   M.tplCats=(meta&&meta.tpl_cats)||[]; M.fileCats=(meta&&meta.file_cats)||[];
   if(!M.fileCats.length) M.fileCats=['会社案内','候補者名簿','その他'];
   if(!M.tplCats.length) M.tplCats=['新規営業','その他'];
 }
-async function renderSalesMail(){ $('#main').innerHTML='<div class="h1">営業メール管理</div><div class="crumb">読み込み中…</div>'; await loadMail(); paintSalesMail(); }
+async function renderMailLib(back,tab){ SM_BACK=back||SM_BACK; if(tab) SM_TAB=tab; $('#main').innerHTML='<div class="h1">メールテンプレート・資料</div><div class="crumb">読み込み中…</div>'; await loadMail(); paintSalesMail(); }
 async function reloadMail(){ await loadMail(); paintSalesMail(); }
 function smTab(t){ SM_TAB=t; paintSalesMail(); }
 function paintSalesMail(){
-  const tabs=[['tpl','テンプレート'],['sig','署名'],['file','添付資料'],['log','送信履歴'],['draft','下書き'],['act','活動サマリー']];
+  const tabs=[['tpl','テンプレート'],['sig','署名'],['file','添付資料（PDF）'],['log','送信履歴'],['act','活動サマリー']];
   let body='';
   if(SM_TAB==='tpl') body=_smTplList();
   else if(SM_TAB==='sig') body=_smSigList();
   else if(SM_TAB==='file') body=_smFileList();
   else if(SM_TAB==='log') body=_smLogList();
-  else if(SM_TAB==='act') body=_smActList();
-  else body=_smDraftList();
-  $('#main').innerHTML=`<div class="h1">営業メール管理</div><div class="crumb">テンプレート・署名・添付資料でメールを作成し、資料請求／お問い合わせのお客様へ送信</div>
+  else body=_smActList();
+  const backLabel=SM_BACK==='downloads'?'資料請求':'お問い合わせ';
+  $('#main').innerHTML=`<div class="h1">メールテンプレート・資料</div><div class="crumb">${backLabel}一覧でお客様にチェック →「メール送信」で使うテンプレート・署名・添付PDFを管理します</div>
+    <div class="backbar"><button class="btn" onclick="go('${SM_BACK}')">${IC.back} ${backLabel}へ戻る</button>
+      <button class="btn" style="margin-left:auto" onclick="smMailSetting()">${IC.send} メール設定（自分のGmail）</button></div>
     <div class="toolbar" style="margin-bottom:16px">
-      ${tabs.map(([k,l])=>`<button class="smtab btn ${SM_TAB===k?'navy':''}" onclick="smTab('${k}')">${l}${k==='draft'&&M.drafts.length?` (${M.drafts.length})`:''}</button>`).join('')}
-      <button class="btn" style="margin-left:auto" onclick="smMailSetting()">${IC.send} メール設定</button>
-      ${C(canMail(),`<button class="btn" style="background:#16a34a;border-color:#16a34a;color:#fff;font-weight:700" onclick="openSalesCompose()">${IC.send} メール作成</button>`)}
+      ${tabs.map(([k,l])=>`<button class="smtab btn ${SM_TAB===k?'navy':''}" onclick="smTab('${k}')">${l}</button>`).join('')}
     </div>
     <div id="smbody">${body}</div>`;
 }
@@ -990,7 +975,6 @@ function _smTplList(){
       <div style="font-size:12px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">件名: ${esc(t.subject)}</div>
       <div style="font-size:11.5px;color:var(--muted);white-space:pre-wrap;max-height:54px;overflow:hidden">${esc(String(t.body||'').slice(0,120))}${t.body&&t.body.length>120?'…':''}</div>
       <div style="display:flex;gap:12px;font-size:12px;margin-top:2px;flex-wrap:wrap">
-        ${C(canMail(),`<a onclick="openSalesCompose(null,null,'${t.id}')" style="cursor:pointer;color:#16a34a;font-weight:700">${IC.send} 送信</a>`)}
         <a onclick="smTplPreview('${t.id}')" style="cursor:pointer;color:var(--blue)">プレビュー</a>
         ${C(can('salesmail','edit'),`<a onclick="smTplForm('${t.id}')" style="cursor:pointer;color:var(--blue)">編集</a>`)}
         ${C(can('salesmail','create'),`<a onclick="smTplDup('${t.id}')" style="cursor:pointer;color:var(--blue)">複製</a>`)}
@@ -1002,7 +986,7 @@ async function smTplFav(id){ const t=M.tpls.find(x=>String(x.id)===String(id)); 
 async function smTplDup(id){ const t=M.tpls.find(x=>String(x.id)===String(id)); if(!t)return; await api('/api/mail/templates',{method:'POST',body:JSON.stringify({name:t.name+'（コピー）',category:t.category,subject:t.subject,body:t.body,signature_id:t.signature_id,attach_ids:t.attach_ids})}); reloadMail(); }
 async function smTplDel(id){ if(!confirm('このテンプレートを削除しますか？'))return; await api('/api/mail/templates/'+id,{method:'DELETE'}); reloadMail(); }
 function _smVarBtns(target){ return `<div style="display:flex;gap:6px;flex-wrap:wrap;margin:5px 0 8px">${SM_VARS.map(([v,l])=>`<a onclick="smInsertVar('${target}','${v}')" title="${l}" class="varchip">${v}<span> ${l}</span></a>`).join('')}</div>`; }
-function smInsertVar(targetId,v){ const el=document.getElementById(targetId); if(!el)return; const s=el.selectionStart||0,e=el.selectionEnd||0; el.value=el.value.slice(0,s)+v+el.value.slice(e); el.focus(); el.selectionStart=el.selectionEnd=s+v.length; if(targetId==='smcBody')smAutoSaveKick(); }
+function smInsertVar(targetId,v){ const el=document.getElementById(targetId); if(!el)return; const s=el.selectionStart||0,e=el.selectionEnd||0; el.value=el.value.slice(0,s)+v+el.value.slice(e); el.focus(); el.selectionStart=el.selectionEnd=s+v.length; }
 function smTplForm(id){
   const t=id?M.tpls.find(x=>String(x.id)===String(id)):null;
   openModal(`<h3>${t?'テンプレート編集':'テンプレート追加'}</h3>
@@ -1028,7 +1012,7 @@ async function smTplSave(id){
 }
 function smTplPreview(id){
   const t=M.tpls.find(x=>String(x.id)===String(id)); if(!t)return;
-  const sample=M.recips[0]||{company:'サンプル株式会社',name:'山田 太郎',tel:'052-000-0000',email:'sample@example.com',industry:'製造業',address:'愛知県名古屋市…'};
+  const sample=_mcRows()[0]||{company:'サンプル株式会社',name:'山田 太郎',tel:'052-000-0000',email:'sample@example.com',industry:'製造業',address:'愛知県名古屋市…'};
   const sig=M.sigs.find(s=>String(s.id)===String(t.signature_id))||_smSigDefault();
   const body=smFillVars(t.body,sample)+(sig?'\n\n'+smFillVars(sig.body,sample):'');
   openModal(`<h3>プレビュー — ${esc(t.name)}</h3>
@@ -1036,7 +1020,7 @@ function smTplPreview(id){
       <div style="font-size:12px;color:var(--muted);margin-bottom:6px">※ 変数は1件目の宛先（または例）で置換したイメージです</div>
       <div class="preview"><div class="pv-subj">件名: ${esc(smFillVars(t.subject,sample))}</div><div class="pv-body">${esc(body)}</div></div>
     </div>
-    <div class="modal-actions"><button class="btn" onclick="closeModal()">閉じる</button><button class="btn" style="background:#16a34a;border-color:#16a34a;color:#fff" onclick="openSalesCompose(null,null,'${t.id}')">${IC.send} このテンプレで送信</button></div>`);
+    <div class="modal-actions"><button class="btn" onclick="closeModal()">閉じる</button></div>`);
 }
 /* テンプレートカテゴリ管理 */
 function smTplCatManage(){
@@ -1090,31 +1074,16 @@ async function smSigDel(id){ if(!confirm('この署名を削除しますか？')
 function _smLogList(){
   const l=M.logs;
   return `<div class="tablewrap">${l.length===0?'<div class="empty">送信履歴がありません。</div>':`
-    <table><thead><tr><th class="nowrap">日時</th><th class="nowrap">差出人</th><th>宛先</th><th>メール</th><th>件名</th><th class="nowrap">テンプレート</th><th>状態</th><th>添付</th><th>操作</th></tr></thead>
+    <table><thead><tr><th class="nowrap">日時</th><th class="nowrap">差出人</th><th>宛先</th><th>メール</th><th>件名</th><th class="nowrap">テンプレート</th><th>種別</th><th>添付</th><th>操作</th></tr></thead>
     <tbody>${l.map(g=>`<tr>
       <td class="nowrap">${fmt(g.created_at)}</td><td class="nowrap">${esc(g.sender)||'-'}</td>
       <td class="nowrap">${esc(g.to_name)||'-'}</td><td class="nowrap">${esc(g.to_email)}</td>
       <td class="ell"><span class="rowline">${esc(g.subject)||'-'}</span></td>
-      <td class="nowrap">${esc(g.template_name)||'-'}</td><td><span class="pill done">${esc(g.status||'送信')}</span></td>
+      <td class="nowrap">${esc(g.template_name)||'-'}</td><td class="nowrap">${g.recipient_kind==='download'?'資料請求':g.recipient_kind==='inquiry'?'問い合わせ':'-'}${g.batch_id?' <span class="sub">一括</span>':''}</td>
       <td class="ell" style="max-width:160px"><span class="rowline sub">${esc(g.att)||'-'}</span></td>
       <td class="nowrap">${C(can('salesmail','del'),`<button class="del" onclick="smLogDel('${g.id}')">削除</button>`)||'<span class="sub">—</span>'}</td></tr>`).join('')}</tbody></table>`}</div>`;
 }
 async function smLogDel(id){ if(!confirm('この履歴を削除しますか？'))return; await api('/api/mail/logs/'+id,{method:'DELETE'}); reloadMail(); }
-
-/* ---- 下書き ---- */
-function _smDraftList(){
-  const l=M.drafts;
-  return `<div class="tablewrap">${l.length===0?'<div class="empty">下書きがありません。メール作成中に自動保存されます。</div>':`
-    <table><thead><tr><th class="nowrap">更新日時</th><th>宛先</th><th>件名</th><th>本文（先頭）</th><th>操作</th></tr></thead>
-    <tbody>${l.map(d=>{ const p=_smRecip(d.recipient_key); return `<tr>
-      <td class="nowrap">${fmt(d.updated_at)}</td>
-      <td class="nowrap">${p?esc(p.name||p.company):'-'}</td>
-      <td>${esc(d.subject)||'（無題）'}</td>
-      <td class="ell"><span class="rowline sub">${esc(String(d.body||'').slice(0,60))}</span></td>
-      <td class="nowrap"><a class="lnk" onclick="openSalesCompose('${d.recipient_key||''}','${d.id}')">再開</a><button class="del" onclick="smDraftDel('${d.id}')">削除</button></td>
-    </tr>`;}).join('')}</tbody></table>`}</div>`;
-}
-async function smDraftDel(id){ if(!confirm('この下書きを削除しますか？'))return; await api('/api/mail/drafts/'+id,{method:'DELETE'}); reloadMail(); }
 
 /* ---- 添付資料ライブラリ ---- */
 function smFileSetQ(v){ SM_FILE_Q=v; $('#smbody').innerHTML=_smFileList(); const i=$('#smFileQ'); if(i){ i.focus(); try{const L=i.value.length;i.setSelectionRange(L,L);}catch(e){} } }
@@ -1224,7 +1193,7 @@ async function smFileCatDel(i){ const name=M.fileCats[i]; if(name==='その他')
 /* 添付資料チェック（カテゴリ折りたたみ） */
 function _smAttChecks(cls,selIds){
   const sel=new Set((selIds||[]).map(String));
-  if(!M.mats.length) return `<div class="sub" style="padding:6px 2px">資料は「添付資料」タブで登録できます。</div>`;
+  if(!M.mats.length) return `<div class="sub" style="padding:6px 2px">資料は「テンプレート・資料」→「添付資料（PDF）」で登録、またはこの画面の「PDFを追加」から登録できます。</div>`;
   const groups=M.fileCats.map(c=>({c,files:M.mats.filter(f=>(f.category||'その他')===c)})).filter(g=>g.files.length);
   const other=M.mats.filter(f=>!M.fileCats.includes(f.category||'その他')); if(other.length) groups.push({c:'その他',files:other});
   return groups.map(g=>{ const open=g.files.some(f=>sel.has(String(f.id)));
@@ -1250,142 +1219,280 @@ function _smActList(){
     <tbody>${rows.length?rows.map(r=>`<tr><td style="font-weight:600">${esc(r.n)}</td><td style="text-align:right;font-weight:700;color:var(--navy)">${r.mails}</td><td class="nowrap">${r.last?fmt(r.last):'-'}</td></tr>`).join(''):'<tr><td colspan="3" class="empty">活動データがありません</td></tr>'}</tbody></table></div>`;
 }
 
-/* ---- メール作成（単発 / 一括） ---- */
-function _smRecipOptions(sel){
-  return M.recips.map(p=>`<option value="${p.key}" ${p.key===sel?'selected':''}>${esc((p.name||p.company||'（無名）'))}${p.company&&p.name?' / '+esc(p.company):''} — ${esc(p.email)} [${p.kind==='download'?'資料請求':'問い合わせ'}]</option>`).join('');
+/* ---- 一覧（問い合わせ／資料請求）用: チェック → メール送信 ---- */
+const MAIL_BTN_CSS='background:#16a34a;border-color:#16a34a;color:#fff;font-weight:700';
+const MAIL_KIND_LABEL={inquiry:'問い合わせ',download:'資料請求'};
+const EMAIL_OK=e=>/^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/.test(String(e||'').trim());
+function MAIL_TOOLBAR(){
+  return `${C(canMail(),`<button class="btn" id="mailsel" style="${MAIL_BTN_CSS}">${IC.send} 選択にメール送信</button>`)}<button class="btn" id="maillib">${IC.file} テンプレート・資料</button>`;
 }
-function openSalesCompose(recipKey,draftId,templateId){
-  _smDraftId=draftId||null;
-  const draft=draftId?M.drafts.find(d=>String(d.id)===String(draftId)):null;
-  const rk=(draft&&draft.recipient_key)||recipKey||'';
-  const tid=(draft&&draft.template_id)||templateId||'';
+function bindMailToolbar(kind,getRows,page){
+  const b=$('#mailsel'); if(b) b.onclick=()=>{ const ids=checkedIds(); if(!ids.length){ alert('送信先を選択してください（左のチェックボックス）'); return; } openMailCompose(kind,ids); };
+  const l=$('#maillib'); if(l) l.onclick=()=>renderMailLib(page);
+}
+function mailBadge(r){
+  if(!r.last_mail_at) return '<span class="sub">未送信</span>';
+  return `<span class="sent-badge" title="最終送信 ${fmt(r.last_mail_at)}">送信済${r.mail_count>1?' ×'+r.mail_count:''}</span><div class="sub">${fmtd(r.last_mail_at)}</div>`;
+}
+function mailHistoryBox(kind,r){
+  return `<div class="sendbox"><h3>${IC.send} メール送信履歴</h3><div id="mhist" class="sub">読み込み中…</div></div>`;
+}
+async function loadMailHistory(kind,id){
+  let items=[]; try{ items=(await(await api('/api/mail/logs?kind='+kind+'&id='+id)).json()).items||[]; }catch(e){}
+  const box=$('#mhist'); if(!box) return;
+  box.className='';
+  box.innerHTML=items.length?`<div class="tablewrap"><table style="min-width:520px"><thead><tr><th class="nowrap">日時</th><th class="nowrap">差出人</th><th>件名</th><th>添付</th></tr></thead><tbody>${items.map(g=>`<tr>
+    <td class="nowrap">${fmt(g.created_at)}</td><td class="nowrap">${esc(g.sender)||'-'}</td>
+    <td>${esc(g.subject)}${g.template_name?`<div class="sub">テンプレート: ${esc(g.template_name)}</div>`:''}${g.note?`<div class="sub">${esc(g.note)}</div>`:''}</td>
+    <td class="sub">${esc(g.att)||'-'}</td></tr>`).join('')}</tbody></table></div>`
+    :'<div class="sub">まだメールを送信していません。</div>';
+}
+// 現在の一覧データ → 宛先形式
+function _mcRec(kind,r){ return {key:kind+':'+r.id,kind,id:r.id,company:r.company||'',name:r.name||'',email:String(r.email||'').trim(),tel:r.tel||'',industry:kind==='download'?(r.interest||''):'',address:''}; }
+function _mcRows(){ return (MC&&MC.rows)||[]; }
+
+/* ---- メール作成（1件でも複数件でも同じ画面。1人1通・変数は各社で置換） ---- */
+let MC=null;
+async function openMailCompose(kind,ids){
+  if(!canMail()){ alert('メール送信の権限がありません（管理者に許可を依頼してください）'); return; }
+  await loadMail();
+  const src=kind==='download'?DL:INQ;
+  const recs=ids.map(id=>src.find(x=>String(x.id)===String(id))).filter(Boolean).map(r=>_mcRec(kind,r));
+  const seen=new Set(), rows=[], skipped=[];
+  recs.forEach(p=>{ const k=p.email.toLowerCase();
+    if(!EMAIL_OK(p.email)) skipped.push({p,why:'メール不正/未登録'});
+    else if(seen.has(k)) skipped.push({p,why:'同じメールが重複'});
+    else { seen.add(k); rows.push(p); } });
+  if(!rows.length){ alert('送信できる宛先がありません（メールアドレス未登録・不正）。'); return; }
+  const defTpl=kind==='download'?M.tpls.find(t=>t.category==='資料送付'):null;
+  MC={kind,rows,skipped,pv:0,sending:false};
   const defSig=_smSigDefault();
-  openModal(`<h3>${IC.send} 営業メール作成</h3>
-    <div class="mform" style="max-height:66vh;overflow-y:auto;padding-right:4px">
-      <div style="display:flex;gap:10px;align-items:flex-end">
-        <div style="flex:1"><label>宛先（資料請求／問い合わせ）*</label>
-          <select id="smcTo"><option value="">-</option>${_smRecipOptions(rk)}</select></div>
-        <button class="btn" onclick="smBulkOpen()" title="複数の宛先に個別送信">一括送信モード</button>
+  openModal(`<h3>${IC.send} メール送信 — ${MAIL_KIND_LABEL[kind]}（${rows.length}件）</h3>
+    <div class="mform" style="max-height:68vh;overflow-y:auto;padding-right:4px" id="mcForm">
+      <div><label>宛先（1人ずつ個別に送信されます）</label>
+        <div id="mcTo" class="tagwrap" style="max-height:120px;overflow-y:auto"></div>
+        ${skipped.length?`<div class="sub" style="color:#b45309;margin-top:4px">送信対象外 ${skipped.length}件: ${skipped.map(s=>esc((s.p.name||s.p.company||'#'+s.p.id)+'（'+s.why+'）')).join('、')}</div>`:''}</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <div style="flex:1;min-width:200px"><label>CC <span class="sub">（全メール共通・カンマ区切り）</span></label><input id="mcCc" placeholder="sales@biglight.jp"></div>
+        <div style="flex:1;min-width:200px"><label>BCC</label><input id="mcBcc" placeholder="${esc((CURRENT_USER&&CURRENT_USER.email)||'')}"></div>
       </div>
-      <div><label>テンプレート</label><select id="smcTpl" onchange="smcApplyTpl(true)"><option value="">（テンプレートなし）</option>${M.tpls.map(t=>`<option value="${t.id}" ${String(t.id)===String(tid)?'selected':''}>${t.favorite?'★ ':''}${esc(t.name)}（${esc(t.category||'')}）</option>`).join('')}</select></div>
-      <div><label>件名 *</label><input id="smcSubj" value="${esc(draft?draft.subject:'')}" oninput="smAutoSaveKick()"></div>
-      <div><label>本文 *（変数クリックで挿入 → 送信時に自動置換）</label>${_smVarBtns('smcBody')}<textarea id="smcBody" rows="10" oninput="smAutoSaveKick()">${esc(draft?draft.body:'')}</textarea></div>
-      <div><label>署名（末尾に自動付加）</label><select id="smcSig"><option value="">（署名なし）</option>${M.sigs.map(s=>`<option value="${s.id}" ${defSig&&String(s.id)===String(defSig.id)?'selected':''}>${esc(s.name)}${s.is_default?'（既定）':''}</option>`).join('')}</select></div>
-      <div><label>添付資料（ファイルは自動添付・リンクは本文へ自動挿入）</label><div id="smcAttBox">${_smAttChecks('smcAtt', draft?draft.attach_ids:[])}</div></div>
-      <div id="smcInfo" class="sub"></div>
+      <div><label>テンプレート</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <select id="mcTpl" style="flex:1;min-width:200px" onchange="mcApplyTpl()"><option value="">（テンプレートなし）</option>${M.tpls.map(t=>`<option value="${t.id}" ${defTpl&&defTpl.id===t.id?'selected':''}>${t.favorite?'★ ':''}${esc(t.name)}（${esc(t.category||'')}）</option>`).join('')}</select>
+          ${C(can('salesmail','create'),`<button class="btn" onclick="mcSaveTpl()" title="今の件名・本文・添付をテンプレートとして保存">${IC.file} テンプレ保存</button>`)}
+        </div></div>
+      <div><label>件名 *</label><input id="mcSubj"></div>
+      <div><label>本文 *（変数をクリックで挿入 → 送信時に各社の情報へ置換）</label>${_smVarBtns('mcBody')}<textarea id="mcBody" rows="10"></textarea></div>
+      <div><label>署名（末尾に自動付加）</label><select id="mcSig"><option value="">（署名なし）</option>${M.sigs.map(s=>`<option value="${s.id}" ${defSig&&String(s.id)===String(defSig.id)?'selected':''}>${esc(s.name)}${s.is_default?'（既定）':''}</option>`).join('')}</select></div>
+      <div><label style="display:flex;align-items:center;gap:8px">添付資料（PDF等は自動添付・リンクは本文末尾へ）
+          ${C(can('salesmail','create'),`<label class="upbtn" style="margin-left:auto;padding:5px 11px;font-size:12px">${IC.upload} PDFを追加<input type="file" id="mcUp" hidden accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.jpg,.jpeg,.png" onchange="mcUpload(this)"></label>`)}</label>
+        <div id="mcAttBox">${_smAttChecks('mcAtt',[])}</div><div id="mcAttSum" class="sub"></div></div>
+      <div id="mcInfo" class="sub"></div>
     </div>
-    <div class="modal-actions">
+    <div id="mcProg" style="display:none;max-height:62vh;overflow-y:auto"></div>
+    <div class="modal-actions" id="mcActs">
       <button class="btn" onclick="closeModal()">閉じる</button>
-      <button class="btn" onclick="smDraftSave(true)">下書き保存</button>
-      <button class="btn" onclick="smcPreview()">プレビュー</button>
-      <button class="btn" style="background:#16a34a;border-color:#16a34a;color:#fff;font-weight:700" onclick="smSend()">${IC.send} 送信</button>
+      <button class="btn" onclick="mcPreview(0)">${IC.eye} プレビュー</button>
+      <button class="btn" style="${MAIL_BTN_CSS}" onclick="mcSend()">${IC.send} ${rows.length}件に送信</button>
     </div>`);
-  if(!draft&&tid) smcApplyTpl(true);
+  mcPaintTo();
+  if(defTpl) mcApplyTpl();
+  document.getElementById('mcAttBox').addEventListener('change',mcAttSum);
 }
-function smcApplyTpl(force){
-  const t=M.tpls.find(x=>String(x.id)===String($('#smcTpl').value)); if(!t)return;
-  const subjEl=$('#smcSubj'),bodyEl=$('#smcBody');
-  if(force||!bodyEl.value.trim()){ subjEl.value=t.subject; bodyEl.value=t.body; }
-  if(t.signature_id){ const o=$('#smcSig').querySelector(`option[value="${t.signature_id}"]`); if(o) $('#smcSig').value=t.signature_id; }
+function mcPaintTo(){
+  const box=$('#mcTo'); if(!box) return;
+  box.innerHTML=MC.rows.map((p,i)=>`<span class="chip" title="${esc(p.email)}">${esc(p.name||p.company||p.email)}${p.company&&p.name?` <span class="sub">/ ${esc(p.company)}</span>`:''} <span class="sub">${esc(p.email)}</span>${MC.rows.length>1?`<b onclick="mcRemoveTo(${i})" title="外す">×</b>`:''}</span>`).join('');
+  const btn=document.querySelector('#mcActs button:last-child'); if(btn) btn.innerHTML=IC.send+' '+MC.rows.length+'件に送信';
+}
+function mcRemoveTo(i){ MC.rows.splice(i,1); mcPaintTo(); }
+function mcApplyTpl(){
+  const t=M.tpls.find(x=>String(x.id)===String($('#mcTpl').value)); if(!t) return;
+  const sEl=$('#mcSubj'),bEl=$('#mcBody');
+  if((sEl.value.trim()||bEl.value.trim())&&(sEl.value!==t.subject||bEl.value!==t.body)&&MC._tplApplied&&!confirm('件名・本文をテンプレートの内容で置き換えますか？')) return;
+  sEl.value=t.subject||''; bEl.value=t.body||''; MC._tplApplied=true;
+  if(t.signature_id&&$('#mcSig').querySelector(`option[value="${t.signature_id}"]`)) $('#mcSig').value=t.signature_id;
   const ids=new Set((t.attach_ids||[]).map(String));
-  document.querySelectorAll('.smcAtt').forEach(c=>{ c.checked=ids.has(String(c.value)); });
-  smAutoSaveKick();
+  $('#mcAttBox').innerHTML=_smAttChecks('mcAtt',[...ids]);
+  mcAttSum();
 }
-function _smComposeData(){
-  const recip=_smRecip($('#smcTo').value);
-  const sig=M.sigs.find(s=>String(s.id)===String($('#smcSig').value))||null;
-  const subjRaw=$('#smcSubj').value,bodyRaw=$('#smcBody').value;
-  const subject=smFillVars(subjRaw,recip||{});
-  const atts=[...document.querySelectorAll('.smcAtt:checked')].map(c=>M.mats.find(m=>String(m.id)===String(c.value))).filter(Boolean);
-  const linkAtts=atts.filter(m=>_smMatType(m)==='link');
-  let body=smFillVars(bodyRaw,recip||{})+(sig?'\n\n'+smFillVars(sig.body,recip||{}):'');
-  if(linkAtts.length) body+='\n\n【添付資料（リンク）】\n'+linkAtts.map(m=>'・'+m.name+': '+m.link_url).join('\n');
-  return {recip,subject,body,bodyRaw,atts,fileIds:atts.filter(m=>m.filename).map(m=>m.id)};
+function _mcAtts(){ return [...document.querySelectorAll('.mcAtt:checked')].map(c=>M.mats.find(m=>String(m.id)===String(c.value))).filter(Boolean); }
+function mcAttSum(){
+  const a=_mcAtts(), files=a.filter(m=>m.filename), size=files.reduce((s,m)=>s+(Number(m.size)||0),0);
+  const e=$('#mcAttSum'); if(!e) return;
+  e.style.color=size>24*1048576?'#e23b3b':'';
+  e.textContent=a.length?`選択中: ファイル${files.length}件（合計 ${fmtSize(size)}）${a.length-files.length?' / リンク'+(a.length-files.length)+'件':''}${size>24*1048576?' — 24MBを超えています':''}`:'';
 }
-function smcPreview(){
-  const d=_smComposeData();
-  const bak={to:$('#smcTo').value,tpl:$('#smcTpl').value,subj:$('#smcSubj').value,body:$('#smcBody').value,sig:$('#smcSig').value,atts:[...document.querySelectorAll('.smcAtt:checked')].map(c=>c.value)};
-  window._smcBak=bak;
-  openModal(`<h3>プレビュー ${d.recip?'— '+esc(d.recip.name||d.recip.company):''}</h3>
-    <div class="preview" style="max-height:60vh;overflow-y:auto">
-      <div class="sub">宛先: ${d.recip?esc((d.recip.email||'（未登録）')+' — '+(d.recip.name||d.recip.company)):'未選択'}</div>
-      <div class="pv-subj">件名: ${esc(d.subject)}</div><div class="pv-body">${esc(d.body)}</div>
-      ${d.fileIds.length?`<div class="sub" style="margin-top:8px;display:flex;align-items:center;gap:5px">${IC.file} 添付ファイル: ${esc(d.atts.filter(m=>m.filename).map(m=>m.name).join(', '))}</div>`:''}
-    </div>
-    <div class="modal-actions"><button class="btn" onclick="smcRestore()">← 編集に戻る</button><button class="btn" style="background:#16a34a;border-color:#16a34a;color:#fff" onclick="smSendFromPreview()">${IC.send} 送信</button></div>`);
+async function mcUpload(inp){
+  const file=inp.files&&inp.files[0]; inp.value=''; if(!file) return;
+  if(file.size>24*1048576){ alert('24MBまでのファイルを登録できます。'); return; }
+  const name=(prompt('資料名（一覧・メールの添付ファイル名になります）',file.name.replace(/\.[^.]+$/,''))||'').trim(); if(!name) return;
+  const keep=_mcAtts().map(m=>String(m.id));
+  const fd=new FormData(); fd.append('name',name); fd.append('category',M.fileCats.includes('営業資料')?'営業資料':'その他'); fd.append('file',file);
+  const info=$('#mcInfo'); if(info) info.textContent='アップロード中…';
+  const r=await fetch('/api/materials',{method:'POST',body:fd}); const d=await r.json().catch(()=>({}));
+  if(!r.ok){ if(info){ info.style.color='#e23b3b'; info.textContent='アップロード失敗: '+(d.error||''); } return; }
+  M.mats=(await(await api('/api/materials')).json()).items||M.mats;
+  $('#mcAttBox').innerHTML=_smAttChecks('mcAtt',keep.concat(String(d.item.id)));
+  if(info){ info.style.color='#1c7a47'; info.textContent='✓ 「'+name+'」を登録して添付に追加しました'; }
+  mcAttSum();
 }
-function smcRestore(){
-  const bak=window._smcBak||{};
-  openSalesCompose(bak.to||'',null,'');
-  setTimeout(()=>{ if($('#smcSubj')){ $('#smcSubj').value=bak.subj||''; $('#smcBody').value=bak.body||''; if(bak.to)$('#smcTo').value=bak.to; if(bak.tpl)$('#smcTpl').value=bak.tpl; $('#smcSig').value=bak.sig||''; (bak.atts||[]).forEach(v=>{ const c=document.querySelector('.smcAtt[value="'+v+'"]'); if(c){ c.checked=true; const box=c.closest('.attgrp'); if(box){ const b=box.querySelector('div[style]'); } } }); } },40);
+async function mcSaveTpl(){
+  const subject=$('#mcSubj').value.trim(), body=$('#mcBody').value;
+  if(!subject||!body.trim()){ alert('件名・本文を入力してから保存してください。'); return; }
+  const cur=M.tpls.find(x=>String(x.id)===String($('#mcTpl').value));
+  let r;
+  if(cur&&can('salesmail','edit')&&confirm('テンプレート「'+cur.name+'」を上書きしますか？\n（キャンセル = 新しいテンプレートとして保存）')){
+    r=await api('/api/mail/templates/'+cur.id,{method:'PUT',body:JSON.stringify({subject,body,signature_id:$('#mcSig').value||null,attach_ids:_mcAtts().map(m=>Number(m.id))})});
+  } else {
+    const name=(prompt('テンプレート名',cur?cur.name+'（コピー）':'')||'').trim(); if(!name) return;
+    r=await api('/api/mail/templates',{method:'POST',body:JSON.stringify({name,category:cur?cur.category:(MC.kind==='download'?'資料送付':'その他'),subject,body,signature_id:$('#mcSig').value||null,attach_ids:_mcAtts().map(m=>Number(m.id))})});
+  }
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok){ alert('保存に失敗しました: '+(d.error||'')); return; }
+  M.tpls=(await(await api('/api/mail/templates')).json()).items||M.tpls;
+  const sel=$('#mcTpl'); sel.innerHTML='<option value="">（テンプレートなし）</option>'+M.tpls.map(t=>`<option value="${t.id}">${t.favorite?'★ ':''}${esc(t.name)}（${esc(t.category||'')}）</option>`).join('');
+  sel.value=d.item.id; MC._tplApplied=true;
+  const info=$('#mcInfo'); if(info){ info.style.color='#1c7a47'; info.textContent='✓ テンプレートを保存しました'; }
 }
-function smSendFromPreview(){ smcRestore(); setTimeout(smSend,80); }
-function smAutoSaveKick(){ clearTimeout(_smAutoTimer); _smAutoTimer=setTimeout(()=>smDraftSave(false),1600); }
-async function smDraftSave(manual){
-  const subjEl=$('#smcSubj'),bodyEl=$('#smcBody'); if(!subjEl||!bodyEl)return;
-  if(!subjEl.value.trim()&&!bodyEl.value.trim()){ if(manual)alert('件名か本文を入力してください。'); return; }
-  const payload={id:_smDraftId||undefined,recipient_key:$('#smcTo').value||'',template_id:$('#smcTpl').value||null,subject:subjEl.value,body:bodyEl.value,attach_ids:[...document.querySelectorAll('.smcAtt:checked')].map(c=>Number(c.value))};
-  try{ const d=(await(await api('/api/mail/drafts',{method:'POST',body:JSON.stringify(payload)})).json()).item; if(d) _smDraftId=d.id; }catch(e){}
-  const info=$('#smcInfo'); if(info) info.textContent='下書き自動保存: '+_smNow();
-  if(manual){ await loadMail(); alert('下書きを保存しました。「下書き」タブから再開できます。'); }
+// 1人分のメールを組み立てる
+function _mcBuild(p){
+  const sig=M.sigs.find(s=>String(s.id)===String($('#mcSig').value))||null;
+  const atts=_mcAtts(), links=atts.filter(m=>_smMatType(m)==='link');
+  let body=smFillVars($('#mcBody').value,p)+(sig?'\n\n'+smFillVars(sig.body,p):'');
+  if(links.length) body+='\n\n【資料（リンク）】\n'+links.map(m=>'・'+m.name+': '+m.link_url).join('\n');
+  return {subject:smFillVars($('#mcSubj').value,p).trim(),body,atts,fileIds:atts.filter(m=>m.filename).map(m=>m.id)};
 }
-async function smSend(){
-  const d=_smComposeData();
-  if(!d.recip){ alert('宛先を選択してください。'); return; }
-  if(!d.subject.trim()||!d.bodyRaw.trim()){ alert('件名・本文を入力してください。'); return; }
-  if(!d.recip.email){ alert('この宛先はメール未登録です。'); return; }
-  if(!confirm(d.recip.email+' へ送信しますか？')) return;
-  const t=M.tpls.find(x=>String(x.id)===String($('#smcTpl').value));
-  const payload={to:d.recip.email,toName:d.recip.name||d.recip.company,recipientKey:d.recip.key,subject:d.subject,body:d.body,attachIds:d.fileIds,templateId:t?t.id:null,templateName:t?t.name:'',att:d.atts.map(m=>m.name).join(', ')};
-  const info=$('#smcInfo'); if(info){ info.style.color='var(--muted)'; info.textContent='送信中…'; }
-  try{
-    const r=await api('/api/mail/send',{method:'POST',body:JSON.stringify(payload)}); const j=await r.json();
-    if(r.ok){ if(_smDraftId){ await api('/api/mail/drafts/'+_smDraftId,{method:'DELETE'}); _smDraftId=null; } closeModal(); SM_TAB='log'; await reloadMail(); }
-    else { if(info){ info.style.color='#e23b3b'; info.textContent='失敗: '+(j.error||''); } }
-  }catch(e){ if(info){ info.style.color='#e23b3b'; info.textContent='送信に失敗しました'; } }
+function _mcCheck(){
+  if(!MC.rows.length){ alert('宛先がありません。'); return false; }
+  if(!$('#mcSubj').value.trim()||!$('#mcBody').value.trim()){ alert('件名・本文を入力してください。'); return false; }
+  for(const [id,l] of [['#mcCc','CC'],['#mcBcc','BCC']]){ const v=$(id).value.trim(); if(v&&v.split(/[,;\s]+/).filter(Boolean).some(x=>!EMAIL_OK(x))){ alert(l+' のメールアドレスが不正です。'); return false; } }
+  const left=($('#mcSubj').value+$('#mcBody').value).match(/\{\{\w+\}\}/g);
+  if(left){ const unk=[...new Set(left)].filter(v=>!SM_VARS.some(x=>x[0]===v)); if(unk.length&&!confirm('置換されない変数があります: '+unk.join(', ')+'\nこのまま送信しますか？')) return false; }
+  const size=_mcAtts().filter(m=>m.filename).reduce((s,m)=>s+(Number(m.size)||0),0);
+  if(size>24*1048576){ alert('添付ファイルの合計が24MBを超えています。'); return false; }
+  return true;
 }
-/* 一括送信 */
-function smBulkOpen(){
-  const subj=$('#smcSubj')?$('#smcSubj').value:'',body=$('#smcBody')?$('#smcBody').value:'';
-  const tid=$('#smcTpl')?$('#smcTpl').value:'',sig=$('#smcSig')?$('#smcSig').value:'';
-  const attIds=[...document.querySelectorAll('.smcAtt:checked')].map(c=>c.value);
-  if(!subj.trim()&&!body.trim()&&!tid){ alert('先にテンプレートを選ぶか、件名・本文を入力してください。'); return; }
-  window._smBulkCtx={subj,body,tid,sig,attIds};
-  openModal(`<h3>${IC.send} 一括送信（1件ずつ個別送信）</h3>
-    <div class="sub" style="margin-bottom:8px">対象を選んで「送信リスト作成」。各行の送信ボタンで1件ずつ送信し、変数は各社の情報で自動置換されます。</div>
-    <div style="max-height:46vh;overflow-y:auto;border:1px solid var(--line);border-radius:8px;padding:8px 10px">
-      ${M.recips.map(p=>`<label style="display:flex;gap:8px;align-items:center;padding:5px 2px;font-size:13px;cursor:pointer"><input type="checkbox" class="smbk" value="${p.key}"><b>${esc(p.name||p.company||'（無名）')}</b><span class="sub">${esc(p.company||'')} ${esc(p.email)} [${p.kind==='download'?'資料請求':'問い合わせ'}]</span></label>`).join('')}
-    </div>
-    <div class="modal-actions"><button class="btn" onclick="openSalesCompose()">← 戻る</button><button class="btn navy" onclick="smBulkList()">送信リスト作成 →</button></div>`);
+function mcPreview(i){
+  if(!_mcCheck()) return;
+  MC.pv=Math.max(0,Math.min(i,MC.rows.length-1));
+  const p=MC.rows[MC.pv], d=_mcBuild(p);
+  let box=$('#mcPv');
+  if(!box){ box=document.createElement('div'); box.id='mcPv'; box.className='preview'; box.style.marginTop='10px'; $('#mcForm').appendChild(box); }
+  box.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+      <b style="color:var(--navy)">プレビュー ${MC.pv+1} / ${MC.rows.length}</b>
+      ${MC.rows.length>1?`<button class="btn" style="margin-left:auto;padding:4px 10px" onclick="mcPreview(${MC.pv-1})" ${MC.pv===0?'disabled':''}>←</button><button class="btn" style="padding:4px 10px" onclick="mcPreview(${MC.pv+1})" ${MC.pv>=MC.rows.length-1?'disabled':''}>→</button>`:''}</div>
+    <div class="sub">宛先: ${esc(p.email)} — ${esc(p.name||p.company)}${$('#mcCc').value.trim()?' / CC: '+esc($('#mcCc').value):''}${$('#mcBcc').value.trim()?' / BCC: '+esc($('#mcBcc').value):''}</div>
+    <div class="pv-subj">件名: ${esc(d.subject)}</div><div class="pv-body">${esc(d.body)}</div>
+    ${d.fileIds.length?`<div class="sub" style="margin-top:8px;display:flex;align-items:center;gap:5px">${IC.file} 添付: ${esc(d.atts.filter(m=>m.filename).map(m=>m.name).join(', '))}</div>`:''}`;
+  box.scrollIntoView({block:'nearest'});
 }
-function smBulkList(){
-  const keys=[...document.querySelectorAll('.smbk:checked')].map(c=>c.value);
-  if(!keys.length){ alert('対象を選択してください。'); return; }
-  const ctx=window._smBulkCtx||{};
-  const sig=M.sigs.find(s=>String(s.id)===String(ctx.sig))||_smSigDefault();
-  const t=M.tpls.find(x=>String(x.id)===String(ctx.tid));
-  const atts=(ctx.attIds||[]).map(id=>M.mats.find(m=>String(m.id)===String(id))).filter(Boolean);
-  const linkAtts=atts.filter(m=>_smMatType(m)==='link'), fileIds=atts.filter(m=>m.filename).map(m=>m.id);
-  window._smBulkRows=keys.map(k=>{ const p=_smRecip(k);
-    let body=smFillVars(ctx.body,p)+(sig?'\n\n'+smFillVars(sig.body,p):'');
-    if(linkAtts.length) body+='\n\n【添付資料（リンク）】\n'+linkAtts.map(m=>'・'+m.name+': '+m.link_url).join('\n');
-    return {p,subject:smFillVars(ctx.subj,p),body,fileIds,att:atts.map(m=>m.name).join(', '),tpl:t}; });
-  openModal(`<h3>${IC.send} 一括送信リスト（${keys.length}件）</h3>
-    <div style="max-height:56vh;overflow-y:auto"><table style="width:100%;border-collapse:collapse;font-size:12.5px">
-      <thead><tr><th style="text-align:left;padding:6px;border-bottom:1px solid var(--line)">宛先</th><th style="text-align:left;padding:6px;border-bottom:1px solid var(--line)">件名</th><th style="padding:6px;border-bottom:1px solid var(--line)">操作</th></tr></thead>
-      <tbody>${window._smBulkRows.map((r,i)=>`<tr id="smbr-${i}"><td style="padding:6px;border-bottom:1px solid var(--line);white-space:nowrap"><b>${esc(r.p.name||r.p.company)}</b><br><span class="sub">${esc(r.p.email)}</span></td><td style="padding:6px;border-bottom:1px solid var(--line)">${esc(r.subject)}</td><td style="padding:6px;border-bottom:1px solid var(--line);text-align:center;white-space:nowrap"><button class="btn" style="padding:5px 12px;font-size:12px;background:#16a34a;border-color:#16a34a;color:#fff" onclick="smBulkSend(${i})">送信</button></td></tr>`).join('')}</tbody>
-    </table></div>
-    <div class="modal-actions"><button class="btn" onclick="closeModal();reloadMail()">完了・閉じる</button></div>`);
+async function mcSend(){
+  if(MC.sending||!_mcCheck()) return;
+  const n=MC.rows.length;
+  if(!confirm(n===1?MC.rows[0].email+' へ送信しますか？':n+'件のお客様へ、1人ずつ個別に送信しますか？')) return;
+  MC.sending=true;
+  const t=M.tpls.find(x=>String(x.id)===String($('#mcTpl').value));
+  const cc=$('#mcCc').value.trim(), bcc=$('#mcBcc').value.trim();
+  const jobs=MC.rows.map(p=>({p,..._mcBuild(p),state:'wait',err:''}));
+  const batchId=n>1?('B'+Date.now().toString(36)):null;
+  MC.jobs=jobs;
+  $('#mcForm').style.display='none';
+  const prog=$('#mcProg'); prog.style.display='';
+  const paint=()=>{ const ok=jobs.filter(j=>j.state==='ok').length, ng=jobs.filter(j=>j.state==='ng').length;
+    prog.innerHTML=`<div style="margin-bottom:10px;font-weight:700;color:var(--navy)">送信 ${ok+ng} / ${n}　<span style="color:#1c7a47">成功 ${ok}</span>${ng?`　<span style="color:#e23b3b">失敗 ${ng}</span>`:''}</div>
+      <div class="seobar" style="margin-bottom:12px"><i style="width:${Math.round((ok+ng)/n*100)}%;background:${ng?'#f59e0b':'#16a34a'}"></i></div>
+      <table style="width:100%;border-collapse:collapse;font-size:12.5px;min-width:0">${jobs.map(j=>`<tr><td style="padding:6px 4px"><b>${esc(j.p.name||j.p.company)}</b> <span class="sub">${esc(j.p.email)}</span>${j.err?`<div style="color:#e23b3b;font-size:11.5px">${esc(j.err)}</div>`:''}</td>
+        <td style="padding:6px 4px;text-align:right;white-space:nowrap">${j.state==='ok'?'<span class="sent-badge">送信済</span>':j.state==='ng'?'<span class="pill new" style="background:#fde2e2;color:#b91c1c">失敗</span>':j.state==='run'?'<span class="sub">送信中…</span>':'<span class="sub">待機</span>'}</td></tr>`).join('')}</table>`; };
+  const acts=$('#mcActs');
+  acts.innerHTML='<span class="sub">送信中はこの画面を閉じないでください…</span>';
+  paint();
+  for(const j of jobs){
+    if(j.state==='ok') continue;
+    j.state='run'; paint();
+    try{
+      const r=await api('/api/mail/send',{method:'POST',body:JSON.stringify({to:j.p.email,cc,bcc,toName:j.p.name||j.p.company,recipientKey:j.p.key,subject:j.subject,body:j.body,attachIds:j.fileIds,templateId:t?t.id:null,templateName:t?t.name:'',att:j.atts.map(m=>m.name).join(', '),batchId,note:n>1?'一括送信('+n+'件)':''})});
+      const d=await r.json().catch(()=>({}));
+      if(r.ok){ j.state='ok'; j.err=''; } else { j.state='ng'; j.err=d.error||('HTTP '+r.status); }
+    }catch(e){ j.state='ng'; j.err='通信エラー'; }
+    paint();
+  }
+  MC.sending=false;
+  const ng=jobs.filter(j=>j.state==='ng');
+  acts.innerHTML=`${ng.length?`<button class="btn" style="${MAIL_BTN_CSS}" onclick="mcRetry()">${IC.refresh} 失敗した${ng.length}件を再送</button>`:''}<button class="btn navy" onclick="mcDone()">完了・閉じる</button>`;
 }
-async function smBulkSend(i){
-  const r=(window._smBulkRows||[])[i]; if(!r)return;
-  const btn=document.querySelector('#smbr-'+i+' button'); if(btn){ btn.disabled=true; btn.textContent='送信中…'; }
-  try{
-    const resp=await api('/api/mail/send',{method:'POST',body:JSON.stringify({to:r.p.email,toName:r.p.name||r.p.company,recipientKey:r.p.key,subject:r.subject,body:r.body,attachIds:r.fileIds,templateId:r.tpl?r.tpl.id:null,templateName:r.tpl?r.tpl.name:'',att:r.att,note:'一括送信'})});
-    const tr=document.getElementById('smbr-'+i);
-    if(resp.ok){ if(tr) tr.style.opacity='.55'; if(btn){ btn.innerHTML=IC.check+' 済'; btn.style.background='#94a3b8'; btn.style.borderColor='#94a3b8'; } }
-    else { const j=await resp.json(); if(btn){ btn.disabled=false; btn.textContent='再送'; } alert('失敗: '+(j.error||'')); }
-  }catch(e){ if(btn){ btn.disabled=false; btn.textContent='再送'; } alert('送信に失敗しました'); }
+function mcRetry(){ MC.rows=MC.jobs.filter(j=>j.state==='ng').map(j=>j.p); const form=$('#mcForm'); form.style.display=''; $('#mcProg').style.display='none';
+  $('#mcActs').innerHTML=`<button class="btn" onclick="mcDone()">閉じる</button><button class="btn" onclick="mcPreview(0)">${IC.eye} プレビュー</button><button class="btn" style="${MAIL_BTN_CSS}" onclick="mcSend()"></button>`; mcPaintTo(); }
+// 送信後: 開いていた一覧 or 詳細を最新の送信状況で描き直す
+let _detailId=null;
+function mcDone(){ const kind=MC&&MC.kind; closeModal(); MC=null;
+  const onDetail=!!$('#mhist');
+  if(kind==='download'){ if(onDetail){ DL=[]; renderDownloadDetail(_detailId); } else loadDl(); }
+  else { if(onDetail){ INQ=[]; renderInquiryDetail(_detailId); } else loadInq(); }
+}
+
+/* ===== 監査ログ（管理者のみ） ===== */
+const AU_ACTION={login:'ログイン',login_denied:'ログイン拒否',logout:'ログアウト',create:'作成',update:'変更',replace:'差し替え',delete:'削除',send:'メール送信',send_failed:'送信失敗',export:'CSV出力',regenerate:'再生成'};
+const AU_ENTITY={auth:'認証',inquiry:'問い合わせ',download:'資料請求',mail:'メール',post:'記事',category:'カテゴリ',template:'テンプレート',signature:'署名',material:'資料',mail_log:'送信履歴',mail_meta:'メール設定',user:'ユーザー',perms:'権限',gas:'GAS設定',inquiries:'問い合わせ',downloads:'資料請求',posts:'記事'};
+const AU_COLOR={delete:'#fde2e2;color:#b91c1c',send_failed:'#fde2e2;color:#b91c1c',login_denied:'#fde2e2;color:#b91c1c',send:'#e2f4ea;color:#1c7a47',create:'#e7eefb;color:#0b3d91',export:'#fdeccb;color:#9a5b00'};
+let AU={f:{from:'',to:'',actor:'',entity:'',action:'',q:''},items:[],total:0,actors:[],open:{}};
+async function renderAudit(){
+  if(!PERM.isAdmin){ $('#main').innerHTML='<div class="h1">監査ログ</div><div class="crumb">管理者のみアクセスできます。</div>'; return; }
+  const f=AU.f, opt=(o,v)=>Object.entries(o).filter(([k])=>!['inquiries','downloads','posts'].includes(k)).map(([k,l])=>`<option value="${k}" ${v===k?'selected':''}>${l}</option>`).join('');
+  $('#main').innerHTML=`<div class="h1">監査ログ</div><div class="crumb">誰が・いつ・何をしたか（ログイン、編集・削除、メール送信、CSV出力など）を記録しています。記録は削除できません。</div>
+    <div class="toolbar">
+      <input type="date" id="auFrom" class="selin" value="${f.from}" title="開始日">〜<input type="date" id="auTo" class="selin" value="${f.to}" title="終了日">
+      <select id="auActor" class="selin"><option value="">担当者: すべて</option></select>
+      <select id="auEntity" class="selin"><option value="">対象: すべて</option>${opt(AU_ENTITY,f.entity)}</select>
+      <select id="auAction" class="selin"><option value="">操作: すべて</option>${opt(AU_ACTION,f.action)}</select>
+      <input id="auQ" class="selin" placeholder="キーワード（会社名・メール等）" value="${esc(f.q)}" style="width:210px">
+      <button class="btn navy" id="auGo">${IC.search} 検索</button>
+      <button class="btn" id="auClear">クリア</button>
+      <button class="btn gold" id="auCsv" style="margin-left:auto">CSV出力</button>
+    </div><div id="auBody"><div class="empty">読み込み中…</div></div>`;
+  const read=()=>{ AU.f={from:$('#auFrom').value,to:$('#auTo').value,actor:$('#auActor').value,entity:$('#auEntity').value,action:$('#auAction').value,q:$('#auQ').value.trim()}; };
+  $('#auGo').onclick=()=>{ read(); auLoad(false); };
+  $('#auQ').onkeydown=e=>{ if(e.key==='Enter'&&!e.isComposing){ read(); auLoad(false); } };
+  ['#auFrom','#auTo','#auActor','#auEntity','#auAction'].forEach(s=>$(s).onchange=()=>{ read(); auLoad(false); });
+  $('#auClear').onclick=()=>{ AU.f={from:'',to:'',actor:'',entity:'',action:'',q:''}; renderAudit(); };
+  $('#auCsv').onclick=auCsv;
+  auLoad(false);
+}
+function _auQs(offset,limit){ const p=new URLSearchParams(); Object.entries(AU.f).forEach(([k,v])=>{ if(v) p.set(k,v); }); p.set('offset',offset); p.set('limit',limit); return p.toString(); }
+async function auLoad(more){
+  let d={items:[],total:0,actors:[]};
+  try{ const r=await api('/api/audit?'+_auQs(more?AU.items.length:0,200)); d=await r.json(); if(!r.ok) throw new Error(d.error); }
+  catch(e){ $('#auBody').innerHTML='<div class="tablewrap"><div class="empty">読み込みに失敗しました。</div></div>'; return; }
+  AU.items=more?AU.items.concat(d.items):d.items; AU.total=d.total; AU.actors=d.actors||[];
+  const sel=$('#auActor'); if(sel) sel.innerHTML='<option value="">担当者: すべて</option>'+AU.actors.map(a=>`<option value="${esc(a.actor_email)}" ${AU.f.actor===a.actor_email?'selected':''}>${esc(a.actor_name||a.actor_email)}</option>`).join('');
+  auPaint();
+}
+function _auDetail(d){
+  if(!d||typeof d!=='object') return '';
+  const val=v=>v==null||v===''?'<span class="sub">（空）</span>':esc(typeof v==='object'?JSON.stringify(v):String(v));
+  return Object.entries(d).filter(([,v])=>v!=null&&v!=='').map(([k,v])=>{
+    if(v&&typeof v==='object'&&!Array.isArray(v)&&('from' in v||'to' in v)) return `<div><b>${esc(k)}</b>: ${'from' in v?val(v.from)+' → ':''}${val(v.to)}</div>`;
+    if(v&&typeof v==='object'&&'changed' in v) return `<div><b>${esc(k)}</b>: 変更あり</div>`;
+    return `<div><b>${esc(k)}</b>: ${val(v)}</div>`;
+  }).join('');
+}
+function auPaint(){
+  const L=AU.items;
+  if(!L.length){ $('#auBody').innerHTML='<div class="tablewrap"><div class="empty">該当する記録はありません。</div></div>'; return; }
+  $('#auBody').innerHTML=`<div class="sub" style="margin-bottom:8px">${AU.total.toLocaleString()}件中 ${L.length.toLocaleString()}件を表示（行をクリックで詳細）</div>
+    <div class="tablewrap"><table><thead><tr><th class="nowrap">日時</th><th class="nowrap">担当者</th><th class="nowrap">操作</th><th class="nowrap">対象</th><th style="width:50%">内容</th><th class="nowrap">IP</th></tr></thead><tbody>${L.map(a=>`
+      <tr class="clk" onclick="auToggle('${a.id}')"><td class="nowrap">${fmt(a.created_at)}</td>
+      <td class="nowrap"><b>${esc(a.actor_name||'-')}</b><div class="sub">${esc(a.actor_email||'')}</div></td>
+      <td class="nowrap"><span class="pill" style="background:${AU_COLOR[a.action]||'#eceff3;color:#475569'}">${esc(AU_ACTION[a.action]||a.action)}</span></td>
+      <td class="nowrap">${esc(AU_ENTITY[a.entity]||a.entity)}${a.entity_id&&a.entity!=='auth'?`<div class="sub">#${esc(a.entity_id)}</div>`:''}</td>
+      <td class="ell"><span class="${AU.open[a.id]?'':'rowline'}">${esc(a.summary||'')}</span>${AU.open[a.id]&&a.detail?`<div class="preview" style="margin-top:8px;font-size:12px;line-height:1.8;word-break:break-all">${_auDetail(a.detail)}</div>`:''}</td>
+      <td class="nowrap sub">${esc(a.ip||'')}</td></tr>`).join('')}</tbody></table></div>
+    ${L.length<AU.total?`<div style="text-align:center;margin-top:14px"><button class="btn" onclick="auLoad(true)">さらに表示（残り ${(AU.total-L.length).toLocaleString()}件）</button></div>`:''}`;
+}
+function auToggle(id){ AU.open[id]=!AU.open[id]; auPaint(); }
+async function auCsv(){
+  let rows=[];
+  try{ rows=(await(await api('/api/audit?'+_auQs(0,1000))).json()).items||[]; }catch(e){}
+  csv(rows,['日時','担当者','メール','操作','対象','対象ID','内容','詳細','IP'],a=>[fmt(a.created_at),a.actor_name,a.actor_email,AU_ACTION[a.action]||a.action,AU_ENTITY[a.entity]||a.entity,a.entity_id,a.summary,a.detail?JSON.stringify(a.detail):'',a.ip],'audit-log.csv','audit');
 }
 
 /* ===== ユーザー管理 + 権限 + GAS ===== */
@@ -1488,7 +1595,8 @@ async function saveSetGas(){
   else alert(d.error||'保存に失敗しました');
 }
 
-function csv(data,head,rowfn,fname){
+function csv(data,head,rowfn,fname,entity){
+  if(entity) api('/api/audit/event',{method:'POST',body:JSON.stringify({action:'export',entity,count:data.length,file:fname})}).catch(()=>{});
   const q=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';
   const lines=[head.join(',')].concat(data.map(r=>rowfn(r).map(q).join(',')));
   const blob=new Blob(['﻿'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'});

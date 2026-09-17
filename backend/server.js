@@ -163,58 +163,20 @@ URL：https://biglight.jp
   try { await transporter.sendMail(notify); } catch (e) { console.error('mail notify:', e.message); }
 }
 
-const MAIL_SIGN =
-`──────────────────────────
-BIGLIGHT株式会社
-〒462-0007 愛知県名古屋市北区如意一丁目112 A
-TEL：052-908-7944 ／ FAX：052-908-7267
-URL：https://biglight.jp
-──────────────────────────`;
-
-// 資料請求のお客様へ 資料（file/link）をメール送信
-async function sendMaterialsMail(dl, mats, extraMsg) {
-  if (!transporter) throw new Error('SMTP が設定されていません');
-  const greet = (dl.company ? dl.company + '\n' : '') + `${dl.name || 'ご担当者'} 様`;
-  const links = mats.map(m => {
-    const url = m.link_url || m.file_url;
-    return `・${m.name}${url ? '\n  ' + url : ''}`;
-  }).join('\n');
-  const attachments = mats
-    .filter(m => m.filename)
-    .map(m => ({ filename: (m.name || 'material') + matExt(m.filename), path: path.join(MAT_DIR, m.filename) }))
-    .filter(a => { try { return fs.existsSync(a.path); } catch (e) { return false; } });
-  const mail = {
-    from: MAIL_FROM, to: dl.email, replyTo: ADMIN_NOTIFY_TO,
-    subject: '【BIGLIGHT株式会社】ご請求資料の送付',
-    attachments,
-    text:
-`${greet}
-
-この度は、BIGLIGHT株式会社の資料をご請求いただき、誠にありがとうございます。
-ご請求いただきました資料をお送りいたします。
-${extraMsg ? '\n' + extraMsg + '\n' : ''}
-──────────────────────────
-■ 資料一覧
-${links || '（資料が選択されていません）'}
-──────────────────────────
-
-ご不明な点がございましたら、お気軽にお問い合わせください。
-今後ともBIGLIGHT株式会社をよろしくお願い申し上げます。
-
-${MAIL_SIGN}`,
-  };
-  await transporter.sendMail(mail);
-}
-
 // ---- メール送信: 各自の GAS(Gmail) を優先、なければ SMTP ----
 const MIME_MAP = { '.pdf': 'application/pdf', '.doc': 'application/msword', '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', '.xls': 'application/vnd.ms-excel', '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', '.ppt': 'application/vnd.ms-powerpoint', '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation', '.csv': 'text/csv', '.zip': 'application/zip', '.txt': 'text/plain', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp' };
 async function buildAttachments(materialIds) {
   const ids = (Array.isArray(materialIds) ? materialIds : []).map(x => parseInt(x, 10)).filter(Boolean);
   if (!ids.length) return [];
   const mats = (await pool.query('SELECT * FROM materials WHERE id = ANY($1::bigint[])', [ids])).rows;
-  return mats.filter(m => m.filename)
-    .map(m => ({ name: (m.name || 'material') + matExt(m.filename), path: path.join(MAT_DIR, m.filename) }))
-    .filter(a => { try { return fs.existsSync(a.path); } catch (e) { return false; } });
+  const atts = mats.filter(m => m.filename)
+    .map(m => ({ name: (m.name || 'material') + matExt(m.filename), path: path.join(MAT_DIR, m.filename) }));
+  // 添付したつもりで届かない事故を防ぐ: ファイルが無ければ送信しない
+  const missing = atts.filter(a => { try { return !fs.existsSync(a.path); } catch (e) { return true; } });
+  if (missing.length) throw new Error('添付ファイルが見つかりません: ' + missing.map(a => a.name).join(', '));
+  const total = atts.reduce((s, a) => s + fs.statSync(a.path).size, 0);
+  if (total > 24 * 1024 * 1024) throw new Error('添付ファイルの合計が24MBを超えています（リンク資料をご利用ください）');
+  return atts;
 }
 // req から送信者を判定 → GAS 優先・SMTP フォールバック
 async function sendMailSmart(req, opt) {
@@ -232,7 +194,7 @@ async function sendMailSmart(req, opt) {
     return { via: 'gas' };
   }
   if (transporter) {
-    await transporter.sendMail({ from: MAIL_FROM, to: opt.to, replyTo: opt.replyTo || ADMIN_NOTIFY_TO, subject: opt.subject, text: opt.body, attachments: atts.map(a => ({ filename: a.name, path: a.path })) });
+    await transporter.sendMail({ from: MAIL_FROM, to: opt.to, cc: opt.cc || undefined, bcc: opt.bcc || undefined, replyTo: opt.replyTo || ADMIN_NOTIFY_TO, subject: opt.subject, text: opt.body, attachments: atts.map(a => ({ filename: a.name, path: a.path })) });
     return { via: 'smtp' };
   }
   throw new Error('メール送信手段がありません（GAS未登録・SMTP未設定）');
@@ -378,16 +340,21 @@ app.post('/auth/google', async (req, res) => {
         [email, p.name || existing.name || email, p.picture || existing.picture || ''])).rows[0];
     }
     if (prof.status !== 'active' && !boot) {
+      audit(req, 'login_denied', 'auth', email, 'ログイン拒否（' + prof.status + '）', null, { email, name: prof.name });
       return res.status(403).json({ error: prof.status === 'disabled' ? 'このアカウントは無効化されています。' : '承認待ちです。管理者の承認をお待ちください。' });
     }
     req.session.user = sessionUser(prof);
+    audit(req, 'login', 'auth', email, 'ログイン');
     res.json({ ok: true, user: req.session.user });
   } catch (e) {
     console.error('auth/google:', e.message);
     res.status(401).json({ error: 'invalid token' });
   }
 });
-app.post('/api/logout', (req, res) => req.session.destroy(() => res.json({ ok: true })));
+app.post('/api/logout', async (req, res) => {
+  if (req.session && req.session.user) await audit(req, 'logout', 'auth', req.session.user.email, 'ログアウト');
+  req.session.destroy(() => res.json({ ok: true }));
+});
 
 function requireAuth(req, res, next) {
   if (req.session && req.session.user) return next();
@@ -400,6 +367,28 @@ async function loadPerms() { try { const r = await pool.query("SELECT val FROM a
 function can(req, appKey, action) { if (isAdmin(req)) return true; const u = req.session && req.session.user; if (!u) return false; const rp = ROLE_PERMS[u.role]; return !!(rp && rp[appKey] && rp[appKey][action]); }
 function requirePerm(appKey, action) { return (req, res, next) => can(req, appKey, action) ? next() : res.status(403).json({ error: '権限がありません' }); }
 function requireMail(req, res, next) { const u = req.session && req.session.user; if (u && (u.mail_enabled || isAdmin(req))) return next(); res.status(403).json({ error: 'メール送信の権限がありません（管理者に許可を依頼してください）' }); }
+
+// ---- 監査ログ: 失敗しても本処理は止めない ----
+function clientIp(req) { return (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.ip || ''; }
+async function audit(req, action, entity, entityId, summary, detail, actor) {
+  const u = actor || (req.session && req.session.user) || {};
+  try {
+    await pool.query(
+      'INSERT INTO audit_logs(actor_email,actor_name,action,entity,entity_id,summary,detail,ip) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',
+      [u.email || null, u.name || null, action, entity, entityId == null ? null : String(entityId),
+       summary ? String(summary).slice(0, 500) : null, detail ? JSON.stringify(detail) : null, clientIp(req)]);
+  } catch (e) { console.error('audit:', e.message); }
+}
+// 変更前後の差分（長文は切り詰め）
+function diffOf(before, after, keys) {
+  const cut = v => (typeof v === 'string' && v.length > 200 ? v.slice(0, 200) + '…' : v);
+  const out = {};
+  for (const k of keys) {
+    const a = before ? before[k] : undefined, b = after ? after[k] : undefined;
+    if (JSON.stringify(a) !== JSON.stringify(b)) out[k] = { from: cut(a), to: cut(b) };
+  }
+  return out;
+}
 
 // ---- ユーザー管理 (admin) ----
 app.get('/api/profiles', requireAuth, requireAdmin, async (_q, res) => {
@@ -416,6 +405,8 @@ app.put('/api/profiles/:email', requireAuth, requireAdmin, async (req, res) => {
     const status = ['pending', 'active', 'disabled'].includes(b.status) ? b.status : cur.status;
     const mail = b.mail_enabled !== undefined ? !!b.mail_enabled : cur.mail_enabled;
     const r = await pool.query('UPDATE profiles SET role=$1,status=$2,mail_enabled=$3 WHERE email=$4 RETURNING *', [role, status, mail, email]);
+    const d = diffOf(cur, r.rows[0], ['role', 'status', 'mail_enabled']);
+    if (Object.keys(d).length) audit(req, 'update', 'user', email, 'ユーザー権限を変更: ' + email, d);
     res.json({ item: r.rows[0] });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -423,6 +414,7 @@ app.delete('/api/profiles/:email', requireAuth, requireAdmin, async (req, res) =
   const email = String(req.params.email || '').toLowerCase();
   if (ADMIN_EMAILS.includes(email)) return res.status(400).json({ error: 'このアカウントは削除できません（管理者）' });
   await pool.query('DELETE FROM profiles WHERE email=$1', [email]);
+  audit(req, 'delete', 'user', email, 'ユーザーを削除: ' + email);
   res.json({ ok: true });
 });
 // ---- 権限マトリクス ----
@@ -432,6 +424,7 @@ app.get('/api/perms', requireAuth, async (req, res) => {
 });
 app.put('/api/perms', requireAuth, requireAdmin, async (req, res) => {
   const val = (req.body || {}).rolePerms || {};
+  audit(req, 'update', 'perms', null, 'ロール別権限を変更', { from: ROLE_PERMS, to: val });
   await pool.query("INSERT INTO app_meta(key,val) VALUES('role_perms',$1) ON CONFLICT(key) DO UPDATE SET val=$1", [JSON.stringify(val)]);
   await loadPerms();
   res.json({ ok: true });
@@ -442,6 +435,7 @@ app.post('/api/me/gas', requireAuth, async (req, res) => {
   if (url && !/^https:\/\/script\.google\.com\//.test(url)) return res.status(400).json({ error: 'GAS の URL 形式が正しくありません' });
   await pool.query('UPDATE profiles SET gas_url=$1 WHERE email=$2', [url || null, req.session.user.email]);
   req.session.user.gas_url = url;
+  audit(req, 'update', 'gas', req.session.user.email, url ? 'GAS送信URLを登録' : 'GAS送信URLを削除');
   res.json({ ok: true });
 });
 
@@ -459,63 +453,36 @@ app.get('/api/stats', requireAuth, async (_q, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// 一覧に「最後に送ったメール」と送信回数を付ける
+const LAST_MAIL = kind => `(SELECT max(created_at) FROM mail_logs ml WHERE ml.recipient_kind='${kind}' AND ml.recipient_id=t.id) AS last_mail_at,
+  (SELECT count(*)::int FROM mail_logs ml WHERE ml.recipient_kind='${kind}' AND ml.recipient_id=t.id) AS mail_count`;
 app.get('/api/inquiries', requireAuth, async (_q, res) => {
-  const r = await pool.query('SELECT * FROM inquiries ORDER BY created_at DESC LIMIT 500');
+  const r = await pool.query(`SELECT t.*, ${LAST_MAIL('inquiry')} FROM inquiries t ORDER BY t.created_at DESC LIMIT 500`);
   res.json({ items: r.rows });
 });
 app.patch('/api/inquiries/:id', requireAuth, requirePerm('inquiries', 'edit'), async (req, res) => {
   const st = String((req.body || {}).status || '').trim();
   if (!['new', 'replied', 'done'].includes(st)) return res.status(400).json({ error: 'bad status' });
+  const cur = (await pool.query('SELECT status,company,name FROM inquiries WHERE id=$1', [req.params.id])).rows[0];
+  if (!cur) return res.status(404).json({ error: 'not found' });
   await pool.query('UPDATE inquiries SET status=$1 WHERE id=$2', [st, req.params.id]);
+  if (cur.status !== st) audit(req, 'update', 'inquiry', req.params.id, `問い合わせの状態を変更: ${cur.company || ''} ${cur.name || ''}`.trim(), { status: { from: cur.status, to: st } });
   res.json({ ok: true });
 });
 app.delete('/api/inquiries/:id', requireAuth, requirePerm('inquiries', 'del'), async (req, res) => {
-  await pool.query('DELETE FROM inquiries WHERE id=$1', [req.params.id]);
+  const r = await pool.query('DELETE FROM inquiries WHERE id=$1 RETURNING company,name,email,tel,message,created_at', [req.params.id]);
+  if (r.rows[0]) audit(req, 'delete', 'inquiry', req.params.id, `問い合わせを削除: ${r.rows[0].company || ''} ${r.rows[0].name || ''}`.trim(), r.rows[0]);
   res.json({ ok: true });
 });
 
 app.get('/api/downloads', requireAuth, async (_q, res) => {
-  const r = await pool.query('SELECT * FROM downloads ORDER BY created_at DESC LIMIT 500');
+  const r = await pool.query(`SELECT t.*, ${LAST_MAIL('download')} FROM downloads t ORDER BY t.created_at DESC LIMIT 500`);
   res.json({ items: r.rows });
 });
 app.delete('/api/downloads/:id', requireAuth, requirePerm('downloads', 'del'), async (req, res) => {
-  await pool.query('DELETE FROM downloads WHERE id=$1', [req.params.id]);
+  const r = await pool.query('DELETE FROM downloads WHERE id=$1 RETURNING company,name,email,interest,note,created_at', [req.params.id]);
+  if (r.rows[0]) audit(req, 'delete', 'download', req.params.id, `資料請求を削除: ${r.rows[0].company || ''} ${r.rows[0].name || ''}`.trim(), r.rows[0]);
   res.json({ ok: true });
-});
-
-// ----- 資料請求のお客様へ 資料をメール送信 -----
-app.post('/api/downloads/:id/send', requireAuth, requireMail, async (req, res) => {
-  try {
-    const b = req.body || {};
-    const ids = (Array.isArray(b.materialIds) ? b.materialIds : []).map(x => parseInt(x, 10)).filter(Boolean);
-    if (!ids.length) return res.status(400).json({ error: '送信する資料を選択してください' });
-    const dl = (await pool.query('SELECT * FROM downloads WHERE id=$1', [req.params.id])).rows[0];
-    if (!dl) return res.status(404).json({ error: 'not found' });
-    if (!dl.email) return res.status(400).json({ error: 'お客様のメールがありません' });
-    const mats = (await pool.query('SELECT * FROM materials WHERE id = ANY($1::bigint[])', [ids])).rows;
-    if (!mats.length) return res.status(400).json({ error: '資料が見つかりません' });
-    const extraMsg = String(b.message || '').trim();
-    const greet = (dl.company ? dl.company + '\n' : '') + `${dl.name || 'ご担当者'} 様`;
-    const links = mats.map(m => { const url = m.link_url || m.file_url; return `・${m.name}${url ? '\n  ' + url : ''}`; }).join('\n');
-    const body =
-`${greet}
-
-この度は、BIGLIGHT株式会社の資料をご請求いただき、誠にありがとうございます。
-ご請求いただきました資料をお送りいたします。
-${extraMsg ? '\n' + extraMsg + '\n' : ''}
-──────────────────────────
-■ 資料一覧
-${links}
-──────────────────────────
-
-ご不明な点がございましたら、お気軽にお問い合わせください。
-
-${MAIL_SIGN}`;
-    await sendMailSmart(req, { to: dl.email, subject: '【BIGLIGHT株式会社】ご請求資料の送付', body, materialIds: ids });
-    const note = mats.map(m => m.name).join(', ');
-    await pool.query('UPDATE downloads SET sent_at=now(), sent_note=$1 WHERE id=$2', [note, req.params.id]);
-    res.json({ ok: true, sent_at: new Date().toISOString(), sent_note: note });
-  } catch (e) { console.error('POST /api/downloads/send:', e.message); res.status(500).json({ error: e.message }); }
 });
 
 // ================= 資料 (materials) =================
@@ -551,6 +518,7 @@ app.post('/api/materials', requireAuth, requirePerm('salesmail', 'create'), (req
         const f = saveMatFile(row.id, req.file);
         row = (await pool.query('UPDATE materials SET filename=$1,file_url=$2,size=$3,updated_at=now() WHERE id=$4 RETURNING *', [f.filename, f.file_url, f.size, row.id])).rows[0];
       }
+      audit(req, 'create', 'material', row.id, '資料を登録: ' + row.name, { category: row.category, file: req.file ? req.file.originalname : null, link_url: row.link_url });
       res.json({ item: row });
     } catch (e) { console.error('POST /api/materials:', e.message); res.status(500).json({ error: e.message }); }
   });
@@ -569,13 +537,17 @@ app.put('/api/materials/:id', requireAuth, requirePerm('salesmail', 'edit'), (re
       if (req.file) { const f = saveMatFile(cur.id, req.file); filename = f.filename; file_url = f.file_url; size = f.size; }
       const row = (await pool.query('UPDATE materials SET name=$1,category=$2,link_url=$3,filename=$4,file_url=$5,size=$6,updated_at=now() WHERE id=$7 RETURNING *',
         [name, category, link_url, filename, file_url, size, cur.id])).rows[0];
+      const d = diffOf(cur, row, ['name', 'category', 'link_url']);
+      if (req.file) d.file = { to: req.file.originalname };
+      audit(req, req.file ? 'replace' : 'update', 'material', cur.id, (req.file ? '資料ファイルを差し替え: ' : '資料を編集: ') + row.name, d);
       res.json({ item: row });
     } catch (e) { console.error('PUT /api/materials:', e.message); res.status(500).json({ error: e.message }); }
   });
 });
 app.delete('/api/materials/:id', requireAuth, requirePerm('salesmail', 'del'), async (req, res) => {
-  const cur = (await pool.query('SELECT filename FROM materials WHERE id=$1', [req.params.id])).rows[0];
+  const cur = (await pool.query('SELECT filename,name,category FROM materials WHERE id=$1', [req.params.id])).rows[0];
   await pool.query('DELETE FROM materials WHERE id=$1', [req.params.id]);
+  if (cur) audit(req, 'delete', 'material', req.params.id, '資料を削除: ' + cur.name, cur);
   if (cur && cur.filename) try { fs.unlinkSync(path.join(MAT_DIR, cur.filename)); } catch (e) {}
   res.json({ ok: true });
 });
@@ -611,6 +583,7 @@ app.post('/api/mail/templates', requireAuth, requirePerm('salesmail', 'create'),
       `INSERT INTO mail_templates(name,category,subject,body,signature_id,attach_ids,favorite,created_by,updated_at)
        VALUES($1,$2,$3,$4,$5,$6,$7,$8,now()) RETURNING *`,
       [name, b.category || 'その他', b.subject || '', b.body || '', toInt(b.signature_id), JSON.stringify(b.attach_ids || []), !!b.favorite, senderName(req)]);
+    audit(req, 'create', 'template', r.rows[0].id, 'テンプレートを作成: ' + name, { category: r.rows[0].category, subject: r.rows[0].subject });
     res.json({ item: { ...r.rows[0], attach_ids: jparse(r.rows[0].attach_ids, []) } });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -627,11 +600,15 @@ app.put('/api/mail/templates/:id', requireAuth, requirePerm('salesmail', 'edit')
        b.attach_ids !== undefined ? JSON.stringify(b.attach_ids || []) : cur.attach_ids,
        b.favorite !== undefined ? !!b.favorite : cur.favorite,
        b.last_used ? new Date() : cur.last_used, req.params.id]);
+    const d = diffOf(cur, r.rows[0], ['name', 'category', 'subject', 'body', 'signature_id', 'attach_ids', 'favorite']);
+    if (Object.keys(d).length) audit(req, 'update', 'template', cur.id, 'テンプレートを編集: ' + r.rows[0].name, d);
     res.json({ item: { ...r.rows[0], attach_ids: jparse(r.rows[0].attach_ids, []) } });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 app.delete('/api/mail/templates/:id', requireAuth, requirePerm('salesmail', 'del'), async (req, res) => {
-  await pool.query('DELETE FROM mail_templates WHERE id=$1', [req.params.id]); res.json({ ok: true });
+  const r = await pool.query('DELETE FROM mail_templates WHERE id=$1 RETURNING name,category,subject,body', [req.params.id]);
+  if (r.rows[0]) audit(req, 'delete', 'template', req.params.id, 'テンプレートを削除: ' + r.rows[0].name, r.rows[0]);
+  res.json({ ok: true });
 });
 
 // ----- 署名 -----
@@ -645,6 +622,7 @@ app.post('/api/mail/signatures', requireAuth, requirePerm('salesmail', 'create')
     if (!name) return res.status(400).json({ error: '署名名は必須です' });
     if (b.is_default) await pool.query('UPDATE mail_signatures SET is_default=false');
     const r = await pool.query('INSERT INTO mail_signatures(name,body,is_default) VALUES($1,$2,$3) RETURNING *', [name, b.body || '', !!b.is_default]);
+    audit(req, 'create', 'signature', r.rows[0].id, '署名を作成: ' + name);
     res.json({ item: r.rows[0] });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -656,20 +634,29 @@ app.put('/api/mail/signatures/:id', requireAuth, requirePerm('salesmail', 'edit'
     if (b.is_default) await pool.query('UPDATE mail_signatures SET is_default=false');
     const r = await pool.query('UPDATE mail_signatures SET name=$1,body=$2,is_default=$3 WHERE id=$4 RETURNING *',
       [b.name != null ? String(b.name).trim() : cur.name, b.body != null ? b.body : cur.body, b.is_default !== undefined ? !!b.is_default : cur.is_default, req.params.id]);
+    const d = diffOf(cur, r.rows[0], ['name', 'body', 'is_default']);
+    if (Object.keys(d).length) audit(req, 'update', 'signature', cur.id, '署名を編集: ' + r.rows[0].name, d);
     res.json({ item: r.rows[0] });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 app.delete('/api/mail/signatures/:id', requireAuth, requirePerm('salesmail', 'del'), async (req, res) => {
-  await pool.query('DELETE FROM mail_signatures WHERE id=$1', [req.params.id]); res.json({ ok: true });
+  const r = await pool.query('DELETE FROM mail_signatures WHERE id=$1 RETURNING name,body', [req.params.id]);
+  if (r.rows[0]) audit(req, 'delete', 'signature', req.params.id, '署名を削除: ' + r.rows[0].name, r.rows[0]);
+  res.json({ ok: true });
 });
 
 // ----- 送信履歴 -----
-app.get('/api/mail/logs', requireAuth, async (_q, res) => {
-  const r = await pool.query('SELECT * FROM mail_logs ORDER BY created_at DESC LIMIT 1000');
+app.get('/api/mail/logs', requireAuth, async (req, res) => {
+  const kind = String(req.query.kind || ''), rid = toInt(req.query.id);
+  const r = (kind && rid)
+    ? await pool.query('SELECT * FROM mail_logs WHERE recipient_kind=$1 AND recipient_id=$2 ORDER BY created_at DESC', [kind, rid])
+    : await pool.query('SELECT * FROM mail_logs ORDER BY created_at DESC LIMIT 1000');
   res.json({ items: r.rows });
 });
 app.delete('/api/mail/logs/:id', requireAuth, requirePerm('salesmail', 'del'), async (req, res) => {
-  await pool.query('DELETE FROM mail_logs WHERE id=$1', [req.params.id]); res.json({ ok: true });
+  const r = await pool.query('DELETE FROM mail_logs WHERE id=$1 RETURNING to_email,subject,created_at', [req.params.id]);
+  if (r.rows[0]) audit(req, 'delete', 'mail_log', req.params.id, '送信履歴を削除: ' + r.rows[0].to_email, r.rows[0]);
+  res.json({ ok: true });
 });
 
 // ----- 下書き -----
@@ -704,29 +691,51 @@ app.put('/api/mail/meta/:key', requireAuth, requirePerm('salesmail', 'edit'), as
   if (!['tpl_cats', 'file_cats'].includes(key)) return res.status(400).json({ error: 'bad key' });
   const val = (req.body || {}).val || [];
   await pool.query('INSERT INTO mail_meta(key,val) VALUES($1,$2) ON CONFLICT(key) DO UPDATE SET val=$2', [key, JSON.stringify(val)]);
+  audit(req, 'update', 'mail_meta', key, (key === 'tpl_cats' ? 'テンプレートカテゴリ' : '資料カテゴリ') + 'を変更', { to: val });
   res.json({ ok: true });
 });
 
-// ----- 送信 (GAS優先・SMTPフォールバック) -----
+// ----- 送信 (GAS優先・SMTPフォールバック) — 一括送信も1件ずつこのAPIを呼ぶ -----
+const EMAIL_RE = /^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/;
+function mailList(v) {   // "a@x, b@y" → 検証済み "a@x, b@y"（不正があれば null）
+  const arr = String(v || '').split(/[,;\s]+/).map(s => s.trim()).filter(Boolean);
+  if (arr.some(a => !EMAIL_RE.test(a))) return null;
+  return arr.join(', ');
+}
 app.post('/api/mail/send', requireAuth, requireMail, async (req, res) => {
+  const b = req.body || {};
+  const to = String(b.to || '').trim();
+  const cc = mailList(b.cc), bcc = mailList(b.bcc);
+  const subject = String(b.subject || '').trim();
+  const body = String(b.body || '');
+  const attachIds = (Array.isArray(b.attachIds) ? b.attachIds : []).map(x => parseInt(x, 10)).filter(Boolean);
+  let rk = null, rid = null;
+  if (b.recipientKey && String(b.recipientKey).indexOf(':') > 0) {
+    const a = String(b.recipientKey).split(':');
+    if (['download', 'inquiry'].includes(a[0])) { rk = a[0]; rid = toInt(a[1]); }
+  }
+  if (!to) return res.status(400).json({ error: '宛先メールがありません' });
+  if (!EMAIL_RE.test(to)) return res.status(400).json({ error: '宛先メールが不正です' });
+  if (cc === null || bcc === null) return res.status(400).json({ error: 'CC / BCC のメールアドレスが不正です' });
+  if (!subject || !body.trim()) return res.status(400).json({ error: '件名・本文は必須です' });
+  const u = req.session.user;
+  const auditDetail = { to, cc, bcc, subject, template: b.templateName || null, att: b.att || null, batch: b.batchId || null };
   try {
-    const b = req.body || {};
-    const to = String(b.to || '').trim();
-    if (!to) return res.status(400).json({ error: '宛先メールがありません' });
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) return res.status(400).json({ error: '宛先メールが不正です' });
-    const subject = String(b.subject || '').trim();
-    const body = String(b.body || '');
-    const attachIds = (Array.isArray(b.attachIds) ? b.attachIds : []).map(x => parseInt(x, 10)).filter(Boolean);
-    const result = await sendMailSmart(req, { to, subject, body, materialIds: attachIds });
-    let rk = null, rid = null;
-    if (b.recipientKey && String(b.recipientKey).indexOf(':') > 0) { const a = String(b.recipientKey).split(':'); rk = a[0]; rid = toInt(a[1]); }
+    const result = await sendMailSmart(req, { to, cc, bcc, subject, body, materialIds: attachIds });
     await pool.query(
-      `INSERT INTO mail_logs(sender,to_email,to_name,recipient_kind,recipient_id,subject,template_id,template_name,status,att,note)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8,'送信',$9,$10)`,
-      [senderName(req), to, b.toName || '', rk, rid, subject, toInt(b.templateId), b.templateName || '', b.att || '', b.note || '']);
+      `INSERT INTO mail_logs(sender,sender_email,to_email,to_name,recipient_kind,recipient_id,subject,template_id,template_name,status,att,note,batch_id)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,'送信',$10,$11,$12)`,
+      [senderName(req), u.email, to, String(b.toName || '').slice(0, 200), rk, rid, subject, toInt(b.templateId), b.templateName || '', b.att || '',
+       [b.note || '', cc ? 'CC: ' + cc : '', bcc ? 'BCC: ' + bcc : ''].filter(Boolean).join(' / '), b.batchId ? String(b.batchId).slice(0, 60) : null]);
+    if (rk === 'download') await pool.query('UPDATE downloads SET sent_at=now(), sent_note=$1 WHERE id=$2', [b.att || subject, rid]);
     if (toInt(b.templateId)) { try { await pool.query('UPDATE mail_templates SET last_used=now() WHERE id=$1', [toInt(b.templateId)]); } catch (e) {} }
-    res.json({ ok: true });
-  } catch (e) { console.error('POST /api/mail/send:', e.message); res.status(500).json({ error: e.message }); }
+    audit(req, 'send', rk || 'mail', rid, `メール送信: ${to}「${subject}」`, { ...auditDetail, via: result.via });
+    res.json({ ok: true, via: result.via });
+  } catch (e) {
+    console.error('POST /api/mail/send:', e.message);
+    audit(req, 'send_failed', rk || 'mail', rid, `メール送信失敗: ${to}`, { ...auditDetail, error: e.message });
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // ----- posts CRUD -----
@@ -752,6 +761,7 @@ app.post('/api/posts', requireAuth, requirePerm('posts', 'create'), async (req, 
     const vals = postVals(b, null, slug, status, pub);
     const r = await pool.query(
       `INSERT INTO posts(${PCOLS.join(',')},updated_at) VALUES(${PCOLS.map((_, i) => '$' + (i + 1)).join(',')},now()) RETURNING *`, vals);
+    audit(req, 'create', 'post', r.rows[0].id, '記事を作成: ' + r.rows[0].title, { slug: r.rows[0].slug, status: r.rows[0].status });
     res.json({ item: r.rows[0] });
     news.regenerate(pool).catch(() => {});
   } catch (e) { console.error('POST /api/posts:', e.message); res.status(500).json({ error: e.message }); }
@@ -777,6 +787,9 @@ app.put('/api/posts/:id', requireAuth, requirePerm('posts', 'edit'), async (req,
     const r = await pool.query(
       `UPDATE posts SET ${PCOLS.map((c, i) => c + '=$' + (i + 1)).join(',')},updated_at=now() WHERE id=$${PCOLS.length + 1} RETURNING *`,
       [...vals, req.params.id]);
+    const d = diffOf(old, r.rows[0], ['title', 'slug', 'category', 'status', 'published_at', 'author', 'tags', 'seo_title', 'meta_description', 'focus_keyword', 'cover_image', 'robots_index', 'pinned', 'featured']);
+    if (old.body !== r.rows[0].body) d.body = { changed: true };
+    if (Object.keys(d).length) audit(req, 'update', 'post', old.id, '記事を編集: ' + r.rows[0].title, d);
     res.json({ item: r.rows[0] });
     if (old.slug !== slug) news.removeSlug(old.slug);
     if (r.rows[0].status !== 'published') news.removeSlug(slug);
@@ -784,14 +797,15 @@ app.put('/api/posts/:id', requireAuth, requirePerm('posts', 'edit'), async (req,
   } catch (e) { console.error('PUT /api/posts:', e.message); res.status(500).json({ error: e.message }); }
 });
 app.delete('/api/posts/:id', requireAuth, requirePerm('posts', 'del'), async (req, res) => {
-  const c = await pool.query('SELECT slug FROM posts WHERE id=$1', [req.params.id]);
+  const c = await pool.query('SELECT slug,title,status FROM posts WHERE id=$1', [req.params.id]);
   await pool.query('DELETE FROM posts WHERE id=$1', [req.params.id]);
+  if (c.rows[0]) audit(req, 'delete', 'post', req.params.id, '記事を削除: ' + c.rows[0].title, c.rows[0]);
   res.json({ ok: true });
   if (c.rows[0]) news.removeSlug(c.rows[0].slug);
   news.regenerate(pool).catch(() => {});
 });
 app.post('/api/news/regenerate', requireAuth, requirePerm('posts', 'edit'), async (_q, res) => {
-  try { const n = await news.regenerate(pool); res.json({ ok: true, count: n }); }
+  try { const n = await news.regenerate(pool); audit(req, 'regenerate', 'post', null, '公開サイトを再生成（' + n + '記事）'); res.json({ ok: true, count: n }); }
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -817,12 +831,49 @@ app.post('/api/categories', requireAuth, requirePerm('posts', 'edit'), async (re
     const ex = await pool.query('SELECT 1 FROM categories WHERE slug=$1', [slug]);
     if (ex.rows[0]) slug = slug + '-' + Date.now().toString(36);
     const r = await pool.query('INSERT INTO categories(slug,name,sort) VALUES($1,$2,$3) RETURNING *', [slug, name, parseInt((req.body || {}).sort, 10) || 99]);
+    audit(req, 'create', 'category', r.rows[0].id, 'カテゴリを追加: ' + name, { slug });
     res.json({ item: r.rows[0] });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 app.delete('/api/categories/:id', requireAuth, requirePerm('posts', 'del'), async (req, res) => {
-  await pool.query('DELETE FROM categories WHERE id=$1', [req.params.id]);
+  const r = await pool.query('DELETE FROM categories WHERE id=$1 RETURNING slug,name', [req.params.id]);
+  if (r.rows[0]) audit(req, 'delete', 'category', req.params.id, 'カテゴリを削除: ' + r.rows[0].name, r.rows[0]);
   res.json({ ok: true });
+});
+
+// ================= 監査ログ =================
+// 画面側の操作（CSV出力など、サーバーを通らないもの）を記録
+const CLIENT_EVENTS = { export: true };
+const EXPORT_LABEL = { inquiry: '問い合わせ', download: '資料請求', posts: '記事', audit: '監査ログ' };
+app.post('/api/audit/event', requireAuth, async (req, res) => {
+  const b = req.body || {};
+  if (!CLIENT_EVENTS[b.action]) return res.status(400).json({ error: 'bad action' });
+  const entity = String(b.entity || '').replace(/[^a-z_]/g, '').slice(0, 30) || 'other';
+  const count = toInt(b.count) || 0;
+  await audit(req, b.action, entity, null, `CSV出力: ${EXPORT_LABEL[entity] || entity}（${count}件）`, { count, file: String(b.file || '').slice(0, 100) });
+  res.json({ ok: true });
+});
+app.get('/api/audit', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const q = req.query, where = [], args = [];
+    const add = (sql, v) => { args.push(v); where.push(sql.replace('?', '$' + args.length)); };
+    if (q.entity) add('entity = ?', String(q.entity));
+    if (q.action) add('action = ?', String(q.action));
+    if (q.actor) add('actor_email = ?', String(q.actor).toLowerCase());
+    if (q.from) add("created_at >= (?::date AT TIME ZONE 'Asia/Tokyo')", String(q.from));
+    if (q.to) add("created_at < ((?::date + 1) AT TIME ZONE 'Asia/Tokyo')", String(q.to));
+    if (q.q) {
+      args.push('%' + String(q.q) + '%', String(q.q));
+      const like = '$' + (args.length - 1), exact = '$' + args.length;
+      where.push(`(summary ILIKE ${like} OR actor_email ILIKE ${like} OR actor_name ILIKE ${like} OR detail::text ILIKE ${like} OR entity_id = ${exact})`);
+    }
+    const limit = Math.min(toInt(q.limit) || 200, 1000), offset = Math.max(toInt(q.offset) || 0, 0);
+    const w = where.length ? 'WHERE ' + where.join(' AND ') : '';
+    const total = (await pool.query(`SELECT count(*)::int n FROM audit_logs ${w}`, args)).rows[0].n;
+    const items = (await pool.query(`SELECT * FROM audit_logs ${w} ORDER BY created_at DESC, id DESC LIMIT ${limit} OFFSET ${offset}`, args)).rows;
+    const actors = (await pool.query('SELECT actor_email, max(actor_name) AS actor_name FROM audit_logs WHERE actor_email IS NOT NULL GROUP BY actor_email ORDER BY actor_email')).rows;
+    res.json({ total, items, actors });
+  } catch (e) { console.error('GET /api/audit:', e.message); res.status(500).json({ error: e.message }); }
 });
 
 // ================= admin UI (tĩnh) =================

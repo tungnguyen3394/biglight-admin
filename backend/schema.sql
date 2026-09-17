@@ -107,6 +107,27 @@ INSERT INTO mail_meta(key,val) VALUES
   ('file_cats','["会社案内","候補者名簿","履歴書","営業資料","提案書","その他"]'::jsonb)
 ON CONFLICT (key) DO NOTHING;
 
+-- 一括送信のまとまり (同じ batch_id = 1回の一括送信)
+ALTER TABLE mail_logs ADD COLUMN IF NOT EXISTS sender_email TEXT;
+ALTER TABLE mail_logs ADD COLUMN IF NOT EXISTS batch_id     TEXT;
+CREATE INDEX IF NOT EXISTS idx_mlog_recip ON mail_logs(recipient_kind, recipient_id);
+
+-- ============ 監査ログ (誰が・いつ・何をしたか) ============
+CREATE TABLE IF NOT EXISTS audit_logs (
+  id          BIGSERIAL PRIMARY KEY,
+  actor_email TEXT,
+  actor_name  TEXT,
+  action      TEXT NOT NULL,                 -- login | create | update | delete | send | ...
+  entity      TEXT NOT NULL,                 -- inquiry | download | post | template | material | ...
+  entity_id   TEXT,
+  summary     TEXT,
+  detail      JSONB,
+  ip          TEXT,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_logs(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_entity  ON audit_logs(entity, entity_id);
+
 -- ============ ユーザー管理 (profiles) + 権限 ============
 CREATE TABLE IF NOT EXISTS profiles (
   email        TEXT PRIMARY KEY,
