@@ -7,7 +7,24 @@ Dữ liệu lưu **PostgreSQL** (database `biglight_web`). Đăng nhập bằng 
 - Chạy bằng Docker, sau Caddy (mạng `web`), domain `admin.biglight.jp`
 - Phase 1: nền tảng + đăng nhập ✅ · Phase 2: お問い合わせ · Phase 3: お知らせ (SEO)
 
-## Deploy (VPS)
+## Deploy (cách đang dùng thật — 2026-09-18)
+
+VPS đã có sẵn quyền đọc repo này, nên deploy = SSH vào máy chủ (Termius) rồi chạy 2 lệnh:
+
+```bash
+cd /root/biglight-admin && git pull
+docker compose -f docker-compose.yml up -d --build admin
+```
+
+Kiểm tra: `docker exec biglight-admin wget -qO- http://127.0.0.1:3000/healthz` → `{"ok":true}`
+Quay lại bản cũ: `git reset --hard <commit cũ>` rồi chạy lại lệnh build.
+
+⚠ Đừng dùng `docker compose up` trần trên VPS: `docker-compose.override.yml` là file chỉ dành cho máy local
+(nó dựng database giả). File đó không nằm trong git nên VPS không có — vẫn nên chỉ định `-f docker-compose.yml`.
+
+`.github/workflows/deploy.yml` có sẵn để tự động hoá, nhưng repo CHƯA có secret VPS nên hiện để chạy tay.
+
+## Deploy lần đầu (VPS)
 ```bash
 # 1) tạo database
 docker exec postgres psql "$ADMIN_DB_SUPER" -c "CREATE DATABASE biglight_web OWNER crm_user;"

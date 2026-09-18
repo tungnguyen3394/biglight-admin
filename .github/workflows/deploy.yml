@@ -1,12 +1,9 @@
 name: Deploy admin.biglight.jp
 
+# ⚠ CHƯA DÙNG ĐƯỢC: repo này chưa có secret VPS_HOST/VPS_USER/VPS_SSH_KEY/VPS_PORT.
+# Vì vậy để chạy TAY thôi (không tự kích hoạt khi push, tránh báo đỏ vô nghĩa).
+# Cách deploy đang dùng thật: xem mục "Deploy" trong README.md (2 lệnh qua Termius).
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'backend/**'
-      - 'docker-compose.yml'
-      - '.github/workflows/deploy.yml'
   workflow_dispatch: {}
 
 # Máy của người dùng KHÔNG SSH được vào VPS — đây là đường lên production.
