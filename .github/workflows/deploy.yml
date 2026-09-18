@@ -1,0 +1,71 @@
+name: Deploy admin.biglight.jp
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - 'docker-compose.yml'
+      - '.github/workflows/deploy.yml'
+  workflow_dispatch: {}
+
+# Máy của người dùng KHÔNG SSH được vào VPS — đây là đường lên production.
+# Secret cần có (Settings → Secrets and variables → Actions), giống repo biglight-vietnam:
+#   VPS_HOST · VPS_USER · VPS_SSH_KEY · VPS_PORT
+#
+# Không đụng .env trên VPS. Không đụng database: schema.sql chỉ CREATE/ALTER ... IF NOT EXISTS
+# và tự chạy khi container khởi động.
+# Chép qua thư mục tạm rồi rsync vào chỗ: chạy được dù /root/biglight-admin là git clone hay không.
+concurrency: deploy-admin
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Chép mã nguồn lên VPS (thư mục tạm)
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          source: "backend,docker-compose.yml"
+          target: /root/biglight-admin-incoming
+          rm: true
+
+      - name: Thay mã + dựng lại container
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          command_timeout: 15m
+          script: |
+            set -e
+            APP=/root/biglight-admin
+            test -f $APP/.env || { echo "✗ Không thấy $APP/.env — dừng, không làm gì."; exit 1; }
+            # giữ bản cũ để quay lại nếu cần
+            rm -rf /root/biglight-admin-prev && mkdir -p /root/biglight-admin-prev
+            cp -a $APP/backend $APP/docker-compose.yml /root/biglight-admin-prev/
+            rsync -a --delete --exclude node_modules /root/biglight-admin-incoming/backend/ $APP/backend/
+            cp /root/biglight-admin-incoming/docker-compose.yml $APP/docker-compose.yml
+            cd $APP
+            # docker-compose.override.yml chỉ dành cho máy local (DB giả) — không được dùng trên VPS
+            docker compose -f docker-compose.yml up -d --build admin
+            ok=0
+            for i in $(seq 1 30); do
+              if docker exec biglight-admin wget -qO- http://127.0.0.1:3000/healthz >/dev/null 2>&1; then ok=1; break; fi
+              sleep 2
+            done
+            if [ "$ok" != 1 ]; then
+              echo "✗ healthz không lên — quay lại bản cũ"; docker logs --tail 50 biglight-admin || true
+              rsync -a --delete --exclude node_modules /root/biglight-admin-prev/backend/ $APP/backend/
+              cp /root/biglight-admin-prev/docker-compose.yml $APP/docker-compose.yml
+              docker compose -f docker-compose.yml up -d --build admin
+              exit 1
+            fi
+            docker logs --tail 5 biglight-admin
+            echo "✓ admin.biglight.jp đã chạy bản mới"
