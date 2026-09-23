@@ -898,7 +898,10 @@ async function renderEditor(id){
     const r=await api(id?'/api/posts/'+id:'/api/posts',{method:id?'PUT':'POST',body:JSON.stringify(body)});
     const dd=await r.json();
     if(r.ok){ $('#msg').style.color='#1c7a47'; $('#msg').textContent='✓ 保存しました'; setTimeout(renderPosts,700); }
-    else { $('#msg').style.color='#e23b3b'; $('#msg').textContent='失敗: '+(dd.error||''); }
+    else {
+      const links=(dd.links||[]).slice(0,3).map(l=>`${l.field}: ${l.href}（${l.reason}）`).join(' / ');
+      $('#msg').style.color='#e23b3b'; $('#msg').textContent='失敗: '+(dd.error||'')+(links?' — '+links:'');
+    }
   }
   $('#back').onclick=renderPosts;
   $('#draft').onclick=()=>save('draft');

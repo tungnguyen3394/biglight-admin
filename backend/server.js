@@ -8,6 +8,7 @@ const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
 const news = require('./news');
+const { normalizePostLinks, findBrokenPostLinks } = require('./postLinks');
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
@@ -750,13 +751,15 @@ app.get('/api/posts/:id', requireAuth, async (req, res) => {
 });
 app.post('/api/posts', requireAuth, requirePerm('posts', 'create'), async (req, res) => {
   try {
-    const b = req.body || {};
+    const b = normalizePostLinks(req.body || {});
     const title = String(b.title || '').trim();
     if (!title) return res.status(400).json({ error: 'タイトルは必須です' });
     let slug = slugify(b.slug) || ('post-' + Date.now());
     const ex = await pool.query('SELECT 1 FROM posts WHERE slug=$1', [slug]);
     if (ex.rows[0]) slug = slug + '-' + Date.now().toString(36);
     const status = b.status === 'published' ? 'published' : (b.status === 'scheduled' ? 'scheduled' : 'draft');
+    const broken = await findBrokenPostLinks(pool, b, { selfSlug: slug, selfPublished: status === 'published' });
+    if (broken.length) return res.status(400).json({ error: '内部リンクに無効なリンクがあります（admin.biglight.jp・localhost・存在しない記事など）', links: broken.slice(0, 3) });
     const pub = (status === 'published' || status === 'scheduled') ? (b.published_at ? new Date(b.published_at) : new Date()) : (b.published_at ? new Date(b.published_at) : null);
     const vals = postVals(b, null, slug, status, pub);
     const r = await pool.query(
@@ -768,7 +771,7 @@ app.post('/api/posts', requireAuth, requirePerm('posts', 'create'), async (req, 
 });
 app.put('/api/posts/:id', requireAuth, requirePerm('posts', 'edit'), async (req, res) => {
   try {
-    const b = req.body || {};
+    const b = normalizePostLinks(req.body || {});
     const cur = await pool.query('SELECT * FROM posts WHERE id=$1', [req.params.id]);
     if (!cur.rows[0]) return res.status(404).json({ error: 'not found' });
     const old = cur.rows[0];
@@ -779,6 +782,8 @@ app.put('/api/posts/:id', requireAuth, requirePerm('posts', 'edit'), async (req,
       if (ex.rows[0]) slug = slug + '-' + Date.now().toString(36);
     }
     const status = b.status != null ? (b.status === 'published' ? 'published' : (b.status === 'scheduled' ? 'scheduled' : 'draft')) : old.status;
+    const broken = await findBrokenPostLinks(pool, b, { selfSlug: slug, selfPublished: status === 'published' });
+    if (broken.length) return res.status(400).json({ error: '内部リンクに無効なリンクがあります（admin.biglight.jp・localhost・存在しない記事など）', links: broken.slice(0, 3) });
     let pub = old.published_at;
     if ((status === 'published' || status === 'scheduled') && !old.published_at) pub = b.published_at ? new Date(b.published_at) : new Date();
     if ((status === 'published' || status === 'scheduled') && b.published_at) pub = new Date(b.published_at);
@@ -804,7 +809,7 @@ app.delete('/api/posts/:id', requireAuth, requirePerm('posts', 'del'), async (re
   if (c.rows[0]) news.removeSlug(c.rows[0].slug);
   news.regenerate(pool).catch(() => {});
 });
-app.post('/api/news/regenerate', requireAuth, requirePerm('posts', 'edit'), async (_q, res) => {
+app.post('/api/news/regenerate', requireAuth, requirePerm('posts', 'edit'), async (req, res) => {
   try { const n = await news.regenerate(pool); audit(req, 'regenerate', 'post', null, '公開サイトを再生成（' + n + '記事）'); res.json({ ok: true, count: n }); }
   catch (e) { res.status(500).json({ error: e.message }); }
 });
