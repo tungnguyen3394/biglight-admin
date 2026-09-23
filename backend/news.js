@@ -340,6 +340,7 @@ function tagHTML(tag, posts, map) {
     title: `${tag} の記事一覧｜お知らせ｜BIGLIGHT株式会社`,
     desc: `「${tag}」に関するBIGLIGHTのお知らせ・記事一覧です。`,
     url, h1: `# ${tag}`, lead: `「${tag}」の記事一覧`, en: 'Tag',
+    robots: 'noindex, follow', // SEO 2026-09-23: trang tag mỏng, không index — vẫn follow link bài
     crumb: `<a href="/">ホーム</a> ＞ <a href="/news/">お知らせ</a> ＞ <span># ${esc(tag)}</span>`
   }, posts, map);
 }
@@ -350,8 +351,30 @@ function sitemapXML(posts, tags) {
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${u(BASE + '/news/', '', '0.8')}
 ${posts.map(p => u(`${BASE}/news/${p.slug}/`, (iso(p.updated_at || p.published_at) || '').slice(0, 10), '0.7')).join('\n')}
-${tags.map(t => u(`${BASE}/news/tag/${encodeURIComponent(t)}/`, '', '0.5')).join('\n')}
 </urlset>`;
+}
+
+// Sitemap GỐC (/sitemap.xml, file tĩnh do tay quản lý): thay toàn bộ khối
+// /news/<slug>/ bằng danh sách bài đang công bố (lastmod = ngày cập nhật).
+// Giữ nguyên mọi URL khác (trang tĩnh) và /news/. KHÔNG đưa /news/tag/*.
+function updateRootSitemap(posts) {
+  const file = path.join(SITE, 'sitemap.xml');
+  let xml;
+  try { xml = fs.readFileSync(file, 'utf8'); } catch (e) { return false; }
+  if (xml.indexOf('</urlset>') < 0) return false;
+  const isNews = loc => loc.indexOf(BASE + '/news/') === 0 && loc !== BASE + '/news/';
+  // bỏ entry news cũ (kể cả tag) — mỗi <url>…</url> nằm trên 1 dòng
+  xml = xml.replace(/^[ \t]*<url>[\s\S]*?<\/url>[ \t]*\r?\n/gm, m => {
+    const loc = (m.match(/<loc>([^<]*)<\/loc>/) || [])[1] || '';
+    return isNews(loc) ? '' : m;
+  });
+  const lines = posts.map(p => {
+    const last = (iso(p.updated_at || p.published_at) || '').slice(0, 10);
+    return `  <url><loc>${BASE}/news/${p.slug}/</loc>${last ? `<lastmod>${last}</lastmod>` : ''}<changefreq>monthly</changefreq><priority>0.6</priority></url>`;
+  });
+  xml = xml.replace(/[ \t]*<\/urlset>/, lines.join('\n') + '\n</urlset>');
+  fs.writeFileSync(file, xml);
+  return true;
 }
 
 function ensureDir(d) { fs.mkdirSync(d, { recursive: true }); }
@@ -370,6 +393,7 @@ async function regenerate(pool) {
   // list + sitemap
   fs.writeFileSync(path.join(newsDir, 'index.html'), listHTML(posts, map, tags));
   fs.writeFileSync(path.join(newsDir, 'sitemap.xml'), sitemapXML(posts, tags));
+  try { updateRootSitemap(posts); } catch (e) { console.error('sitemap.xml gốc:', e.message); }
   // bài viết
   for (const p of posts) { const d = path.join(newsDir, p.slug); ensureDir(d); fs.writeFileSync(path.join(d, 'index.html'), articleHTML(p, map)); }
   // trang tag
@@ -387,4 +411,4 @@ function removeSlug(slug) {
   try { fs.rmSync(path.join(SITE, 'news', slug), { recursive: true, force: true }); } catch (e) {}
 }
 
-module.exports = { regenerate, removeSlug };
+module.exports = { regenerate, removeSlug, updateRootSitemap };
