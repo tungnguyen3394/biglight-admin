@@ -1615,6 +1615,8 @@ const GAS_SCRIPT=`// Google Apps Script — BIGLIGHT Gmail送信 Web App v3（�
 // 2.【重要】上の関数メニューで「sendTest」を選び ▶実行 → 「承認」→「許可」(初回のGmail送信許可)
 //        → 自分宛に「BIGLIGHT テスト送信」が届けばOK
 // 3. デプロイ → 新しいデプロイ → ウェブアプリ → 実行者:自分 → アクセスできるユーザー:「全員」→ デプロイ
+//    ★「biglight.jp 内の全員」や「Googleアカウントを持つ全員」では NG（サーバーから呼べず 401）。必ず「全員」(Anyone)。
+//    ★ 正しい URL は https://script.google.com/macros/s/…/exec 。/a/macros/biglight.jp/ が入っていたら設定が違います。
 // 4. ウェブアプリURL（.../exec で終わるもの）をコピー → 管理画面の「メール設定」に貼り付け → 保存
 //    ※ 既にGASがある人も、このv3を貼り直して「新しいデプロイ」→ 新URLを登録してください
 
@@ -1711,7 +1713,7 @@ function smMailSetting(){
       <div class="sub">メールは<b>あなた自身のGmail</b>から送信され、差出人名は<b>あなたのログイン名</b>がそのまま表示されます。GASを設定するとGmail送信、未設定ならサーバSMTPで送信されます。<br><b style="color:#b45309">旧版（v2以前）を使っている人は、下のv3コードを貼り直して「新しいデプロイ」→ 新しいURLを登録してください。</b></div>
       <div><label>① GASスクリプト（コピーしてGASに貼る）</label><textarea readonly onclick="this.select()" style="height:170px;font-family:monospace;font-size:11px">${esc(GAS_SCRIPT)}</textarea></div>
       <div><label>② 自分の GAS デプロイURL</label><input id="mset_gas" value="${esc(PERM.gas_url||CURRENT_USER.gas_url||'')}" placeholder="https://script.google.com/macros/s/…/exec"><div style="margin-top:6px"><a class="lnk" style="margin:0" onclick="gasCheck('',this)">${IC.refresh} 登録済みURLのバージョンを確認</a></div></div>
-      <div class="sub">手順: script.google.com で新規 → コード貼付 → <b>sendTest を1回実行して許可</b> → デプロイ（ウェブアプリ / アクセス:全員）→ URLを貼付。確認: URLをブラウザで開いて「v3」と出ればOK。</div>
+      <div class="sub">手順: script.google.com で新規 → コード貼付 → <b>sendTest を1回実行して許可</b> → デプロイ（ウェブアプリ / <b>アクセスできるユーザー: 全員</b>。「biglight.jp 内の全員」は NG）→ URLを貼付。正しい URL は <code>https://script.google.com/macros/s/…/exec</code>（<code>/a/macros/biglight.jp/</code> 入りは NG）。確認: URLをシークレットウィンドウで開いて「v3」と出ればOK。</div>
     </div>
     <div class="modal-actions"><button class="btn" onclick="closeModal()">閉じる</button><button class="btn navy" onclick="saveSetGas()">${IC.file} 保存</button></div>`);
 }

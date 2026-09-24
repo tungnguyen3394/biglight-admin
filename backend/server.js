@@ -196,6 +196,8 @@ async function sendMailSmart(req, opt) {
     const txt = await resp.text();
     // GAS mẫu admin trả {ok}, GAS v3 của CRM trả {success} → nhận cả 2, lỗi nào cũng không được ghi 送信
     let ok = resp.ok; try { const j = JSON.parse(txt); if (j && (j.ok === false || j.success === false)) ok = false; } catch (e) {}
+    // Google のログインページが返る = デプロイの「アクセスできるユーザー」が全員になっていない（組織内限定 URL /a/macros/… も同じ）
+    if (!ok && (resp.status === 401 || /ServiceLogin|Sign in - Google Accounts|ppConfig/.test(txt))) throw new Error("GASのアクセス設定が「全員」になっていません（URL に /a/macros/ が含まれる＝組織内限定、またはログインページが返っています）。GAS で「デプロイを管理」→ アクセスできるユーザー:「全員」→ 新バージョンでデプロイし、新しいURL（https://script.google.com/macros/s/…/exec）を登録してください");
     if (!ok) throw new Error('GAS送信エラー: ' + txt.slice(0, 200));
     return { via: 'gas' };
   }
@@ -440,6 +442,7 @@ app.put('/api/perms', requireAuth, requireAdmin, async (req, res) => {
 app.post('/api/me/gas', requireAuth, async (req, res) => {
   const url = String((req.body || {}).gas_url || '').trim();
   if (url && !/^https:\/\/script\.google\.com\//.test(url)) return res.status(400).json({ error: 'GAS の URL 形式が正しくありません' });
+  if (url && /\/a\/macros\//.test(url)) return res.status(400).json({ error: 'この URL は組織内限定（/a/macros/biglight.jp/）のため、サーバーから呼べません。GAS のデプロイで「アクセスできるユーザー: 全員」を選び、https://script.google.com/macros/s/…/exec 形式の URL を登録してください' });
   await pool.query('UPDATE profiles SET gas_url=$1 WHERE email=$2', [url || null, req.session.user.email]);
   req.session.user.gas_url = url;
   audit(req, 'update', 'gas', req.session.user.email, url ? 'GAS送信URLを登録' : 'GAS送信URLを削除');
@@ -458,6 +461,7 @@ app.post('/api/gas/check', requireAuth, async (req, res) => {
     const r = await fetch(gas, { signal: ctl.signal }); clearTimeout(t);
     const txt = (await r.text()).slice(0, 2000);
     if (/BIGLIGHT mail GAS v3/.test(txt)) return res.json({ version: 'v3', label: 'v3（差出人名・添付 対応）' });
+    if (/\/a\/macros\//.test(gas) || /ServiceLogin|Sign in - Google Accounts/.test(txt) || /accounts\.google\.com|ServiceLogin/.test(r.url || '')) return res.json({ version: 'access', label: 'アクセス設定エラー: 「全員」になっていません（組織内限定 URL）。デプロイを「全員」で作り直して新 URL を登録' });
     if (/<html/i.test(txt) && /google/i.test(txt)) return res.json({ version: 'old', label: '旧版（doGet なし・差出人名が固定）— v3 を貼り直してください' });
     return res.json({ version: 'old', label: '旧版 — v3 を貼り直してください' });
   } catch (e) { return res.json({ version: 'error', label: '確認できません（URL・デプロイを確認）' }); }
