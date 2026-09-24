@@ -7,6 +7,7 @@ const { OAuth2Client } = require('google-auth-library');
 const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
+const crypto = require('crypto');
 const news = require('./news');
 const { normalizePostLinks, findBrokenPostLinks } = require('./postLinks');
 
@@ -179,6 +180,7 @@ async function buildAttachments(materialIds) {
   if (total > 24 * 1024 * 1024) throw new Error('添付ファイルの合計が24MBを超えています（リンク資料をご利用ください）');
   return atts;
 }
+const senderName = req => (req.session.user && (req.session.user.name || req.session.user.email)) || '';
 // req から送信者を判定 → GAS 優先・SMTP フォールバック
 async function sendMailSmart(req, opt) {
   const u = req.session.user;
@@ -187,10 +189,12 @@ async function sendMailSmart(req, opt) {
   const atts = await buildAttachments(opt.materialIds);
   if (gas) {
     const attachments = atts.map(a => ({ name: a.name, mimeType: MIME_MAP[path.extname(a.name).toLowerCase()] || 'application/octet-stream', dataBase64: fs.readFileSync(a.path).toString('base64') }));
-    const payload = { to: opt.to, subject: opt.subject, body: opt.body, cc: opt.cc || '', bcc: opt.bcc || '', attachments };
+    // senderName = đúng tên login (luật 2026-09-23, không thêm tiền tố công ty); GAS v3 dùng làm tên hiển thị
+    const payload = { to: opt.to, subject: opt.subject, body: opt.body, cc: opt.cc || '', bcc: opt.bcc || '', senderName: senderName(req), attachments };
     const resp = await fetch(gas, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     const txt = await resp.text();
-    let ok = resp.ok; try { const j = JSON.parse(txt); if (j && j.ok === false) ok = false; } catch (e) {}
+    // GAS mẫu admin trả {ok}, GAS v3 của CRM trả {success} → nhận cả 2, lỗi nào cũng không được ghi 送信
+    let ok = resp.ok; try { const j = JSON.parse(txt); if (j && (j.ok === false || j.success === false)) ok = false; } catch (e) {}
     if (!ok) throw new Error('GAS送信エラー: ' + txt.slice(0, 200));
     return { via: 'gas' };
   }
@@ -492,18 +496,29 @@ app.get('/api/materials', requireAuth, async (_q, res) => {
   res.json({ items: r.rows });
 });
 // tạo/sửa: multipart (name, category, link_url + file tùy chọn)
-function saveMatFile(id, file) {
+// Tên file = mat-<id>-<16 ký tự ngẫu nhiên>.<ext>: URL công khai nhưng không đoán được
+// (資料 có thể là 候補者名簿・履歴書). Khi thay file thì URL cũng đổi → file cũ bị xoá theo DB.
+function matFileName(id, ext) { return 'mat-' + id + '-' + crypto.randomBytes(12).toString('base64url').replace(/[^A-Za-z0-9]/g, '').slice(0, 16) + ext; }
+function saveMatFile(id, file, oldFilename) {
   const ext = matExt(file.originalname);
-  const finalName = 'mat-' + id + ext;
-  const finalPath = path.join(MAT_DIR, finalName);
-  // xoá file cũ khác đuôi (giữ URL ổn định khi cùng đuôi)
-  try {
-    for (const f of fs.readdirSync(MAT_DIR)) {
-      if (f.startsWith('mat-' + id + '.') && f !== finalName) fs.unlinkSync(path.join(MAT_DIR, f));
-    }
-  } catch (e) {}
-  fs.renameSync(file.path, finalPath);
+  const finalName = matFileName(id, ext);
+  fs.renameSync(file.path, path.join(MAT_DIR, finalName));
+  if (oldFilename && oldFilename !== finalName) try { fs.unlinkSync(path.join(MAT_DIR, oldFilename)); } catch (e) {}
   return { filename: finalName, file_url: SITE_ORIGIN + '/assets/materials/' + finalName, size: file.size };
+}
+// File cũ đặt tên mat-<id>.<ext> (đoán được) → đổi sang tên ngẫu nhiên 1 lần khi khởi động
+async function migrateMaterialNames() {
+  const rows = (await pool.query("SELECT id,filename FROM materials WHERE filename ~ '^mat-[0-9]+\\.[a-z0-9]+$'")).rows;
+  for (const m of rows) {
+    const from = path.join(MAT_DIR, m.filename);
+    if (!fs.existsSync(from)) continue;
+    const to = matFileName(m.id, path.extname(m.filename).toLowerCase());
+    try {
+      fs.renameSync(from, path.join(MAT_DIR, to));
+      await pool.query('UPDATE materials SET filename=$1,file_url=$2,updated_at=now() WHERE id=$3', [to, SITE_ORIGIN + '/assets/materials/' + to, m.id]);
+      console.log('material renamed: ' + m.filename + ' -> ' + to);
+    } catch (e) { console.error('material rename ' + m.filename + ':', e.message); }
+  }
 }
 app.post('/api/materials', requireAuth, requirePerm('salesmail', 'create'), (req, res) => {
   matUpload.single('file')(req, res, async err => {
@@ -535,7 +550,7 @@ app.put('/api/materials/:id', requireAuth, requirePerm('salesmail', 'edit'), (re
       const category = b.category != null ? (String(b.category).trim() || null) : cur.category;
       const link_url = b.link_url != null ? (String(b.link_url).trim() || null) : cur.link_url;
       let filename = cur.filename, file_url = cur.file_url, size = cur.size;
-      if (req.file) { const f = saveMatFile(cur.id, req.file); filename = f.filename; file_url = f.file_url; size = f.size; }
+      if (req.file) { const f = saveMatFile(cur.id, req.file, cur.filename); filename = f.filename; file_url = f.file_url; size = f.size; }
       const row = (await pool.query('UPDATE materials SET name=$1,category=$2,link_url=$3,filename=$4,file_url=$5,size=$6,updated_at=now() WHERE id=$7 RETURNING *',
         [name, category, link_url, filename, file_url, size, cur.id])).rows[0];
       const d = diffOf(cur, row, ['name', 'category', 'link_url']);
@@ -556,8 +571,6 @@ app.delete('/api/materials/:id', requireAuth, requirePerm('salesmail', 'del'), a
 // ================= 営業メール管理 (Sales Email Center) =================
 const jparse = (s, d) => { try { return s ? JSON.parse(s) : d; } catch (e) { return d; } };
 const toInt = v => { const n = parseInt(v, 10); return Number.isFinite(n) ? n : null; };
-const senderName = req => (req.session.user && (req.session.user.name || req.session.user.email)) || '';
-
 // 宛先候補: 資料請求 + お問い合わせ を統合
 app.get('/api/recipients', requireAuth, async (_q, res) => {
   try {
@@ -896,6 +909,7 @@ async function publishDue() {
 init()
   .then(async () => {
     await loadPerms();
+    await migrateMaterialNames().catch(e => console.error('migrateMaterialNames:', e.message));
     app.listen(PORT, () => console.log('BIGLIGHT admin listening on ' + PORT));
     publishDue();
     setInterval(publishDue, 5 * 60 * 1000);   // 予約投稿の自動公開（5分毎）

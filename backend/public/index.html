@@ -34,6 +34,7 @@
   .h1{font-size:22px;color:var(--navy);font-weight:700;margin-bottom:4px}
   .crumb{font-size:12.5px;color:var(--muted);margin-bottom:24px}
   .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:30px}
+  .cards.six{grid-template-columns:repeat(3,1fr)}
   .stat{background:#fff;border:1px solid var(--line);border-radius:14px;padding:20px}
   .stat .n{font-size:30px;font-weight:800;color:var(--navy)}
   .stat .l{font-size:12.5px;color:var(--muted);margin-top:4px}
@@ -55,7 +56,7 @@
   td .msg.clamp{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .mtoggle{margin-top:5px;display:inline-block;padding:0;font-size:12px}
   td .sub{color:var(--muted);font-size:12px}
-  .pill{font-size:11px;font-weight:700;border-radius:20px;padding:3px 10px}
+  .pill{display:inline-block;white-space:nowrap;font-size:11px;font-weight:700;border-radius:20px;padding:3px 10px}
   .pill.new{background:#fdeccb;color:#9a5b00}.pill.replied{background:#e7eefb;color:var(--navy)}.pill.done{background:#e2f4ea;color:#1c7a47}
   .pill.draft{background:#eceff3;color:#64748b}.pill.published{background:#e2f4ea;color:#1c7a47}.pill.scheduled{background:#fdeccb;color:#9a5b00}
   select.st{font-family:inherit;font-size:12.5px;padding:5px 8px;border:1px solid var(--line);border-radius:8px}
@@ -260,7 +261,7 @@
     #sideOv.on{display:block}
     .main{padding:72px 13px 32px;overflow-x:hidden}
     .h1{font-size:19px}.crumb{margin-bottom:16px;font-size:12px}
-    .cards{grid-template-columns:repeat(2,1fr);gap:11px;margin-bottom:22px}
+    .cards,.cards.six{grid-template-columns:repeat(2,1fr);gap:11px;margin-bottom:22px}
     .stat{padding:15px 14px}.stat .n{font-size:24px}
     .panel{padding:18px 16px}
     .toolbar{gap:7px}.tab{padding:8px 14px}
@@ -283,7 +284,7 @@
     .scorecard{gap:14px}.ring{width:96px;height:96px}
   }
   @media(max-width:420px){
-    .cards{grid-template-columns:1fr}
+    .cards,.cards.six{grid-template-columns:1fr}
     .btoolbar button,.seg button{padding:8px 10px}
   }
 </style>
@@ -505,7 +506,7 @@ async function renderDashboard(){
   try{ s=await(await api('/api/stats')).json(); }catch(e){}
   const top=(s.topPosts||[]).filter(p=>p.views>0);
   $('#main').innerHTML=`<div class="h1">ダッシュボード</div><div class="crumb">ようこそ、BIGLIGHT 管理画面へ</div>
-    <div class="cards">
+    <div class="cards six">
       <div class="stat"><div class="n">${s.postsTotal||0}</div><div class="l">記事 合計</div></div>
       <div class="stat"><div class="n">${s.postsPublished||0}</div><div class="l">公開中の記事</div></div>
       <div class="stat"><div class="n">${s.postsDraft||0}</div><div class="l">下書き</div></div>
@@ -1293,13 +1294,14 @@ async function openMailCompose(kind,ids){
       <div id="mcInfo" class="sub"></div>
     </div>
     <div id="mcProg" style="display:none;max-height:62vh;overflow-y:auto"></div>
+    <div id="mcAttFoot" class="sub" style="margin-top:12px;display:flex;align-items:center;gap:6px;flex-wrap:wrap"></div>
     <div class="modal-actions" id="mcActs">
       <button class="btn" onclick="closeModal()">閉じる</button>
       <button class="btn" onclick="mcPreview(0)">${IC.eye} プレビュー</button>
       <button class="btn" style="${MAIL_BTN_CSS}" onclick="mcSend()">${IC.send} ${rows.length}件に送信</button>
     </div>`);
   mcPaintTo();
-  if(defTpl) mcApplyTpl();
+  if(defTpl) mcApplyTpl(); else mcAttSum();
   document.getElementById('mcAttBox').addEventListener('change',mcAttSum);
 }
 function mcPaintTo(){
@@ -1324,6 +1326,7 @@ function mcAttSum(){
   const e=$('#mcAttSum'); if(!e) return;
   e.style.color=size>24*1048576?'#e23b3b':'';
   e.textContent=a.length?`選択中: ファイル${files.length}件（合計 ${fmtSize(size)}）${a.length-files.length?' / リンク'+(a.length-files.length)+'件':''}${size>24*1048576?' — 24MBを超えています':''}`:'';
+  const f=$('#mcAttFoot'); if(f){ f.style.color=size>24*1048576?'#e23b3b':''; f.innerHTML=a.length?`${IC.file} 添付: ${esc(a.map(m=>m.name).join(', '))} <span class="sub">（${fmtSize(size)}）</span>`:`${IC.file} <span class="sub">添付なし（上の「添付資料」で選択できます）</span>`; }
 }
 async function mcUpload(inp){
   const file=inp.files&&inp.files[0]; inp.value=''; if(!file) return;
@@ -1501,26 +1504,46 @@ async function auCsv(){
 /* ===== ユーザー管理 + 権限 + GAS ===== */
 const ROLE_LABEL={admin:'Admin',manager:'Manager',staff:'Staff',viewer:'Viewer'};
 const STATUS_LABEL={pending:'承認待ち',active:'有効',disabled:'無効'};
-const GAS_SCRIPT=`// Google Apps Script — Gmail送信 Web App
-// 1. script.google.com → 新しいプロジェクト → このコードを貼り付け
-// 2. デプロイ → 新しいデプロイ → ウェブアプリ → 実行者:自分 → アクセス:全員 → デプロイ
-// 3. デプロイURL をコピーして「GAS URL」欄に貼り付け
+const GAS_SCRIPT=`// Google Apps Script — BIGLIGHT Gmail送信 Web App v3（手順を順番に）
+// 1. script.google.com に自分のGmailでログイン → 新しいプロジェクト → このコードを全部貼り付け → 保存(Ctrl+S)
+// 2.【重要】上の関数メニューで「sendTest」を選び ▶実行 → 「承認」→「許可」(初回のGmail送信許可)
+//        → 自分宛に「BIGLIGHT テスト送信」が届けばOK
+// 3. デプロイ → 新しいデプロイ → ウェブアプリ → 実行者:自分 → アクセスできるユーザー:「全員」→ デプロイ
+// 4. ウェブアプリURL（.../exec で終わるもの）をコピー → 管理画面の「メール設定」に貼り付け → 保存
+//    ※ 既にGASがある人も、このv3を貼り直して「新しいデプロイ」→ 新URLを登録してください
+
 function doPost(e) {
   try {
     var p = JSON.parse(e.postData.contents);
-    var opts = { name: 'BIGLIGHT 特定技能担当' };
+    // 差出人の表示名 = 管理画面にログインした人の名前そのまま（会社名の前置きは付けない）。
+    // senderName が来なければ name を付けない → このGASを配置したGoogleアカウントの表示名が出る。
+    var opts = {};
+    if (p.senderName) opts.name = p.senderName;
     if (p.cc)  opts.cc  = p.cc;
     if (p.bcc) opts.bcc = p.bcc;
+    // 添付ファイル（PDF等）: base64 → Blob
     if (p.attachments && p.attachments.length) {
       opts.attachments = p.attachments.map(function(a){
         return Utilities.newBlob(Utilities.base64Decode(a.dataBase64), a.mimeType || 'application/octet-stream', a.name || 'file');
       });
     }
     GmailApp.sendEmail(p.to, p.subject || '', p.body || '', opts);
-    return ContentService.createTextOutput(JSON.stringify({ ok: true })).setMimeType(ContentService.MimeType.JSON);
+    return ContentService.createTextOutput(JSON.stringify({ ok: true, success: true })).setMimeType(ContentService.MimeType.JSON);
   } catch (err) {
-    return ContentService.createTextOutput(JSON.stringify({ ok: false, error: String(err) })).setMimeType(ContentService.MimeType.JSON);
+    console.error('doPost error: ' + err);
+    return ContentService.createTextOutput(JSON.stringify({ ok: false, success: false, error: String(err) })).setMimeType(ContentService.MimeType.JSON);
   }
+}
+
+function doGet(e) {
+  // ★ デプロイ確認用: このURLをブラウザで開いて「v3」が出れば差出人名対応版が稼働中
+  return ContentService.createTextOutput('BIGLIGHT mail GAS v3 - 添付ファイル・差出人名 OK');
+}
+
+// ★ 重要: 初回だけ手動で1回「実行」してください。
+// Gmail送信の許可を付与し、自分宛にテストメールを送ります（届けば設定完了）。
+function sendTest() {
+  GmailApp.sendEmail(Session.getActiveUser().getEmail(), 'BIGLIGHT テスト送信', 'このメールが届けばGAS設定は成功です。');
 }`;
 let PROFILES=[];
 async function renderUsers(){
@@ -1549,14 +1572,9 @@ async function renderUsers(){
       <tbody>${APPS.map(([ak,al])=>`<tr><td style="font-weight:600">${al}</td>${rolesEdit.map(r=>{ const p=(PERM.rolePerms&&PERM.rolePerms[r]&&PERM.rolePerms[r][ak])||{}; return ['create','edit','del'].map((act,idx)=>`<td style="text-align:center${idx===0?';border-left:1px solid var(--line)':''}"><input type="checkbox" class="pm" data-r="${r}" data-a="${ak}" data-c="${act}" ${p[act]?'checked':''}></td>`).join(''); }).join('')}</tr>`).join('')}</tbody></table></div>
     <div style="margin-bottom:30px"><button class="btn navy" onclick="savePerms()">${IC.file} 権限を保存</button> <span id="permMsg" class="sub"></span></div>
 
-    <div class="h1" style="font-size:18px">メール送信設定（Google Apps Script）</div>
-    <div class="crumb">メールは<b>各自のGmail</b>から送信されます。下記のスクリプトをGASに貼り付け→デプロイし、URLを各自の「メール設定」から登録します。GAS未登録の場合はサーバSMTPで送信されます。</div>
-    <div class="row2" style="max-width:none;align-items:start">
-      <div class="fg"><label>① GASスクリプト（コピーしてGASに貼る）</label><textarea readonly onclick="this.select()" style="width:100%;height:260px;font-family:monospace;font-size:11.5px;border:1px solid var(--line);border-radius:8px;padding:10px">${esc(GAS_SCRIPT)}</textarea><div class="sub" style="margin-top:4px">クリックで全選択 → Ctrl+C でコピー</div></div>
-      <div class="fg"><label>② 自分の GAS デプロイURL</label><input id="myGas" value="${esc(PERM.gas_url||CURRENT_USER.gas_url||'')}" placeholder="https://script.google.com/macros/s/…/exec"><div style="margin-top:8px"><button class="btn navy" onclick="saveMyGas()">${IC.file} 保存</button> <span id="gasMsg" class="sub"></span></div>
-        <div class="sub" style="margin-top:14px;line-height:1.9">設定手順:<br>1. script.google.com で新規プロジェクト作成<br>2. 左のコードを貼り付けて保存<br>3. デプロイ → 新しいデプロイ → ウェブアプリ<br>4. 種類「ウェブアプリ」／アクセス「全員」<br>5. URLをコピーして左に貼り付け</div>
-      </div>
-    </div>`;
+    <div class="h1" style="font-size:18px">メール送信設定（Google Apps Script v3）</div>
+    <div class="crumb">メールは<b>各自のGmail</b>から送信され、差出人名はログイン名がそのまま表示されます。スクリプトとURL登録は「メール設定」から（各自が自分のアカウントで行います）。GAS未登録の場合はサーバSMTPで送信されます。</div>
+    <div style="margin-bottom:30px"><button class="btn navy" onclick="loadMail().then(smMailSetting)">${IC.send} メール設定を開く（GAS v3）</button></div>`;
 }
 async function saveProfile(email){
   const role=document.getElementById('ur_'+email).value, status=document.getElementById('us_'+email).value, mail=document.getElementById('um_'+email).checked;
@@ -1584,10 +1602,10 @@ async function saveMyGas(){
 function smMailSetting(){
   openModal(`<h3>${IC.send} メール設定（自分のGmailから送信）</h3>
     <div class="mform">
-      <div class="sub">メールは<b>あなた自身のGmail</b>から送信されます。GASを設定するとGmail送信、未設定ならサーバSMTPで送信されます。</div>
+      <div class="sub">メールは<b>あなた自身のGmail</b>から送信され、差出人名は<b>あなたのログイン名</b>がそのまま表示されます。GASを設定するとGmail送信、未設定ならサーバSMTPで送信されます。<br><b style="color:#b45309">旧版（v2以前）を使っている人は、下のv3コードを貼り直して「新しいデプロイ」→ 新しいURLを登録してください。</b></div>
       <div><label>① GASスクリプト（コピーしてGASに貼る）</label><textarea readonly onclick="this.select()" style="height:170px;font-family:monospace;font-size:11px">${esc(GAS_SCRIPT)}</textarea></div>
       <div><label>② 自分の GAS デプロイURL</label><input id="mset_gas" value="${esc(PERM.gas_url||CURRENT_USER.gas_url||'')}" placeholder="https://script.google.com/macros/s/…/exec"></div>
-      <div class="sub">手順: script.google.com で新規 → コード貼付 → デプロイ（ウェブアプリ / アクセス:全員）→ URLを貼付</div>
+      <div class="sub">手順: script.google.com で新規 → コード貼付 → <b>sendTest を1回実行して許可</b> → デプロイ（ウェブアプリ / アクセス:全員）→ URLを貼付。確認: URLをブラウザで開いて「v3」と出ればOK。</div>
     </div>
     <div class="modal-actions"><button class="btn" onclick="closeModal()">閉じる</button><button class="btn navy" onclick="saveSetGas()">${IC.file} 保存</button></div>`);
 }
