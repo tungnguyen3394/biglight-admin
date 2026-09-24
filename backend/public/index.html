@@ -287,6 +287,68 @@
     .cards,.cards.six{grid-template-columns:1fr}
     .btoolbar button,.seg button{padding:8px 10px}
   }
+  /* ===== モバイル優先: 一覧カード ===== */
+  .mcards{display:none}
+  .mcard{display:flex;gap:10px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 12px 10px;margin-bottom:8px;cursor:pointer}
+  .mcard:active{background:#f5f9ff}
+  .mcard .mchk{padding-top:1px;flex-shrink:0}.mcard .mchk input{width:18px;height:18px}
+  .mcard .mbody{flex:1;min-width:0}
+  .mtop{display:flex;align-items:center;gap:8px;justify-content:space-between}
+  .mtop b{font-size:14.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+  .msub{font-size:12px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .msnip{font-size:13px;color:#3a4658;margin-top:6px;line-height:1.55;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .mfoot{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:11.5px;color:var(--muted);margin-top:8px}
+  /* ===== 詳細ページ ===== */
+  .dpage{max-width:920px}
+  .dhero{background:linear-gradient(135deg,#0b3d91,#1e6fd6);color:#fff;border-radius:16px;padding:20px 22px;margin-bottom:12px;box-shadow:0 10px 30px rgba(11,61,145,.18)}
+  .dco{font-size:13px;opacity:.9;display:flex;align-items:center;gap:6px}
+  .dnm{font-size:21px;font-weight:800;margin:4px 0 12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;line-height:1.3}
+  .dchips{display:flex;flex-wrap:wrap;gap:8px}
+  .dchip{display:inline-flex;align-items:center;gap:6px;background:#ffffff22;color:#fff;border-radius:20px;padding:6px 12px;font-size:13px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  a.dchip:hover{background:#ffffff3a}
+  .dcard{background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin-bottom:12px}
+  .dlbl{font-size:12px;font-weight:700;color:var(--muted);margin-bottom:8px;letter-spacing:.4px}
+  .dmsg{font-size:15px;line-height:1.9;white-space:pre-wrap;word-break:break-word}
+  .dgrid{display:grid;grid-template-columns:1fr 1fr;gap:0 24px}
+  .dgrid .drow{padding:9px 0;font-size:13.5px}.dgrid .dk{width:90px;font-size:12px}
+  .dact{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .dpage .sendbox{margin-top:0;background:#fff;border-color:var(--line);border-radius:14px}
+  /* ===== メール・資料（コンパクト） ===== */
+  .mlh{display:flex;align-items:flex-start;gap:12px;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap}
+  .mltabs{margin-bottom:12px;overflow-x:auto;flex-wrap:nowrap;max-width:100%;padding-bottom:2px;-webkit-overflow-scrolling:touch}
+  .mltabs button{white-space:nowrap;padding:7px 13px}
+  .tpltools{display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
+  .catscroll{display:flex;gap:6px;overflow-x:auto;flex:1 1 100%;padding-bottom:2px}
+  .tlist{background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .trow{display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:1px solid var(--line)}
+  .trow:last-child{border-bottom:0}
+  .tmain{flex:1;min-width:0;cursor:pointer}
+  .tname{font-size:13.5px;font-weight:700;display:flex;gap:8px;align-items:center;overflow:hidden}
+  .tname .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .tsubj{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:2px}
+  .tacts{display:flex;gap:2px;flex-shrink:0}
+  .tacts .lnk,.tacts .del{margin:0;padding:6px;border-radius:8px;display:inline-flex}
+  .tacts .lnk:hover{background:#eef4fc}.tacts .del:hover{background:#fdf0f0}
+  /* ===== API・MCP連携 ===== */
+  .kcard{background:#f8fafd;border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:8px}
+  .kcard.dead{opacity:.6}
+  .kcode{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;background:#f1f5fb;border:1px solid var(--line);border-radius:8px;padding:10px 12px;word-break:break-all;white-space:pre-wrap;margin:6px 0}
+  .ikhow{margin-bottom:12px}.ikhow b{font-size:13px}
+  .hlist{display:flex;flex-direction:column;gap:6px}
+  .hrow{border:1px solid var(--line);border-radius:10px;padding:9px 12px;background:#fbfcfe}
+  .hmeta{display:flex;gap:12px;font-size:12px;color:var(--muted);flex-wrap:wrap}
+  .hsubj{font-size:13.5px;font-weight:600;margin-top:2px;word-break:break-word}
+  @media(max-width:820px){
+    .tablewrap.hasm{display:none}.mcards{display:block}
+    .dhero{padding:16px;border-radius:14px}.dnm{font-size:18px}.dchip{font-size:12.5px;padding:6px 10px}
+    .dcard{padding:14px 15px}.dmsg{font-size:14.5px}
+    .dgrid{grid-template-columns:1fr}
+    .dact{position:sticky;bottom:8px;z-index:20;box-shadow:0 8px 30px rgba(0,0,0,.14)}
+    .dact .btn{flex:1 1 auto;justify-content:center;padding:11px 10px}.dact select{flex:1 1 100%;padding:10px}
+    .dact .btn[style*="margin-left:auto"]{margin-left:0!important}
+    .mlh .h1{font-size:18px}.tpltools .selin{flex:1 1 100%}
+    .toolbar .btn{flex:1 1 auto;justify-content:center}
+  }
 </style>
 </head>
 <body>
@@ -329,6 +391,12 @@
       <a data-page="posts">
         <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="14" y2="17"/></svg>
         <span class="label">お知らせ・Magazine</span></a>
+      <a data-page="mail">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        <span class="label">メール・資料</span></a>
+      <a data-page="integrations" id="navMcp" style="display:none">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="15" r="4"/><path d="M10.9 12.1L21 2"/><path d="M15 8l3 3"/><path d="M18 5l3 3"/></svg>
+        <span class="label">API・MCP連携</span></a>
       <a data-page="users" id="navUsers" style="display:none">
         <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
         <span class="label">ユーザー管理</span></a>
@@ -377,6 +445,10 @@ const IC = {
   link:_svg('<path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/>'),
   clock:_svg('<circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/>'),
   menu:_svg('<line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>'),
+  mail:_svg('<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>'),
+  phone:_svg('<path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8.1 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.8 2.1z"/>'),
+  building:_svg('<rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01M16 6h.01M8 10h.01M16 10h.01M8 14h.01M16 14h.01M12 6h.01M12 10h.01M12 14h.01"/>'),
+  key:_svg('<circle cx="8" cy="15" r="4"/><path d="M10.9 12.1L21 2"/><path d="M15 8l3 3"/><path d="M18 5l3 3"/>'),
 };
 const ST = { new:'未対応', replied:'対応中', done:'完了' };
 const CAT = { news:'お知らせ', magazine:'HR Magazine', seido:'制度・法改正情報', press:'プレス' };
@@ -445,7 +517,7 @@ function ensureTableBlot(){
 }
 function fmt(d){ if(!d) return '—'; const t=new Date(d); const p=n=>String(n).padStart(2,'0'); return `${t.getFullYear()}/${p(t.getMonth()+1)}/${p(t.getDate())} ${p(t.getHours())}:${p(t.getMinutes())}`; }
 function fmtd(d){ if(!d) return '—'; const t=new Date(d); const p=n=>String(n).padStart(2,'0'); return `${t.getFullYear()}/${p(t.getMonth()+1)}/${p(t.getDate())}`; }
-function checkedIds(){ return [...document.querySelectorAll('.rowchk:checked')].map(c=>c.value); }
+function checkedIds(){ return [...new Set([...document.querySelectorAll('.rowchk:checked')].map(c=>c.value))]; }
 function bindChkAll(){ const a=$('#chkall'); if(a) a.onclick=()=>{ document.querySelectorAll('.rowchk').forEach(c=>c.checked=a.checked); selInfo(); };
   document.querySelectorAll('.rowchk').forEach(c=>c.onchange=()=>{ const all=$('#chkall'); if(all) all.checked=[...document.querySelectorAll('.rowchk')].every(x=>x.checked); selInfo(); }); selInfo(); }
 function selInfo(){ const n=checkedIds().length, e=$('#selcnt'); if(e) e.textContent=n?('選択中 '+n+'件'):''; }
@@ -486,21 +558,35 @@ function showApp(user){
   $('#menuBtn').onclick=()=>{ const c=$('#app').classList.toggle('collapsed'); localStorage.setItem('sideCollapsed',c?'1':'0'); };
   if($('#mMenu')) $('#mMenu').onclick=openDrawer;
   refreshBadge();
-  Promise.all([loadPerm(),loadCats()]).then(()=>{ ['#navUsers','#navAudit'].forEach(s=>{ if($(s)) $(s).style.display=PERM.isAdmin?'':'none'; }); go('dashboard'); });
+  Promise.all([loadPerm(),loadCats()]).then(()=>{ ['#navUsers','#navAudit','#navMcp'].forEach(s=>{ if($(s)) $(s).style.display=PERM.isAdmin?'':'none'; }); route(); });
 }
 function setActive(p){ document.querySelectorAll('.nav a').forEach(a=>a.classList.toggle('active',a.dataset.page===p)); const act=document.querySelector('.nav a[data-page="'+p+'"] .label'); const mt=$('#mtitle'); if(mt) mt.textContent=act?act.textContent:''; }
 async function refreshBadge(){ try{ const s=await(await api('/api/stats')).json(); const nb=$('#nbInq');
   if(s.inquiriesNew>0){nb.style.display='inline-block';nb.textContent=s.inquiriesNew;}else nb.style.display='none'; }catch(e){} }
-function go(page){ setActive(page);
+/* ===== ルーティング（URL ↔ 画面）: /inquiries/12 のように直接開ける・戻る/進む対応 ===== */
+const ROUTES={dashboard:'/',inquiries:'/inquiries',downloads:'/downloads',posts:'/posts',mail:'/mail',users:'/users',audit:'/audit',integrations:'/integrations'};
+function setPath(p){ try{ if(/^https?:/.test(location.protocol)&&location.pathname!==p) history.pushState({p},'',p); }catch(e){} }
+function go(page,noPush){ setActive(page); if(!noPush) setPath(ROUTES[page]||'/'); window.scrollTo(0,0);
   if(page==='dashboard') return renderDashboard();
   if(page==='inquiries') return renderInquiries();
   if(page==='downloads') return renderDownloads();
   if(page==='posts') return renderPosts();
+  if(page==='mail') return renderMailLib(SM_BACK,null,true);
   if(page==='users') return renderUsers();
   if(page==='audit') return renderAudit();
+  if(page==='integrations') return renderIntegrations();
+  return renderDashboard();
 }
+function route(){
+  const m=location.pathname.match(/^\/(inquiries|downloads|posts|mail|users|audit|integrations)(?:\/([A-Za-z0-9_-]+))?\/?$/);
+  if(!m) return go('dashboard',true);
+  const pg=m[1], id=m[2];
+  if(id){ if(pg==='inquiries') return renderInquiryDetail(id,true); if(pg==='downloads') return renderDownloadDetail(id,true); if(pg==='posts') return renderEditor(id==='new'?null:id,true); }
+  go(pg,true);
+}
+window.addEventListener('popstate',()=>{ if(document.body.classList.contains('app-on')) route(); });
 // bỏ qua click vào input/nút/select/link khi mở chi tiết theo hàng
-function rowClickable(){ document.querySelectorAll('tr.clk').forEach(tr=>{ tr.onclick=e=>{ if(e.target.closest('input,button,select,a,label')) return; const fn=tr.dataset.open; if(fn) window[fn](tr.dataset.id); }; }); }
+function rowClickable(){ document.querySelectorAll('tr.clk,.mcard.clk').forEach(tr=>{ tr.onclick=e=>{ if(e.target.closest('input,button,select,a,label')) return; const fn=tr.dataset.open; if(fn) window[fn](tr.dataset.id); }; }); }
 async function renderDashboard(){
   let s={inquiriesNew:0,inquiriesTotal:0,postsPublished:0,postsTotal:0,postsDraft:0,downloadsTotal:0,topPosts:[]};
   try{ s=await(await api('/api/stats')).json(); }catch(e){}
@@ -545,45 +631,63 @@ async function loadInq(){ $('#body').innerHTML='<div class="empty">読み込み�
 function paintInq(){
   const rows=INQ.filter(r=>INQF==='all'||r.status===INQF);
   if(!rows.length){ $('#body').innerHTML='<div class="tablewrap"><div class="empty">該当する問い合わせはありません。</div></div>'; selInfo(); return; }
-  $('#body').innerHTML=`<div class="tablewrap"><table><thead><tr><th style="width:34px;text-align:center"><input type="checkbox" id="chkall"></th><th class="nowrap">受信日時</th><th>会社 / 氏名</th><th>連絡先</th><th style="width:36%">内容</th><th>状態</th><th class="nowrap">メール</th><th>操作</th></tr></thead><tbody>${rows.map(r=>`
+  const stSel=r=>C(can('inquiries','edit'),`<select class="st" data-id="${r.id}"><option value="new"${r.status==='new'?' selected':''}>未対応</option><option value="replied"${r.status==='replied'?' selected':''}>対応中</option><option value="done"${r.status==='done'?' selected':''}>完了</option></select>`);
+  $('#body').innerHTML=`<div class="tablewrap hasm"><table><thead><tr><th style="width:34px;text-align:center"><input type="checkbox" id="chkall"></th><th class="nowrap">受信日時</th><th>会社 / 氏名</th><th>連絡先</th><th style="width:36%">内容</th><th>状態</th><th class="nowrap">メール</th><th>操作</th></tr></thead><tbody>${rows.map(r=>`
     <tr class="clk" data-open="renderInquiryDetail" data-id="${r.id}"><td style="text-align:center"><input type="checkbox" class="rowchk" value="${r.id}"></td><td class="nowrap">${fmt(r.created_at)}</td>
     <td class="nowrap"><b>${esc(r.company)||'—'}</b><div class="sub">${esc(r.name)}</div></td>
     <td class="nowrap">${esc(r.email)}<div class="sub">${esc(r.tel)}</div></td>
     <td class="ell"><span class="rowline">${esc((r.message||'').replace(/\s+/g,' ').trim())||'—'}</span></td>
     <td><span class="pill ${r.status}">${ST[r.status]}</span></td>
     <td class="nowrap">${mailBadge(r)}</td>
-    <td class="nowrap">${C(can('inquiries','edit'),`<select class="st" data-id="${r.id}"><option value="new"${r.status==='new'?' selected':''}>未対応</option><option value="replied"${r.status==='replied'?' selected':''}>対応中</option><option value="done"${r.status==='done'?' selected':''}>完了</option></select>`)}${C(can('inquiries','del'),`<br><button class="del" data-del="${r.id}" style="margin-top:6px">削除</button>`)}${(!can('inquiries','edit')&&!can('inquiries','del'))?'<span class="sub">閲覧のみ</span>':''}</td></tr>`).join('')}</tbody></table></div>`;
+    <td class="nowrap">${stSel(r)}${C(can('inquiries','del'),`<br><button class="del" data-del="${r.id}" style="margin-top:6px">削除</button>`)}${(!can('inquiries','edit')&&!can('inquiries','del'))?'<span class="sub">閲覧のみ</span>':''}</td></tr>`).join('')}</tbody></table></div>
+    <div class="mcards">${rows.map(r=>`<div class="mcard clk" data-open="renderInquiryDetail" data-id="${r.id}">
+      <label class="mchk"><input type="checkbox" class="rowchk" value="${r.id}"></label>
+      <div class="mbody"><div class="mtop"><b>${esc(r.company)||esc(r.name)||'—'}</b><span class="pill ${r.status}">${ST[r.status]}</span></div>
+        <div class="msub">${r.company?esc(r.name)+' · ':''}${esc(r.email)}</div>
+        <div class="msnip">${esc((r.message||'').replace(/\s+/g,' ').trim())||'—'}</div>
+        <div class="mfoot"><span>${fmt(r.created_at)}</span><span>${r.last_mail_at?'<span class="sent-badge">送信済</span>':'<span class="sub">未送信</span>'}</span></div></div></div>`).join('')}</div>`;
   document.querySelectorAll('select.st').forEach(s=>s.onchange=async()=>{ await api('/api/inquiries/'+s.dataset.id,{method:'PATCH',body:JSON.stringify({status:s.value})}); const it=INQ.find(x=>String(x.id)===s.dataset.id); if(it)it.status=s.value; paintInq(); refreshBadge(); });
   document.querySelectorAll('button.del').forEach(b=>b.onclick=async()=>{ if(!confirm('削除しますか？'))return; await api('/api/inquiries/'+b.dataset.del,{method:'DELETE'}); INQ=INQ.filter(x=>String(x.id)!==b.dataset.del); paintInq(); refreshBadge(); });
   rowClickable();
   bindChkAll();
 }
-async function renderInquiryDetail(id){
-  _detailId=id;
+/* ---- 詳細ページ（/inquiries/<id>）: モバイル優先 ---- */
+function _dchips(r,extra){
+  return `<div class="dchips">
+    ${r.email?`<a class="dchip" href="mailto:${esc(r.email)}">${IC.mail} ${esc(r.email)}</a>`:''}
+    ${r.tel?`<a class="dchip" href="tel:${esc(String(r.tel).replace(/[^0-9+]/g,''))}">${IC.phone} ${esc(r.tel)}</a>`:''}
+    <span class="dchip">${IC.clock} ${fmt(r.created_at)}</span>${extra||''}</div>`;
+}
+async function renderInquiryDetail(id,noPush){
+  _detailId=id; if(!noPush) setPath('/inquiries/'+id); setActive('inquiries'); window.scrollTo(0,0);
   let r=INQ.find(x=>String(x.id)===String(id));
   if(!r){ try{ INQ=(await(await api('/api/inquiries')).json()).items||[]; r=INQ.find(x=>String(x.id)===String(id)); }catch(e){} }
   if(!r){ renderInquiries(); return; }
-  $('#main').innerHTML=`<div class="h1">お問い合わせ 詳細</div><div class="crumb">受信 ${fmt(r.created_at)}</div>
-    <div class="backbar">
-      <button class="btn" id="back">${IC.back} 一覧へ戻る</button>
-      <span class="pill ${r.status}" style="align-self:center">${ST[r.status]}</span>
+  $('#main').innerHTML=`<div class="dpage">
+    <div class="backbar"><button class="btn" id="back">${IC.back} 一覧へ戻る</button><span class="sub">お問い合わせ #${r.id}</span></div>
+    <div class="dhero">
+      <div class="dco">${IC.building} ${esc(r.company)||'（会社名なし）'}</div>
+      <div class="dnm">${esc(r.name)||'—'} 様 <span class="pill ${r.status}">${ST[r.status]}</span></div>
+      ${_dchips(r)}
+    </div>
+    <div class="dcard"><div class="dlbl">お問い合わせ内容</div><div class="dmsg">${esc(r.message)||'—'}</div></div>
+    <div class="dcard dact">
+      ${C(can('inquiries','edit'),`<select class="st selin" id="dst">${['new','replied','done'].map(s=>`<option value="${s}"${r.status===s?' selected':''}>${ST[s]}</option>`).join('')}</select>`)}
       ${C(canMail(),`<button class="btn" style="${MAIL_BTN_CSS}" onclick="openMailCompose('inquiry',['${r.id}'])">${IC.send} メール送信</button>`)}
-      ${C(can('inquiries','edit'),`<select class="st" id="dst" style="margin-left:auto">${['new','replied','done'].map(s=>`<option value="${s}"${r.status===s?' selected':''}>${ST[s]}</option>`).join('')}</select>`)}
-      ${C(can('inquiries','del'),`<button class="btn red" id="ddel" style="${can('inquiries','edit')?'':'margin-left:auto'}">${IC.trash} 削除</button>`)}
+      ${C(can('inquiries','del'),`<button class="btn red" id="ddel" style="margin-left:auto">${IC.trash} 削除</button>`)}
     </div>
-    <div class="detail">
+    ${mailHistoryBox('inquiry',r)}
+    <div class="dcard" style="margin-top:12px"><div class="dlbl">受信情報</div><div class="dgrid">
       <div class="drow"><div class="dk">受信日時</div><div class="dv">${fmt(r.created_at)}</div></div>
-      <div class="drow"><div class="dk">会社名</div><div class="dv">${esc(r.company)||'—'}</div></div>
-      <div class="drow"><div class="dk">お名前</div><div class="dv">${esc(r.name)||'—'}</div></div>
-      <div class="drow"><div class="dk">メール</div><div class="dv"><a href="mailto:${esc(r.email)}">${esc(r.email)||'—'}</a></div></div>
       <div class="drow"><div class="dk">電話</div><div class="dv">${esc(r.tel)||'—'}</div></div>
-      <div class="drow"><div class="dk">お問い合わせ内容</div><div class="dv">${esc(r.message)||'—'}</div></div>
-    </div>
-    ${mailHistoryBox('inquiry',r)}`;
-  $('#back').onclick=renderInquiries;
+      <div class="drow"><div class="dk">メール</div><div class="dv">${esc(r.email)||'—'}</div></div>
+      <div class="drow"><div class="dk">IP</div><div class="dv sub">${esc(r.ip)||'—'}</div></div>
+    </div></div>
+  </div>`;
+  $('#back').onclick=()=>go('inquiries');
   loadMailHistory('inquiry',r.id);
-  { const s=$('#dst'); if(s) s.onchange=async()=>{ await api('/api/inquiries/'+r.id,{method:'PATCH',body:JSON.stringify({status:s.value})}); r.status=s.value; refreshBadge(); renderInquiryDetail(id); }; }
-  { const b=$('#ddel'); if(b) b.onclick=async()=>{ if(!confirm('削除しますか？'))return; await api('/api/inquiries/'+r.id,{method:'DELETE'}); INQ=INQ.filter(x=>String(x.id)!==String(id)); refreshBadge(); renderInquiries(); }; }
+  { const s=$('#dst'); if(s) s.onchange=async()=>{ await api('/api/inquiries/'+r.id,{method:'PATCH',body:JSON.stringify({status:s.value})}); r.status=s.value; refreshBadge(); renderInquiryDetail(id,true); }; }
+  { const b=$('#ddel'); if(b) b.onclick=async()=>{ if(!confirm('削除しますか？'))return; await api('/api/inquiries/'+r.id,{method:'DELETE'}); INQ=INQ.filter(x=>String(x.id)!==String(id)); refreshBadge(); go('inquiries'); }; }
 }
 
 /* ===== 資料請求 ===== */
@@ -600,39 +704,44 @@ async function renderDownloads(){
 async function loadDl(){ $('#body').innerHTML='<div class="empty">読み込み中…</div>';
   try{ DL=(await(await api('/api/downloads')).json()).items||[]; }catch(e){DL=[];}
   if(!DL.length){ $('#body').innerHTML='<div class="tablewrap"><div class="empty">まだ資料請求はありません。</div></div>'; selInfo(); return; }
-  $('#body').innerHTML=`<div class="tablewrap"><table><thead><tr><th style="width:34px;text-align:center"><input type="checkbox" id="chkall"></th><th class="nowrap">請求日時</th><th>会社名</th><th>氏名</th><th>メール</th><th>関心内容</th><th>備考</th><th class="nowrap">メール</th><th>操作</th></tr></thead><tbody>${DL.map(r=>`
+  $('#body').innerHTML=`<div class="tablewrap hasm"><table><thead><tr><th style="width:34px;text-align:center"><input type="checkbox" id="chkall"></th><th class="nowrap">請求日時</th><th>会社名</th><th>氏名</th><th>メール</th><th>関心内容</th><th>備考</th><th class="nowrap">メール</th><th>操作</th></tr></thead><tbody>${DL.map(r=>`
     <tr class="clk" data-open="renderDownloadDetail" data-id="${r.id}"><td style="text-align:center"><input type="checkbox" class="rowchk" value="${r.id}"></td><td class="nowrap">${fmt(r.created_at)}</td><td class="nowrap"><b>${esc(r.company)||'—'}</b></td><td class="nowrap">${esc(r.name)}</td><td class="nowrap">${esc(r.email)}</td>
     <td class="ell" style="max-width:180px"><span class="rowline">${esc(r.interest)||'—'}</span></td><td class="ell" style="max-width:220px"><span class="rowline">${esc((r.note||'').replace(/\s+/g,' ').trim())||'—'}</span></td>
     <td class="nowrap">${mailBadge(r)}</td>
-    <td class="nowrap">${C(can('downloads','del'),`<button class="del" data-del="${r.id}">削除</button>`)||'<span class="sub">—</span>'}</td></tr>`).join('')}</tbody></table></div>`;
+    <td class="nowrap">${C(can('downloads','del'),`<button class="del" data-del="${r.id}">削除</button>`)||'<span class="sub">—</span>'}</td></tr>`).join('')}</tbody></table></div>
+    <div class="mcards">${DL.map(r=>`<div class="mcard clk" data-open="renderDownloadDetail" data-id="${r.id}">
+      <label class="mchk"><input type="checkbox" class="rowchk" value="${r.id}"></label>
+      <div class="mbody"><div class="mtop"><b>${esc(r.company)||esc(r.name)||'—'}</b>${r.last_mail_at?'<span class="sent-badge">送信済</span>':'<span class="pill new">未送信</span>'}</div>
+        <div class="msub">${r.company?esc(r.name)+' · ':''}${esc(r.email)}</div>
+        ${r.interest?`<div class="msnip">${IC.tag} ${esc(r.interest)}${r.note?' — '+esc(r.note):''}</div>`:(r.note?`<div class="msnip">${esc(r.note)}</div>`:'')}
+        <div class="mfoot"><span>${fmt(r.created_at)}</span><span class="sub">${r.sent_note?esc(r.sent_note):''}</span></div></div></div>`).join('')}</div>`;
   document.querySelectorAll('button.del').forEach(b=>b.onclick=async()=>{ if(!confirm('削除しますか？'))return; await api('/api/downloads/'+b.dataset.del,{method:'DELETE'}); DL=DL.filter(x=>String(x.id)!==b.dataset.del); loadDl(); });
   rowClickable();
   bindChkAll();
 }
-async function renderDownloadDetail(id){
-  _detailId=id;
+async function renderDownloadDetail(id,noPush){
+  _detailId=id; if(!noPush) setPath('/downloads/'+id); setActive('downloads'); window.scrollTo(0,0);
   let r=DL.find(x=>String(x.id)===String(id));
   if(!r){ try{ DL=(await(await api('/api/downloads')).json()).items||[]; r=DL.find(x=>String(x.id)===String(id)); }catch(e){} }
   if(!r){ renderDownloads(); return; }
-  $('#main').innerHTML=`<div class="h1">資料請求 詳細</div><div class="crumb">請求 ${fmt(r.created_at)}</div>
-    <div class="backbar">
-      <button class="btn" id="back">${IC.back} 一覧へ戻る</button>
-      ${r.last_mail_at?`<span class="sent-badge" style="align-self:center">送信済 ${fmt(r.last_mail_at)}</span>`:''}
-      ${C(canMail(),`<button class="btn" style="${MAIL_BTN_CSS}" onclick="openMailCompose('download',['${r.id}'])">${IC.send} メール送信</button>`)}
+  $('#main').innerHTML=`<div class="dpage">
+    <div class="backbar"><button class="btn" id="back">${IC.back} 一覧へ戻る</button><span class="sub">資料請求 #${r.id}</span></div>
+    <div class="dhero">
+      <div class="dco">${IC.building} ${esc(r.company)||'（会社名なし）'}</div>
+      <div class="dnm">${esc(r.name)||'—'} 様 ${r.last_mail_at?`<span class="sent-badge">送信済 ${fmtd(r.last_mail_at)}</span>`:'<span class="pill new">未送信</span>'}</div>
+      ${_dchips(r)}
+    </div>
+    <div class="dcard"><div class="dlbl">関心内容</div><div class="dmsg">${esc(r.interest)||'—'}</div>
+      ${r.note?`<div class="dlbl" style="margin-top:14px">備考</div><div class="dmsg">${esc(r.note)}</div>`:''}
+      ${r.sent_note?`<div class="dlbl" style="margin-top:14px">最後に送った資料</div><div class="dmsg">${IC.file} ${esc(r.sent_note)}</div>`:''}</div>
+    <div class="dcard dact">
+      ${C(canMail(),`<button class="btn" style="${MAIL_BTN_CSS}" onclick="openMailCompose('download',['${r.id}'])">${IC.send} 資料をメール送信</button>`)}
       ${C(can('downloads','del'),`<button class="btn red" id="ddel" style="margin-left:auto">${IC.trash} 削除</button>`)}
     </div>
-    <div class="detail">
-      <div class="drow"><div class="dk">請求日時</div><div class="dv">${fmt(r.created_at)}</div></div>
-      <div class="drow"><div class="dk">会社名</div><div class="dv">${esc(r.company)||'—'}</div></div>
-      <div class="drow"><div class="dk">氏名</div><div class="dv">${esc(r.name)||'—'}</div></div>
-      <div class="drow"><div class="dk">メール</div><div class="dv"><a href="mailto:${esc(r.email)}">${esc(r.email)||'—'}</a></div></div>
-      <div class="drow"><div class="dk">関心内容</div><div class="dv">${esc(r.interest)||'—'}</div></div>
-      <div class="drow"><div class="dk">備考</div><div class="dv">${esc(r.note)||'—'}</div></div>
-      ${r.sent_note?`<div class="drow"><div class="dk">最後に送った資料</div><div class="dv">${esc(r.sent_note)}</div></div>`:''}
-    </div>
-    ${mailHistoryBox('download',r)}`;
-  $('#back').onclick=renderDownloads;
-  { const b=$('#ddel'); if(b) b.onclick=async()=>{ if(!confirm('削除しますか？'))return; await api('/api/downloads/'+r.id,{method:'DELETE'}); DL=DL.filter(x=>String(x.id)!==String(id)); renderDownloads(); }; }
+    ${mailHistoryBox('download',r)}
+  </div>`;
+  $('#back').onclick=()=>go('downloads');
+  { const b=$('#ddel'); if(b) b.onclick=async()=>{ if(!confirm('削除しますか？'))return; await api('/api/downloads/'+r.id,{method:'DELETE'}); DL=DL.filter(x=>String(x.id)!==String(id)); go('downloads'); }; }
   loadMailHistory('download',r.id);
 }
 
@@ -655,17 +764,23 @@ async function renderPosts(){
   $('#body').innerHTML='<div class="empty">読み込み中…</div>';
   let items=[]; try{ items=(await(await api('/api/posts')).json()).items||[]; }catch(e){}
   if(!items.length){ $('#body').innerHTML='<div class="tablewrap"><div class="empty">まだ記事がありません。「+ 新規作成」で追加できます。</div></div>'; return; }
-  $('#body').innerHTML=`<div class="tablewrap"><table><thead><tr><th style="width:34px;text-align:center"><input type="checkbox" id="chkall"></th><th style="width:46%">タイトル</th><th class="nowrap">カテゴリ</th><th>状態</th><th class="nowrap">公開日</th><th style="text-align:right">閲覧</th><th>操作</th></tr></thead><tbody>${items.map(p=>`
+  const stLabel=p=>p.status==='published'?'公開':p.status==='scheduled'?'予約':'下書き';
+  $('#body').innerHTML=`<div class="tablewrap hasm"><table><thead><tr><th style="width:34px;text-align:center"><input type="checkbox" id="chkall"></th><th style="width:46%">タイトル</th><th class="nowrap">カテゴリ</th><th>状態</th><th class="nowrap">公開日</th><th style="text-align:right">閲覧</th><th>操作</th></tr></thead><tbody>${items.map(p=>`
     <tr class="clk" data-open="renderEditor" data-id="${p.id}"><td style="text-align:center"><input type="checkbox" class="rowchk" value="${p.id}"></td><td class="ell"><b class="rowline" style="display:block">${esc(p.title)}</b><div class="sub rowline">/news/${esc(p.slug)}/${p.tags?' · '+esc(p.tags):''}</div></td>
-    <td class="nowrap">${esc(catName(p.category))}</td><td><span class="pill ${p.status}">${p.status==='published'?'公開':p.status==='scheduled'?'予約':'下書き'}</span></td>
+    <td class="nowrap">${esc(catName(p.category))}</td><td><span class="pill ${p.status}">${stLabel(p)}</span></td>
     <td class="nowrap">${fmtd(p.published_at)}</td>
     <td style="text-align:right;font-weight:600">${(p.views||0).toLocaleString()}</td>
-    <td class="nowrap">${C(can('posts','edit'),`<button class="lnk" data-edit="${p.id}">編集</button>`)}${C(can('posts','del'),`<button class="del" data-del="${p.id}">削除</button>`)}${(!can('posts','edit')&&!can('posts','del'))?'<span class="sub">閲覧のみ</span>':''}</td></tr>`).join('')}</tbody></table></div>`;
+    <td class="nowrap">${C(can('posts','edit'),`<button class="lnk" data-edit="${p.id}">編集</button>`)}${C(can('posts','del'),`<button class="del" data-del="${p.id}">削除</button>`)}${(!can('posts','edit')&&!can('posts','del'))?'<span class="sub">閲覧のみ</span>':''}</td></tr>`).join('')}</tbody></table></div>
+    <div class="mcards">${items.map(p=>`<div class="mcard clk" data-open="renderEditor" data-id="${p.id}">
+      <label class="mchk"><input type="checkbox" class="rowchk" value="${p.id}"></label>
+      <div class="mbody"><div class="mtop"><b style="white-space:normal;line-height:1.4">${esc(p.title)}</b><span class="pill ${p.status}">${stLabel(p)}</span></div>
+        <div class="msub">${esc(catName(p.category))} · /news/${esc(p.slug)}/</div>
+        <div class="mfoot"><span>${fmtd(p.published_at)}</span><span>${IC.eye} ${(p.views||0).toLocaleString()}</span></div></div></div>`).join('')}</div>`;
   document.querySelectorAll('button[data-edit]').forEach(b=>b.onclick=()=>renderEditor(b.dataset.edit));
   document.querySelectorAll('button.del[data-del]').forEach(b=>b.onclick=async()=>{ if(!confirm('この記事を削除しますか？'))return; await api('/api/posts/'+b.dataset.del,{method:'DELETE'}); renderPosts(); });
   rowClickable();
   const _ds=$('#delsel'); if(_ds) _ds.onclick=()=>bulkDelete('/api/posts',renderPosts);
-  $('#csv').onclick=()=>{ const ids=checkedIds(); const rows=ids.length?items.filter(p=>ids.includes(String(p.id))):items; csv(rows,['id','slug','タイトル','カテゴリ','状態','閲覧','公開日'],p=>[p.id,p.slug,p.title,catName(p.category),(p.status==='published'?'公開':'下書き'),p.views||0,fmtd(p.published_at)],'posts.csv','posts'); };
+  $('#csv').onclick=()=>{ const ids=checkedIds(); const rows=ids.length?items.filter(p=>ids.includes(String(p.id))):items; csv(rows,['id','slug','タイトル','カテゴリ','状態','閲覧','公開日'],p=>[p.id,p.slug,p.title,catName(p.category),stLabel(p),p.views||0,fmtd(p.published_at)],'posts.csv','posts'); };
   bindChkAll();
 }
 function renderCatMgr(){
@@ -685,7 +800,8 @@ function ensureBlocks(){ ensureTableBlot(); if(_blocksReady||!window.Quill) retu
   class RawBlock extends BE{ static create(v){ const n=super.create(); n.setAttribute('contenteditable','false'); n.innerHTML=v; return n; } static value(n){ return n.innerHTML; } }
   RawBlock.blotName='rawblock'; RawBlock.tagName='div'; RawBlock.className='nrawblock'; Quill.register(RawBlock,true); _blocksReady=true; }
 function epanel(icon,title,badge,body,open){ return `<div class="epanel${open===false?' closed':''}"><div class="epanel-h" onclick="epToggle(this)">${icon} ${esc(title)}${badge?`<span class="ep-badge">${badge}</span>`:'<span style="margin-left:auto"></span>'}<span class="ep-ar">▾</span></div><div class="epanel-b">${body}</div></div>`; }
-async function renderEditor(id){
+async function renderEditor(id,noPush){
+  if(!noPush) setPath(id?'/posts/'+id:'/posts/new'); setActive('posts'); window.scrollTo(0,0);
   await loadCats();
   let p={title:'',slug:'',category:'news',subcategory:'',excerpt:'',body:'',cover_image:'',cover_alt:'',cover_caption:'',cover_title:'',lazy_load:true,meta_description:'',seo_title:'',focus_keyword:'',sub_keyword:'',related_keywords:'',canonical_url:'',robots_index:true,robots_follow:true,og_title:'',og_description:'',og_image:'',status:'draft',author:'BIGLIGHT編集部',tags:'',faq:[],cta_blocks:[],jsonld_types:{article:true,breadcrumb:true,organization:true,faq:false,video:false,howto:false},related_articles:'',related_category:'',download_pdf:'',consult_block:false,pinned:false,featured:false,published_at:'',created_at:'',updated_at:''};
   if(id){ try{ p=Object.assign(p,(await(await api('/api/posts/'+id)).json()).item||{}); }catch(e){} }
@@ -935,24 +1051,21 @@ async function loadMail(){
   if(!M.fileCats.length) M.fileCats=['会社案内','候補者名簿','その他'];
   if(!M.tplCats.length) M.tplCats=['新規営業','その他'];
 }
-async function renderMailLib(back,tab){ SM_BACK=back||SM_BACK; if(tab) SM_TAB=tab; $('#main').innerHTML='<div class="h1">メールテンプレート・資料</div><div class="crumb">読み込み中…</div>'; await loadMail(); paintSalesMail(); }
+async function renderMailLib(back,tab,noPush){ SM_BACK=(back&&back!=='mail')?back:SM_BACK; if(tab) SM_TAB=tab; if(!noPush) setPath('/mail'); setActive('mail'); $('#main').innerHTML='<div class="h1">メール・資料</div><div class="crumb">読み込み中…</div>'; await loadMail(); paintSalesMail(); }
 async function reloadMail(){ await loadMail(); paintSalesMail(); }
 function smTab(t){ SM_TAB=t; paintSalesMail(); }
 function paintSalesMail(){
-  const tabs=[['tpl','テンプレート'],['sig','署名'],['file','添付資料（PDF）'],['log','送信履歴'],['act','活動サマリー']];
+  const tabs=[['tpl','テンプレート'],['sig','署名'],['file','添付資料'],['log','送信履歴'],['act','サマリー']];
   let body='';
   if(SM_TAB==='tpl') body=_smTplList();
   else if(SM_TAB==='sig') body=_smSigList();
   else if(SM_TAB==='file') body=_smFileList();
   else if(SM_TAB==='log') body=_smLogList();
   else body=_smActList();
-  const backLabel=SM_BACK==='downloads'?'資料請求':'お問い合わせ';
-  $('#main').innerHTML=`<div class="h1">メールテンプレート・資料</div><div class="crumb">${backLabel}一覧でお客様にチェック →「メール送信」で使うテンプレート・署名・添付PDFを管理します</div>
-    <div class="backbar"><button class="btn" onclick="go('${SM_BACK}')">${IC.back} ${backLabel}へ戻る</button>
-      <button class="btn" style="margin-left:auto" onclick="smMailSetting()">${IC.send} メール設定（自分のGmail）</button></div>
-    <div class="toolbar" style="margin-bottom:16px">
-      ${tabs.map(([k,l])=>`<button class="smtab btn ${SM_TAB===k?'navy':''}" onclick="smTab('${k}')">${l}</button>`).join('')}
-    </div>
+  $('#main').innerHTML=`<div class="mlh">
+      <div><div class="h1" style="margin:0">メール・資料</div><div class="sub">テンプレート・署名・添付PDF・送信履歴 — 一覧でお客様にチェック →「メール送信」で使います</div></div>
+      <div style="display:flex;gap:6px"><button class="btn" onclick="go('${SM_BACK}')">${IC.back} 一覧</button><button class="btn navy" onclick="smMailSetting()">${IC.send} メール設定</button></div></div>
+    <div class="seg blue mltabs">${tabs.map(([k,l])=>`<button class="${SM_TAB===k?'on':''}" onclick="smTab('${k}')">${l}${k==='tpl'?' '+M.tpls.length:k==='file'?' '+M.mats.length:''}</button>`).join('')}</div>
     <div id="smbody">${body}</div>`;
 }
 function smSetQ(v){ SM_Q=v; $('#smbody').innerHTML=_smTplList(); const i=$('#smQ'); if(i){ i.focus(); try{const l=i.value.length;i.setSelectionRange(l,l);}catch(e){} } }
@@ -962,27 +1075,23 @@ function smSetCat(c){ SM_CAT=(SM_CAT===c?'':c); $('#smbody').innerHTML=_smTplLis
 function _smTpls(){ let l=M.tpls.slice(); if(SM_Q){ const q=SM_Q.toLowerCase(); l=l.filter(t=>((t.name||'')+' '+(t.subject||'')+' '+(t.body||'')).toLowerCase().includes(q)); } if(SM_CAT) l=l.filter(t=>t.category===SM_CAT); return l; }
 function _smTplList(){
   const l=_smTpls();
-  return `<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
-    <input id="smQ" value="${esc(SM_Q)}" oninput="if(!event.isComposing)smSetQ(this.value)" oncompositionend="smSetQ(this.value)" placeholder="テンプレート検索…" style="padding:8px 11px;border:1px solid var(--line);border-radius:8px;font-size:13px;width:210px">
-    ${M.tplCats.map(c=>`<span onclick="smSetCat('${esc(c)}')" class="chipcat ${SM_CAT===c?'on':''}">${esc(c)}</span>`).join('')}
-    ${C(can('salesmail','edit'),`<span onclick="smTplCatManage()" class="chipcat dash">${IC.tag} カテゴリ編集</span>`)}
-    ${C(can('salesmail','create'),`<button class="btn navy" style="margin-left:auto" onclick="smTplForm()">${IC.plus} テンプレート追加</button>`)}
+  return `<div class="tpltools">
+    <input id="smQ" value="${esc(SM_Q)}" oninput="if(!event.isComposing)smSetQ(this.value)" oncompositionend="smSetQ(this.value)" placeholder="テンプレート検索…" class="selin" style="flex:1;min-width:150px">
+    ${C(can('salesmail','create'),`<button class="btn navy" onclick="smTplForm()">${IC.plus} 追加</button>`)}
+    <div class="catscroll">${M.tplCats.map(c=>`<span onclick="smSetCat('${esc(c)}')" class="chipcat ${SM_CAT===c?'on':''}">${esc(c)}</span>`).join('')}${C(can('salesmail','edit'),`<span onclick="smTplCatManage()" class="chipcat dash">${IC.tag} 編集</span>`)}</div>
   </div>
-  ${l.length===0?'<div class="tablewrap"><div class="empty">テンプレートがありません。「＋ テンプレート追加」で作成してください。</div></div>':`
-  <div class="cardgrid">${l.map(t=>`
-    <div class="scard">
-      <div style="display:flex;align-items:center;gap:8px">
-        <a onclick="smTplFav('${t.id}')" title="お気に入り" style="cursor:pointer;font-size:17px;color:${t.favorite?'#f59e0b':'#cbd5e1'}">${t.favorite?'★':'☆'}</a>
-        <b style="font-size:13.5px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t.name)}</b>
-        <span class="badge">${esc(t.category||'その他')}</span>
+  ${l.length===0?'<div class="tablewrap"><div class="empty">テンプレートがありません。「＋ 追加」で作成してください。</div></div>':`
+  <div class="tlist">${l.map(t=>`
+    <div class="trow">
+      <a onclick="smTplFav('${t.id}')" title="お気に入り" style="cursor:pointer;font-size:16px;color:${t.favorite?'#f59e0b':'#cbd5e1'};flex-shrink:0">${t.favorite?'★':'☆'}</a>
+      <div class="tmain" onclick="smTplPreview('${t.id}')">
+        <div class="tname"><span class="nm">${esc(t.name)}</span><span class="badge">${esc(t.category||'その他')}</span>${(t.attach_ids||[]).length?`<span class="sub" title="既定の添付">${IC.file}${(t.attach_ids||[]).length}</span>`:''}</div>
+        <div class="tsubj">${esc(t.subject)||'（件名なし）'}</div>
       </div>
-      <div style="font-size:12px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">件名: ${esc(t.subject)}</div>
-      <div style="font-size:11.5px;color:var(--muted);white-space:pre-wrap;max-height:54px;overflow:hidden">${esc(String(t.body||'').slice(0,120))}${t.body&&t.body.length>120?'…':''}</div>
-      <div style="display:flex;gap:12px;font-size:12px;margin-top:2px;flex-wrap:wrap">
-        <a onclick="smTplPreview('${t.id}')" style="cursor:pointer;color:var(--blue)">プレビュー</a>
-        ${C(can('salesmail','edit'),`<a onclick="smTplForm('${t.id}')" style="cursor:pointer;color:var(--blue)">編集</a>`)}
-        ${C(can('salesmail','create'),`<a onclick="smTplDup('${t.id}')" style="cursor:pointer;color:var(--blue)">複製</a>`)}
-        ${C(can('salesmail','del'),`<a class="del" onclick="smTplDel('${t.id}')" style="cursor:pointer">削除</a>`)}
+      <div class="tacts">
+        ${C(can('salesmail','edit'),`<button class="lnk" onclick="smTplForm('${t.id}')" title="編集">${IC.edit}</button>`)}
+        ${C(can('salesmail','create'),`<button class="lnk" onclick="smTplDup('${t.id}')" title="複製">${IC.doc}</button>`)}
+        ${C(can('salesmail','del'),`<button class="del" onclick="smTplDel('${t.id}')" title="削除">${IC.trash}</button>`)}
       </div>
     </div>`).join('')}</div>`}`;
 }
@@ -1040,18 +1149,18 @@ async function smTplCatDel(i){ const name=M.tplCats[i]; if(name==='その他'){a
 /* ---- 署名 ---- */
 function _smSigList(){
   const l=M.sigs;
-  return `<div style="margin-bottom:12px">${C(can('salesmail','create'),`<button class="btn navy" onclick="smSigForm()">${IC.plus} 署名追加</button>`)}</div>
+  return `<div class="tpltools"><span class="sub" style="flex:1">既定の署名は全メールの末尾に自動付加されます</span>${C(can('salesmail','create'),`<button class="btn navy" onclick="smSigForm()">${IC.plus} 追加</button>`)}</div>
   ${l.length===0?'<div class="tablewrap"><div class="empty">署名がありません。</div></div>':`
-  <div class="cardgrid">${l.map(s=>`
-    <div class="scard" style="border-color:${s.is_default?'var(--navy)':'var(--line)'}">
-      <div style="display:flex;align-items:center;gap:8px">
-        <b style="font-size:13.5px;flex:1">${esc(s.name)}</b>
-        ${s.is_default?'<span class="badge">既定</span>':`<a onclick="smSigDefault('${s.id}')" style="cursor:pointer;font-size:11.5px;color:var(--blue)">既定にする</a>`}
+  <div class="tlist">${l.map(s=>`
+    <div class="trow">
+      <div class="tmain" onclick="smSigForm('${s.id}')">
+        <div class="tname"><span class="nm">${esc(s.name)}</span>${s.is_default?'<span class="badge">既定</span>':''}</div>
+        <div class="tsubj">${esc(String(s.body||'').replace(/\s+/g,' ').slice(0,90))}</div>
       </div>
-      <div style="font-size:12px;color:var(--muted);white-space:pre-wrap;border-left:3px solid var(--line);padding-left:10px;max-height:110px;overflow:hidden">${esc(s.body)}</div>
-      <div style="display:flex;gap:12px;font-size:12px;margin-top:6px">
-        ${C(can('salesmail','edit'),`<a onclick="smSigForm('${s.id}')" style="cursor:pointer;color:var(--blue)">編集</a>`)}
-        ${C(can('salesmail','del'),`<a class="del" onclick="smSigDel('${s.id}')" style="cursor:pointer">削除</a>`)}
+      <div class="tacts">
+        ${s.is_default?'':`<button class="lnk" onclick="smSigDefault('${s.id}')" title="既定にする">${IC.check}</button>`}
+        ${C(can('salesmail','edit'),`<button class="lnk" onclick="smSigForm('${s.id}')" title="編集">${IC.edit}</button>`)}
+        ${C(can('salesmail','del'),`<button class="del" onclick="smSigDel('${s.id}')" title="削除">${IC.trash}</button>`)}
       </div>
     </div>`).join('')}</div>`}`;
 }
@@ -1228,7 +1337,7 @@ const MAIL_BTN_CSS='background:#16a34a;border-color:#16a34a;color:#fff;font-weig
 const MAIL_KIND_LABEL={inquiry:'問い合わせ',download:'資料請求'};
 const EMAIL_OK=e=>/^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/.test(String(e||'').trim());
 function MAIL_TOOLBAR(){
-  return `${C(canMail(),`<button class="btn" id="mailsel" style="${MAIL_BTN_CSS}">${IC.send} 選択にメール送信</button>`)}<button class="btn" id="maillib">${IC.file} テンプレート・資料</button>`;
+  return `${C(canMail(),`<button class="btn" id="mailsel" style="${MAIL_BTN_CSS}">${IC.send} 選択にメール送信</button>`)}<button class="btn" id="maillib">${IC.file} メール・資料</button>`;
 }
 function bindMailToolbar(kind,getRows,page){
   const b=$('#mailsel'); if(b) b.onclick=()=>{ const ids=checkedIds(); if(!ids.length){ alert('送信先を選択してください（左のチェックボックス）'); return; } openMailCompose(kind,ids); };
@@ -1245,10 +1354,7 @@ async function loadMailHistory(kind,id){
   let items=[]; try{ items=(await(await api('/api/mail/logs?kind='+kind+'&id='+id)).json()).items||[]; }catch(e){}
   const box=$('#mhist'); if(!box) return;
   box.className='';
-  box.innerHTML=items.length?`<div class="tablewrap"><table style="min-width:520px"><thead><tr><th class="nowrap">日時</th><th class="nowrap">差出人</th><th>件名</th><th>添付</th></tr></thead><tbody>${items.map(g=>`<tr>
-    <td class="nowrap">${fmt(g.created_at)}</td><td class="nowrap">${esc(g.sender)||'-'}</td>
-    <td>${esc(g.subject)}${g.template_name?`<div class="sub">テンプレート: ${esc(g.template_name)}</div>`:''}${g.note?`<div class="sub">${esc(g.note)}</div>`:''}</td>
-    <td class="sub">${esc(g.att)||'-'}</td></tr>`).join('')}</tbody></table></div>`
+  box.innerHTML=items.length?`<div class="hlist">${items.map(g=>`<div class="hrow"><div class="hmeta"><span>${fmt(g.created_at)}</span><span>${esc(g.sender)||'-'}</span>${g.batch_id?'<span class="sub">一括</span>':''}</div><div class="hsubj">${esc(g.subject)}</div>${g.template_name||g.att?`<div class="sub">${g.template_name?'テンプレート: '+esc(g.template_name):''}${g.template_name&&g.att?' ／ ':''}${g.att?IC.file+' '+esc(g.att):''}</div>`:''}</div>`).join('')}</div>`
     :'<div class="sub">まだメールを送信していません。</div>';
 }
 // 現在の一覧データ → 宛先形式
@@ -1437,8 +1543,8 @@ function mcDone(){ const kind=MC&&MC.kind; closeModal(); MC=null;
 }
 
 /* ===== 監査ログ（管理者のみ） ===== */
-const AU_ACTION={login:'ログイン',login_denied:'ログイン拒否',logout:'ログアウト',create:'作成',update:'変更',replace:'差し替え',delete:'削除',send:'メール送信',send_failed:'送信失敗',export:'CSV出力',regenerate:'再生成'};
-const AU_ENTITY={auth:'認証',inquiry:'問い合わせ',download:'資料請求',mail:'メール',post:'記事',category:'カテゴリ',template:'テンプレート',signature:'署名',material:'資料',mail_log:'送信履歴',mail_meta:'メール設定',user:'ユーザー',perms:'権限',gas:'GAS設定',inquiries:'問い合わせ',downloads:'資料請求',posts:'記事'};
+const AU_ACTION={login:'ログイン',login_denied:'ログイン拒否',logout:'ログアウト',create:'作成',update:'変更',replace:'差し替え',delete:'削除',send:'メール送信',send_failed:'送信失敗',export:'CSV出力',regenerate:'再生成',revoke:'無効化'};
+const AU_ENTITY={auth:'認証',inquiry:'問い合わせ',download:'資料請求',mail:'メール',post:'記事',category:'カテゴリ',template:'テンプレート',signature:'署名',material:'資料',mail_log:'送信履歴',mail_meta:'メール設定',user:'ユーザー',perms:'権限',gas:'GAS設定',api_key:'APIキー',inquiries:'問い合わせ',downloads:'資料請求',posts:'記事'};
 const AU_COLOR={delete:'#fde2e2;color:#b91c1c',send_failed:'#fde2e2;color:#b91c1c',login_denied:'#fde2e2;color:#b91c1c',send:'#e2f4ea;color:#1c7a47',create:'#e7eefb;color:#0b3d91',export:'#fdeccb;color:#9a5b00'};
 let AU={f:{from:'',to:'',actor:'',entity:'',action:'',q:''},items:[],total:0,actors:[],open:{}};
 async function renderAudit(){
@@ -1560,7 +1666,7 @@ async function renderUsers(){
       <td class="nowrap sub">${esc(u.email)}</td>
       <td><select class="selin" id="ur_${esc(u.email)}">${Object.keys(ROLE_LABEL).map(r=>`<option value="${r}" ${u.role===r?'selected':''}>${ROLE_LABEL[r]}</option>`).join('')}</select></td>
       <td><select class="selin" id="us_${esc(u.email)}">${Object.keys(STATUS_LABEL).map(s=>`<option value="${s}" ${u.status===s?'selected':''}>${STATUS_LABEL[s]}</option>`).join('')}</select></td>
-      <td style="text-align:center"><input type="checkbox" id="um_${esc(u.email)}" ${u.mail_enabled?'checked':''}> <span class="sub">${u.gas_url?'GAS✓':'GAS未'}</span></td>
+      <td style="text-align:center"><input type="checkbox" id="um_${esc(u.email)}" ${u.mail_enabled?'checked':''}> <a class="lnk sub" style="margin:0" onclick="gasCheck('${esc(u.email)}',this)" title="GASのバージョンを確認">${u.gas_url?'GAS✓ 確認':'GAS未'}</a></td>
       <td class="nowrap sub">${u.last_login?fmt(u.last_login):'-'}</td>
       <td class="nowrap"><button class="btn navy" onclick="saveProfile('${esc(u.email)}')">${IC.file} 保存</button> <button class="del" onclick="delProfile('${esc(u.email)}')">削除</button></td>
     </tr>`).join('')}</tbody></table></div>
@@ -1604,7 +1710,7 @@ function smMailSetting(){
     <div class="mform">
       <div class="sub">メールは<b>あなた自身のGmail</b>から送信され、差出人名は<b>あなたのログイン名</b>がそのまま表示されます。GASを設定するとGmail送信、未設定ならサーバSMTPで送信されます。<br><b style="color:#b45309">旧版（v2以前）を使っている人は、下のv3コードを貼り直して「新しいデプロイ」→ 新しいURLを登録してください。</b></div>
       <div><label>① GASスクリプト（コピーしてGASに貼る）</label><textarea readonly onclick="this.select()" style="height:170px;font-family:monospace;font-size:11px">${esc(GAS_SCRIPT)}</textarea></div>
-      <div><label>② 自分の GAS デプロイURL</label><input id="mset_gas" value="${esc(PERM.gas_url||CURRENT_USER.gas_url||'')}" placeholder="https://script.google.com/macros/s/…/exec"></div>
+      <div><label>② 自分の GAS デプロイURL</label><input id="mset_gas" value="${esc(PERM.gas_url||CURRENT_USER.gas_url||'')}" placeholder="https://script.google.com/macros/s/…/exec"><div style="margin-top:6px"><a class="lnk" style="margin:0" onclick="gasCheck('',this)">${IC.refresh} 登録済みURLのバージョンを確認</a></div></div>
       <div class="sub">手順: script.google.com で新規 → コード貼付 → <b>sendTest を1回実行して許可</b> → デプロイ（ウェブアプリ / アクセス:全員）→ URLを貼付。確認: URLをブラウザで開いて「v3」と出ればOK。</div>
     </div>
     <div class="modal-actions"><button class="btn" onclick="closeModal()">閉じる</button><button class="btn navy" onclick="saveSetGas()">${IC.file} 保存</button></div>`);
@@ -1614,6 +1720,73 @@ async function saveSetGas(){
   const resp=await api('/api/me/gas',{method:'POST',body:JSON.stringify({gas_url:url})}); const d=await resp.json();
   if(resp.ok){ PERM.gas_url=url; PERM.gas_set=!!url; if(CURRENT_USER)CURRENT_USER.gas_url=url; closeModal(); alert('メール設定を保存しました。'); }
   else alert(d.error||'保存に失敗しました');
+}
+
+/* ===== API・MCP連携（管理者）: AI に管理画面の作業を任せるための鍵 ===== */
+let IK={items:[],origin:'',scopes:[],tools:[]};
+const IK_SCOPE_DESC={read:'問い合わせ・資料請求・記事・テンプレートを読む',write:'記事の下書き作成/編集・テンプレート作成・問い合わせ状態の変更',publish:'記事の公開/非公開・公開サイト再生成（write を含む）',mail:'鍵の作成者の Gmail(GAS) からお客様へメール送信（送信履歴に記録）'};
+async function renderIntegrations(){
+  if(!PERM.isAdmin){ $('#main').innerHTML='<div class="h1">API・MCP連携</div><div class="crumb">管理者のみアクセスできます。</div>'; return; }
+  $('#main').innerHTML='<div class="h1">API・MCP連携</div><div class="crumb">読み込み中…</div>';
+  try{ IK=await(await api('/api/api-keys')).json(); }catch(e){ IK={items:[],origin:location.origin,scopes:[],tools:[]}; }
+  const live=IK.items.filter(k=>!k.revoked_at), dead=IK.items.filter(k=>k.revoked_at);
+  const kcard=k=>`<div class="kcard ${k.revoked_at?'dead':''}">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b style="font-size:14.5px">${esc(k.name)}</b><code class="sub">${esc(k.prefix)}…</code>
+        ${(k.scopes||[]).map(s=>`<span class="badge">${esc(s)}</span>`).join('')}
+        ${k.revoked_at?'<span class="pill draft">無効</span>':(k.expires_at&&new Date(k.expires_at)<new Date()?'<span class="pill new">期限切れ</span>':'<span class="pill published">有効</span>')}
+        ${k.revoked_at?'':`<button class="btn red" style="margin-left:auto;padding:5px 10px" onclick="ikRevoke('${k.id}','${esc(k.name)}')">${IC.trash} 無効化</button>`}</div>
+      <div class="sub" style="margin-top:6px;display:flex;gap:14px;flex-wrap:wrap"><span>作成者: ${esc(k.created_by)}</span><span>作成: ${fmtd(k.created_at)}</span><span>期限: ${k.expires_at?fmtd(k.expires_at):'なし'}</span><span>最終使用: ${k.last_used_at?fmt(k.last_used_at):'—'}</span><span>使用回数: ${k.use_count||0}</span></div>
+    </div>`;
+  const byScope={}; (IK.tools||[]).forEach(t=>{ (byScope[t.scope]=byScope[t.scope]||[]).push(t); });
+  $('#main').innerHTML=`<div class="mlh"><div><div class="h1" style="margin:0">API・MCP連携</div><div class="sub">Claude / ChatGPT などの AI に「問い合わせを要約して」「記事の下書きを作って」「資料を送って」と頼めるようにする鍵</div></div>
+      <button class="btn navy" onclick="ikNew()">${IC.plus} 新しい鍵</button></div>
+    <div class="dcard"><div class="dlbl">鍵の一覧</div>
+      ${live.length?live.map(kcard).join(''):'<div class="sub">まだ鍵がありません。「新しい鍵」から作成してください。</div>'}
+      ${dead.length?`<details style="margin-top:8px"><summary class="sub" style="cursor:pointer">無効化した鍵 ${dead.length}件</summary>${dead.map(kcard).join('')}</details>`:''}</div>
+    <div class="dcard"><div class="dlbl">つなぎ方</div>
+      <div class="ikhow"><b>Claude Code（ターミナル）</b><div class="kcode">claude mcp add --transport http biglight-admin ${esc(IK.origin)}/mcp --header "Authorization: Bearer &lt;鍵&gt;"</div></div>
+      <div class="ikhow"><b>Claude Desktop / Claude.ai（カスタムコネクタ）</b><div class="kcode">URL: ${esc(IK.origin)}/mcp　　Header: Authorization: Bearer &lt;鍵&gt;</div></div>
+      <div class="ikhow"><b>ChatGPT（コネクタ／MCP サーバー、認証なし）</b><div class="kcode">${esc(IK.origin)}/mcp/k/&lt;鍵&gt;</div><div class="sub">ChatGPT はヘッダーを送れないため URL に鍵を含めます。ChatGPT 専用の鍵を短い期限で作り、不要になったら無効化してください。</div></div>
+      <div class="sub" style="margin-top:8px">AI は<b>鍵を作った人の権限・Gmail</b>で動きます（監査ログには「API:鍵名」と記録）。削除はできません。記事は必ず下書きとして作られ、公開は publish スコープの鍵だけです。メール送信は mail スコープの鍵だけで、AI は送る前にプレビューを見せるよう指示されています。</div></div>
+    <div class="dcard"><div class="dlbl">AI が使えるツール（${(IK.tools||[]).length}）</div>
+      ${['read','write','publish','mail'].filter(s=>byScope[s]).map(s=>`<details ${s==='read'?'open':''}><summary style="cursor:pointer;font-weight:700;font-size:13px;padding:6px 0">${esc(s)} — ${esc(IK_SCOPE_DESC[s]||'')} <span class="sub">${byScope[s].length}件</span></summary>
+        <div class="tlist" style="margin:4px 0 10px">${byScope[s].map(t=>`<div class="trow"><div class="tmain" style="cursor:default"><div class="tname"><span class="nm"><code>${esc(t.name)}</code></span><span class="sub">${esc(t.title)}</span></div><div class="tsubj" style="white-space:normal">${esc(t.description)}</div></div></div>`).join('')}</div></details>`).join('')}</div>`;
+}
+function ikNew(){
+  openModal(`<h3>${IC.plus} 新しい鍵を作成</h3>
+    <div class="mform">
+      <div><label>名前 *（用途がわかる名前）</label><input id="ikName" placeholder="例: Claude 記事作成 / ChatGPT 営業メール"></div>
+      <div><label>できること（スコープ）</label>
+        ${['read','write','publish','mail'].map(s=>`<label class="ckline" style="display:flex;margin-bottom:8px;align-items:flex-start;font-weight:500"><input type="checkbox" class="ikSc" style="width:auto;margin-top:3px" value="${s}" ${s==='read'?'checked disabled':''}><span><b>${s}</b> <span class="sub">${esc(IK_SCOPE_DESC[s])}</span></span></label>`).join('')}</div>
+      <div><label>有効期限</label><select id="ikExp" class="selin"><option value="30">30日</option><option value="90" selected>90日</option><option value="365">1年</option><option value="0">無期限（非推奨）</option></select></div>
+      <div class="sub">鍵はこの後 <b>一度だけ</b> 表示されます。コピーして安全な場所に保存してください。</div>
+    </div>
+    <div class="modal-actions"><button class="btn" onclick="closeModal()">キャンセル</button><button class="btn navy" onclick="ikCreate()">${IC.check} 作成</button></div>`);
+}
+async function ikCreate(){
+  const name=$('#ikName').value.trim(); if(!name){ alert('名前は必須です。'); return; }
+  const scopes=[...document.querySelectorAll('.ikSc:checked')].map(c=>c.value); if(!scopes.includes('read')) scopes.push('read');
+  const r=await api('/api/api-keys',{method:'POST',body:JSON.stringify({name,scopes,expires_days:Number($('#ikExp').value)})}); const d=await r.json();
+  if(!r.ok){ alert(d.error||'作成に失敗しました'); return; }
+  const o=d.origin||location.origin, k=d.key;
+  const cp=(id)=>`<button class="btn" style="padding:4px 9px;font-size:12px" onclick="ikCopy('${id}',this)">${IC.doc} コピー</button>`;
+  openModal(`<h3>${IC.check} 鍵を作成しました — 今だけ表示</h3>
+    <div class="mform">
+      <div><label>鍵（Bearer トークン）</label><div class="kcode" id="ikK">${esc(k)}</div>${cp('ikK')}</div>
+      <div><label>Claude Code</label><div class="kcode" id="ikC">claude mcp add --transport http biglight-admin ${esc(o)}/mcp --header "Authorization: Bearer ${esc(k)}"</div>${cp('ikC')}</div>
+      <div><label>Claude Desktop / Claude.ai カスタムコネクタ</label><div class="kcode" id="ikD">URL: ${esc(o)}/mcp\nAuthorization: Bearer ${esc(k)}</div>${cp('ikD')}</div>
+      <div><label>ChatGPT（認証なし）</label><div class="kcode" id="ikG">${esc(o)}/mcp/k/${esc(k)}</div>${cp('ikG')}</div>
+      <div class="sub" style="color:#b45309">この画面を閉じると鍵は二度と表示されません。</div>
+    </div>
+    <div class="modal-actions"><button class="btn navy" onclick="closeModal();renderIntegrations()">閉じる</button></div>`);
+}
+function ikCopy(id,btn){ const t=document.getElementById(id).textContent; (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(()=>{ btn.textContent='✓ コピーしました'; },()=>{ const r=document.createRange(); r.selectNodeContents(document.getElementById(id)); const s=getSelection(); s.removeAllRanges(); s.addRange(r); }); }
+async function ikRevoke(id,name){ if(!confirm('鍵「'+name+'」を無効化しますか？（元に戻せません。AI はこの鍵で接続できなくなります）'))return; const r=await api('/api/api-keys/'+id,{method:'DELETE'}); if(!r.ok){ alert('失敗しました'); return; } renderIntegrations(); }
+async function gasCheck(email,el){
+  el.textContent='確認中…';
+  try{ const d=await(await api('/api/gas/check',{method:'POST',body:JSON.stringify(email?{email}:{})})).json();
+    el.textContent=(d.version==='v3'?'✓ ':'⚠ ')+d.label; el.style.color=d.version==='v3'?'#1c7a47':(d.version==='none'?'var(--muted)':'#b45309'); }
+  catch(e){ el.textContent='確認できません'; }
 }
 
 function csv(data,head,rowfn,fname,entity){

@@ -155,6 +155,21 @@ INSERT INTO app_meta(key,val) VALUES
   }'::jsonb)
 ON CONFLICT (key) DO NOTHING;
 
+-- ============ API・MCP連携 (khoá API cho AI) ============
+CREATE TABLE IF NOT EXISTS api_keys (
+  id           BIGSERIAL PRIMARY KEY,
+  name         TEXT NOT NULL,
+  prefix       TEXT NOT NULL,                 -- 12 ký tự đầu để nhận diện
+  key_hash     TEXT NOT NULL UNIQUE,          -- sha256(khoá); khoá thật không lưu
+  scopes       JSONB NOT NULL DEFAULT '["read"]',  -- read | write | publish | mail
+  created_by   TEXT NOT NULL,                 -- email người tạo → AI hành động với quyền + GAS của người này
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  expires_at   TIMESTAMPTZ,
+  last_used_at TIMESTAMPTZ,
+  use_count    BIGINT NOT NULL DEFAULT 0,
+  revoked_at   TIMESTAMPTZ
+);
+
 -- お知らせ・HR Magazine (bài viết)
 CREATE TABLE IF NOT EXISTS posts (
   id               BIGSERIAL PRIMARY KEY,

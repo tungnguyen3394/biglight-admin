@@ -10,6 +10,7 @@ const multer = require('multer');
 const crypto = require('crypto');
 const news = require('./news');
 const { normalizePostLinks, findBrokenPostLinks } = require('./postLinks');
+const mountMcp = require('./mcp');
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
@@ -376,7 +377,8 @@ function requireMail(req, res, next) { const u = req.session && req.session.user
 // ---- 監査ログ: 失敗しても本処理は止めない ----
 function clientIp(req) { return (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.ip || ''; }
 async function audit(req, action, entity, entityId, summary, detail, actor) {
-  const u = actor || (req.session && req.session.user) || {};
+  let u = actor || (req.session && req.session.user) || {};
+  if (!actor && req.apiKey) u = { email: u.email, name: 'API:' + req.apiKey.name + '／' + (u.name || '') };
   try {
     await pool.query(
       'INSERT INTO audit_logs(actor_email,actor_name,action,entity,entity_id,summary,detail,ip) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',
@@ -442,6 +444,23 @@ app.post('/api/me/gas', requireAuth, async (req, res) => {
   req.session.user.gas_url = url;
   audit(req, 'update', 'gas', req.session.user.email, url ? 'GAS送信URLを登録' : 'GAS送信URLを削除');
   res.json({ ok: true });
+});
+
+// GAS のバージョン確認: GAS の doGet を GET して「v3」が含まれるか（自分 or 管理者が他人を）
+app.post('/api/gas/check', requireAuth, async (req, res) => {
+  const email = String((req.body || {}).email || req.session.user.email).toLowerCase();
+  if (email !== req.session.user.email && !isAdmin(req)) return res.status(403).json({ error: '管理者権限が必要です' });
+  const prof = (await pool.query('SELECT gas_url FROM profiles WHERE email=$1', [email])).rows[0];
+  const gas = (prof && prof.gas_url || '').trim();
+  if (!gas) return res.json({ version: 'none', label: 'GAS未登録' });
+  try {
+    const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 12000);
+    const r = await fetch(gas, { signal: ctl.signal }); clearTimeout(t);
+    const txt = (await r.text()).slice(0, 2000);
+    if (/BIGLIGHT mail GAS v3/.test(txt)) return res.json({ version: 'v3', label: 'v3（差出人名・添付 対応）' });
+    if (/<html/i.test(txt) && /google/i.test(txt)) return res.json({ version: 'old', label: '旧版（doGet なし・差出人名が固定）— v3 を貼り直してください' });
+    return res.json({ version: 'old', label: '旧版 — v3 を貼り直してください' });
+  } catch (e) { return res.json({ version: 'error', label: '確認できません（URL・デプロイを確認）' }); }
 });
 
 // ================= ADMIN API =================
@@ -894,7 +913,17 @@ app.get('/api/audit', requireAuth, requireAdmin, async (req, res) => {
   } catch (e) { console.error('GET /api/audit:', e.message); res.status(500).json({ error: e.message }); }
 });
 
+// ================= API・MCP連携 =================
+const ADMIN_ORIGIN = process.env.ADMIN_ORIGIN || 'https://admin.biglight.jp';
+mountMcp(app, { pool, sessionUser, audit, clientIp, requireAuth, requireAdmin, SITE_ORIGIN, ADMIN_ORIGIN,
+  isAdminUser: u => !!u && (u.role === 'admin' || ADMIN_EMAILS.includes(u.email)), canUser: (u, a, x) => { if (!u) return false; if (u.role === 'admin' || ADMIN_EMAILS.includes(u.email)) return true; const rp = ROLE_PERMS[u.role]; return !!(rp && rp[a] && rp[a][x]); } });
+
 // ================= admin UI (tĩnh) =================
+// SPA: đường dẫn màn hình (/inquiries/12 …) trả index.html; JS phía client tự mở đúng trang
+app.get(/^\/(inquiries|downloads|posts|mail|users|audit|integrations)(\/[A-Za-z0-9_-]+)?\/?$/, (_q, res) => {
+  res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 app.use(express.static(path.join(__dirname, 'public'), {
   setHeaders: (res, p) => { if (p.endsWith('.html')) res.setHeader('Cache-Control', 'no-cache, must-revalidate'); }
 }));

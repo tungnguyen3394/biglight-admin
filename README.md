@@ -43,5 +43,13 @@ docker compose up -d --build
 - GAS は **v3**（CRM と同じ: senderName 対応・doGet で「v3」表示・sendTest）。差出人名 = ログイン名そのまま（会社名の前置きなし）。旧版の人は v3 を貼り直して「新しいデプロイ」→ 新 URL を登録。サーバは GAS の `{ok:false}` / `{success:false}` どちらも失敗として扱う。
 - 添付ファイルは `/site/assets/materials/mat-<id>-<ランダム16文字>.<ext>`（公開 URL だが推測不可）。旧形式 `mat-<id>.<ext>` は起動時に自動リネーム。
 
+## API・MCP連携（AI に作業を頼む）
+- メニュー「API・MCP連携」（管理者のみ）で鍵を作成。鍵は **一度だけ** 表示、DB には sha256 のみ（`api_keys`）。
+- スコープ: `read`（読む）⊂ `write`（記事の下書き作成/編集・テンプレート・問い合わせ状態）⊂ `publish`（公開・再生成）、`mail`（鍵作成者の Gmail/GAS からメール送信）。**削除は AI からできない。**
+- AI は鍵を作った人の権限・GAS で動く（route を再ディスパッチ → 同じ権限チェック・同じ監査ログ。actor_name は `API:<鍵名>／<氏名>`）。
+- 接続: Claude Code `claude mcp add --transport http biglight-admin https://admin.biglight.jp/mcp --header "Authorization: Bearer <鍵>"`、ChatGPT は `https://admin.biglight.jp/mcp/k/<鍵>`（認証なし）。GET /mcp は 405。
+- 実装: `backend/mcp.js`（ツール一覧はその中の `TOOLS`。追加 = 配列に 1 要素）。レート 300 回/10 分/鍵。
+- 画面の URL: `/inquiries/<id>` `/downloads/<id>` `/posts/<id>` `/mail` `/integrations` … は直接開ける（server.js の SPA フォールバック）。
+
 ## 監査ログ（管理者のみ）
 - テーブル `audit_logs`。ログイン、作成・変更・削除、メール送信（失敗含む）、CSV出力を記録。画面から削除する手段はない。
