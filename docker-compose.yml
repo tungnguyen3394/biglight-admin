@@ -10,6 +10,14 @@ services:
     labels:
       caddy: admin.biglight.jp
       caddy.reverse_proxy: "{{upstreams 3000}}"
+      # 2026-09-30 (audit hạ tầng): nén + header an toàn đặt ở MỘT tầng Caddy, giống CRM/Academy.
+      # Nén: commit 21/9 ở máy Mac (c50f9d6) chưa bao giờ được đẩy lên → host này vẫn trả 176KB trần.
+      # Header: quét 17 tên miền 30/9, admin thiếu cả 4. Dấu "?" = chỉ đặt khi app chưa tự đặt.
+      caddy.encode: zstd gzip
+      caddy.header.Strict-Transport-Security: "max-age=31536000"
+      caddy.header.?X-Content-Type-Options: nosniff
+      caddy.header.?X-Frame-Options: SAMEORIGIN
+      caddy.header.?Referrer-Policy: strict-origin-when-cross-origin
     networks: [web]
 
 networks:
