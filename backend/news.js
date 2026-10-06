@@ -1,6 +1,7 @@
 // Sinh trang tĩnh cho お知らせ (biglight.jp/news/...) — chuẩn SEO (CMS nâng cấp)
 const fs = require('fs');
 const path = require('path');
+const { cleanHtml, safeUrl, safeUrlList } = require('./sanitize');
 
 const SITE = process.env.SITE_DIR || '/site';   // mount /var/www/biglight
 const ADMIN = process.env.ADMIN_ORIGIN || 'https://admin.biglight.jp';
@@ -66,18 +67,18 @@ function head(opts) {
 <meta name="robots" content="${opts.robots || 'index, follow'}">
 <title>${esc(opts.title)}</title>
 <meta name="description" content="${esc(opts.desc)}">
-<link rel="canonical" href="${opts.canonical || opts.url}">
+<link rel="canonical" href="${esc(opts.canonical || opts.url)}">
 <meta property="og:type" content="${opts.ogtype || 'website'}">
 <meta property="og:site_name" content="BIGLIGHT株式会社">
 <meta property="og:locale" content="ja_JP">
 <meta property="og:title" content="${esc(ogTitle)}">
 <meta property="og:description" content="${esc(ogDesc)}">
-<meta property="og:url" content="${opts.url}">
-<meta property="og:image" content="${opts.ogImage || img}">
+<meta property="og:url" content="${esc(opts.url)}">
+<meta property="og:image" content="${esc(opts.ogImage || img)}">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${esc(ogTitle)}">
 <meta name="twitter:description" content="${esc(ogDesc)}">
-<meta name="twitter:image" content="${opts.ogImage || img}">
+<meta name="twitter:image" content="${esc(opts.ogImage || img)}">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Parisienne&display=swap" rel="stylesheet">
@@ -219,7 +220,7 @@ function card(p, map) {
   const rt = readingMin(p.body);
   return `
     <a class="ncard" href="/news/${esc(p.slug)}/">
-      ${p.cover_image ? `<div class="ncard-img" style="background-image:url('${esc(p.cover_image)}')"></div>` : '<div class="ncard-img noimg">BIGLIGHT</div>'}
+      ${safeUrl(p.cover_image) ? `<div class="ncard-img" style="background-image:url('${esc(safeUrl(p.cover_image))}')"></div>` : '<div class="ncard-img noimg">BIGLIGHT</div>'}
       <div class="ncard-b">
         <div class="ncard-meta"><span class="ncat ${esc(p.category)}">${esc(catName(map, p.category))}</span><span class="ndate">${ymd(p.published_at)}</span></div>
         <h3>${esc(p.title)}</h3>
@@ -233,7 +234,7 @@ function articleHTML(p, map) {
   const url = `${BASE}/news/${p.slug}/`;
   const seoTitle = (p.seo_title || '').trim() || `${p.title}｜お知らせ｜BIGLIGHT株式会社`;
   const desc = (p.meta_description || p.excerpt || p.title || '').replace(/\s+/g, ' ').slice(0, 200);
-  const img = p.cover_image || p.og_image || (BASE + '/assets/og-image.jpg');
+  const img = safeUrl(p.cover_image) || safeUrl(p.og_image) || (BASE + '/assets/og-image.jpg');
   const tags = tagsOf(p);
   const rt = readingMin(p.body);
   const author = p.author || 'BIGLIGHT編集部';
@@ -243,7 +244,8 @@ function articleHTML(p, map) {
   const ctas = jarr(p.cta_blocks).filter(c => c && (c.label || c.url));
   const robots = `${p.robots_index === false ? 'noindex' : 'index'}, ${p.robots_follow === false ? 'nofollow' : 'follow'}`;
   // 本文: 見出しID付与 + 目次 + 遅延読み込み
-  let body = fixMdTables(p.body) || '';
+  // 2026-10-06: lọc lại khi sinh trang — bài cũ trong DB chưa qua bộ lọc cũng an toàn trên biglight.jp.
+  let body = cleanHtml(fixMdTables(p.body)) || '';
   const built = buildToc(body); body = built.html;
   if (built.toc && /\[\[TOC\]\]|\[\[目次\]\]|<div class="ntoc-here"><\/div>/.test(body)) {
     body = body.replace(/\[\[TOC\]\]|\[\[目次\]\]|<div class="ntoc-here"><\/div>/g, built.toc);
@@ -273,13 +275,13 @@ function articleHTML(p, map) {
   const jsonld = ld.map(o => `<script type="application/ld+json">${JSON.stringify(o)}</script>`).join('\n');
   // 記事末尾ブロック
   const faqHtml = faqs.length ? `<div class="nfaq"><h2>よくある質問</h2>${faqs.map(f => `<details class="nfaq-i"><summary>${esc(f.q)}</summary><div>${esc(f.a)}</div></details>`).join('')}</div>` : '';
-  const ctaHtml = ctas.length ? `<div class="ncta">${ctas.map(c => `<a class="ncta-btn" href="${esc(c.url || '#')}"${/^https?:/.test(c.url || '') ? ' target="_blank" rel="noopener"' : ''}>${esc(c.label || c.type || '詳しく見る')}</a>`).join('')}</div>` : '';
-  const dl = String(p.download_pdf || '').trim();
+  const ctaHtml = ctas.length ? `<div class="ncta">${ctas.map(c => `<a class="ncta-btn" href="${esc(safeUrl(c.url) || '#')}"${/^https?:/.test(c.url || '') ? ' target="_blank" rel="noopener"' : ''}>${esc(c.label || c.type || '詳しく見る')}</a>`).join('')}</div>` : '';
+  const dl = safeUrlList(p.download_pdf) || '';
   const dlHtml = dl ? `<div class="ndl"><a class="btn-outline" href="${esc(dl.split(/\s+/)[0])}" target="_blank" rel="noopener">📄 資料をダウンロード</a></div>` : '';
   const rel = String(p.related_articles || '').split(',').map(s => s.trim()).filter(Boolean);
   const relHtml = rel.length ? `<div class="nrelated"><h3>関連記事</h3><ul>${rel.map(x => /^[a-z0-9\-]+$/.test(x) ? `<li><a href="/news/${esc(x)}/">${esc(x)}</a></li>` : `<li>${esc(x)}</li>`).join('')}</ul></div>` : '';
   const consultHtml = p.consult_block ? `<div class="nconsult"><h3>無料相談のご案内</h3><p>外国人材の採用・特定技能についてお気軽にご相談ください。</p><a class="btn-primary" href="/contact/">無料相談する</a></div>` : '';
-  return head({ title: seoTitle, desc, url, image: img, ogtype: 'article', jsonld, robots, canonical: (p.canonical_url || '').trim() || url, ogTitle: p.og_title || p.title, ogDesc: p.og_description || desc, ogImage: p.og_image || img })
+  return head({ title: seoTitle, desc, url, image: img, ogtype: 'article', jsonld, robots, canonical: safeUrl(p.canonical_url) || url, ogTitle: p.og_title || p.title, ogDesc: p.og_description || desc, ogImage: safeUrl(p.og_image) || img })
     + HEADER
     + `<nav class="crumb" aria-label="パンくず"><a href="/">ホーム</a> ＞ <a href="/news/">お知らせ</a> ＞ <span>${esc(p.title)}</span></nav>
 <article class="sec narticle"><div class="wrap nart">
@@ -292,7 +294,7 @@ function articleHTML(p, map) {
     <span>${MI.book}約${rt}分で読めます</span>
     <span>${MI.eye}<span id="vcount">${(p.views || 0).toLocaleString()}</span> views</span>
   </div>
-  ${p.cover_image ? `<img class="ncover" src="${esc(p.cover_image)}" alt="${esc(p.cover_alt || p.title)}"${p.cover_title ? ` title="${esc(p.cover_title)}"` : ''}>${p.cover_caption ? `<div class="ncaption">${esc(p.cover_caption)}</div>` : ''}` : ''}
+  ${safeUrl(p.cover_image) ? `<img class="ncover" src="${esc(safeUrl(p.cover_image))}" alt="${esc(p.cover_alt || p.title)}"${p.cover_title ? ` title="${esc(p.cover_title)}"` : ''}>${p.cover_caption ? `<div class="ncaption">${esc(p.cover_caption)}</div>` : ''}` : ''}
   <div class="nbody">${body}</div>
   ${faqHtml}
   ${dlHtml}
@@ -379,7 +381,15 @@ function updateRootSitemap(posts) {
 
 function ensureDir(d) { fs.mkdirSync(d, { recursive: true }); }
 
-async function regenerate(pool) {
+/* 2026-10-06 (audit): hai lần lưu gần nhau từng chạy regenerate SONG SONG — trang tag bị rmSync giữa lúc lần kia
+   đang ghi. Nay một hàng đợi: đang chạy thì gộp các yêu cầu sau thành MỘT lần chạy tiếp theo. */
+let _regenRun = null, _regenNext = null;
+function regenerate(pool) {
+  if (!_regenRun) { _regenRun = regenerateNow(pool).finally(() => { _regenRun = null; }); return _regenRun; }
+  if (!_regenNext) _regenNext = _regenRun.catch(() => {}).then(() => { _regenNext = null; return regenerate(pool); });
+  return _regenNext;
+}
+async function regenerateNow(pool) {
   const r = await pool.query("SELECT * FROM posts WHERE status='published' ORDER BY published_at DESC NULLS LAST, created_at DESC");
   const posts = r.rows;
   let map = {};

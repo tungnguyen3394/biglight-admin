@@ -11,6 +11,7 @@ const crypto = require('crypto');
 const news = require('./news');
 const { normalizePostLinks, findBrokenPostLinks } = require('./postLinks');
 const mountMcp = require('./mcp');
+const { cleanHtml, safeUrl, safeUrlList } = require('./sanitize');
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
@@ -120,8 +121,9 @@ if (SMTP_HOST && (SMTP_PASS || SMTP_NOAUTH)) {
   if (SMTP_PASS) opt.auth = { user: SMTP_USER, pass: SMTP_PASS };
   transporter = nodemailer.createTransport(opt);
 }
-async function sendInquiryMails(q) {
+async function sendInquiryMails(q, opt) {
   if (!transporter) return;
+  opt = opt || {};
   const sep = '\n――――――――――――――――――\n';
   const detail = `会社名：${q.company || '-'}\nお名前：${q.name}\nメール：${q.email}\n電話：${q.tel}\nお問い合わせ内容：\n${q.message}`;
   const greet = (q.company ? q.company + '\n' : '') + `${q.name} 様`;
@@ -162,7 +164,8 @@ URL：https://biglight.jp
     subject: `【新規問い合わせ】${q.company || ''} ${q.name}`,
     text: `新しいお問い合わせが届きました。${sep}${detail}${sep}管理画面：https://admin.biglight.jp`,
   };
-  try { await transporter.sendMail(autoReply); } catch (e) { console.error('mail autoReply:', e.message); }
+  // 2026-10-06 (audit #5): cùng một địa chỉ nhận tối đa 3 thư tự động / 24h — form không thành công cụ bắn mail vào hộp thư người khác.
+  if (!opt.skipAutoReply) { try { await transporter.sendMail(autoReply); } catch (e) { console.error('mail autoReply:', e.message); } }
   try { await transporter.sendMail(notify); } catch (e) { console.error('mail notify:', e.message); }
 }
 
@@ -185,19 +188,21 @@ const senderName = req => (req.session.user && (req.session.user.name || req.ses
 // req から送信者を判定 → GAS 優先・SMTP フォールバック
 async function sendMailSmart(req, opt) {
   const u = req.session.user;
-  const prof = (await pool.query('SELECT gas_url FROM profiles WHERE email=$1', [u.email])).rows[0] || {};
+  const prof = (await pool.query('SELECT gas_url, gas_secret FROM profiles WHERE email=$1', [u.email])).rows[0] || {};
   const gas = (prof.gas_url || u.gas_url || '').trim();
   const atts = await buildAttachments(opt.materialIds);
   if (gas) {
     const attachments = atts.map(a => ({ name: a.name, mimeType: MIME_MAP[path.extname(a.name).toLowerCase()] || 'application/octet-stream', dataBase64: fs.readFileSync(a.path).toString('base64') }));
     // senderName = đúng tên login (luật 2026-09-23, không thêm tiền tố công ty); GAS v3 dùng làm tên hiển thị
-    const payload = { to: opt.to, subject: opt.subject, body: opt.body, cc: opt.cc || '', bcc: opt.bcc || '', senderName: senderName(req), attachments };
+    // secret: GAS v4 từ chối mọi request không mang đúng khoá này (v3 bỏ qua trường lạ → vẫn chạy như cũ).
+    const payload = { to: opt.to, subject: opt.subject, body: opt.body, cc: opt.cc || '', bcc: opt.bcc || '', senderName: senderName(req), attachments, secret: prof.gas_secret || '' };
     const resp = await fetch(gas, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     const txt = await resp.text();
     // GAS mẫu admin trả {ok}, GAS v3 của CRM trả {success} → nhận cả 2, lỗi nào cũng không được ghi 送信
     let ok = resp.ok; try { const j = JSON.parse(txt); if (j && (j.ok === false || j.success === false)) ok = false; } catch (e) {}
     // Google のログインページが返る = デプロイの「アクセスできるユーザー」が全員になっていない（組織内限定 URL /a/macros/… も同じ）
     if (!ok && (resp.status === 401 || /ServiceLogin|Sign in - Google Accounts|ppConfig/.test(txt))) throw new Error("GASのアクセス設定が「全員」になっていません（URL に /a/macros/ が含まれる＝組織内限定、またはログインページが返っています）。GAS で「デプロイを管理」→ アクセスできるユーザー:「全員」→ 新バージョンでデプロイし、新しいURL（https://script.google.com/macros/s/…/exec）を登録してください");
+    if (!ok && /forbidden_secret/.test(txt)) throw new Error('GAS の鍵が一致しません。「メール設定」で表示される最新の v4 スクリプトを貼り直して、新しいバージョンでデプロイしてください');
     if (!ok) throw new Error('GAS送信エラー: ' + txt.slice(0, 200));
     return { via: 'gas' };
   }
@@ -214,20 +219,71 @@ async function init() {
 }
 
 const app = express();
+/* 2026-10-06 (audit): Express 4 không bắt lỗi của handler async. Nhiều route không có try/catch → một lỗi SQL
+   (vd. PATCH /api/inquiries/abc → "invalid input syntax for type bigint") thành unhandled rejection, và Node 22
+   tắt cả tiến trình. Bọc mọi handler: lỗi → next(err) → bộ xử lý lỗi cuối file trả 500 chung. */
+['get', 'post', 'put', 'patch', 'delete', 'options'].forEach(m => {
+  const orig = app[m].bind(app);
+  app[m] = function (path, ...fns) {
+    if (m === 'get' && fns.length === 0) return orig(path);   // app.get('setting')
+    return orig(path, ...fns.map(fn => (typeof fn === 'function' && fn.length < 4)
+      ? function (req, res, next) { try { const r = fn(req, res, next); if (r && typeof r.catch === 'function') r.catch(next); } catch (e) { next(e); } }
+      : fn));
+  };
+});
 app.set('trust proxy', 1);                 // chạy sau Caddy (HTTPS)
+app.disable('x-powered-by');
 app.use(express.json({ limit: '4mb' }));
+// 2026-10-06 (audit #11): không còn giá trị mặc định 'change-me' — không chạy production với khoá đoán được.
+const SESSION_SECRET = process.env.SESSION_SECRET || '';
+// Dừng khi THIẾU hẳn hoặc còn giá trị mẫu. Ngắn hơn 32 ký tự thì chỉ cảnh báo (không làm sập production đang chạy).
+if (!SESSION_SECRET || /THAY_BANG|change-me/i.test(SESSION_SECRET)) {
+  if (process.env.NODE_ENV === 'production') { console.error('SESSION_SECRET thiếu hoặc còn giá trị mẫu — dừng. Tạo bằng: openssl rand -hex 32'); process.exit(1); }
+  console.warn('[dev] SESSION_SECRET chưa đặt — chỉ chấp nhận ngoài production');
+} else if (SESSION_SECRET.length < 32) console.warn('⚠ SESSION_SECRET ngắn hơn 32 ký tự — nên thay bằng: openssl rand -hex 32');
 app.use(session({
   store: new PgSession({ pool, tableName: 'admin_session', createTableIfMissing: true }),
-  secret: process.env.SESSION_SECRET || 'change-me',
+  secret: SESSION_SECRET || 'dev-only-secret-not-for-production-use',
   resave: false,
   saveUninitialized: false,
+  rolling: true,                           // 7 ngày KHÔNG dùng thì hết phiên (trước: 14 ngày cố định)
   cookie: {
     httpOnly: true,
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',
-    maxAge: 1000 * 60 * 60 * 24 * 14,      // 14 ngày
+    maxAge: 1000 * 60 * 60 * 24 * 7,
   },
 }));
+/* 2026-10-06 (audit #3): trước đây role/status/quyền mail chép vào session lúc đăng nhập và giữ nguyên tới khi hết
+   phiên → đặt 無効・xoá・hạ quyền không có tác dụng. Nay mỗi request có phiên đọc lại profiles (cache 20 giây):
+   không còn / không active → huỷ phiên ngay; còn thì làm mới role・mail_enabled・gas_url trong phiên. */
+const PROF_CACHE = new Map(), PROF_TTL = 20 * 1000;
+function profCacheDrop(email) { PROF_CACHE.delete(String(email || '').toLowerCase()); }
+async function profFresh(email) {
+  const k = String(email || '').toLowerCase(), hit = PROF_CACHE.get(k);
+  if (hit && Date.now() - hit.t < PROF_TTL) return hit.p;
+  const p = (await pool.query('SELECT * FROM profiles WHERE email=$1', [k])).rows[0] || null;
+  PROF_CACHE.set(k, { t: Date.now(), p });
+  return p;
+}
+app.use(async (req, res, next) => {
+  const u = req.session && req.session.user;
+  if (!u) return next();
+  try {
+    const p = await profFresh(u.email);
+    const boot = ADMIN_EMAILS.includes(String(u.email || '').toLowerCase());
+    if (!p || (p.status !== 'active' && !boot)) {
+      return req.session.destroy(() => {
+        if (req.path.startsWith('/api/') && req.path !== '/api/me') return res.status(401).json({ error: 'unauthorized' });
+        next();
+      });
+    }
+    req.session.user = sessionUser(boot ? { ...p, role: 'admin', status: 'active' } : p);
+    next();
+  } catch (e) { console.error('session refresh:', e.message); res.status(503).json({ error: 'サーバーが混み合っています。少し待って再度お試しください' }); }
+});
+/** 500 の詳細（SQL エラー文など）は クライアントに 出さない。ログにだけ残す。 */
+function serverErr(res, e, where) { console.error((where || 'error') + ':', e && e.message); if (!res.headersSent) res.status(500).json({ error: 'サーバーエラーが発生しました' }); }
 
 // ================= PUBLIC: nhận form 問い合わせ từ website =================
 function setCors(res) {
@@ -258,14 +314,15 @@ app.post('/api/inquiry', async (req, res) => {
     const message = String(b.message || '').trim().slice(0, 5000);
     if (!name || !email || !tel || !message) return res.status(400).json({ error: '必須項目が未入力です' });
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'メールアドレスが不正です' });
-    const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.ip || '';
+    const ip = clientIp(req);
     if (!rateOk(ip)) return res.status(429).json({ error: 'しばらくしてから再度お試しください' });
     await pool.query(
       'INSERT INTO inquiries(company,name,email,tel,message,ip,user_agent) VALUES($1,$2,$3,$4,$5,$6,$7)',
       [company, name, email, tel, message, ip, String(req.headers['user-agent'] || '').slice(0, 300)]
     );
     res.json({ ok: true });
-    sendInquiryMails({ company, name, email, tel, message }).catch(() => {});
+    const recent = (await pool.query("SELECT count(*)::int n FROM inquiries WHERE lower(email)=lower($1) AND created_at > now() - interval '24 hours'", [email])).rows[0].n;
+    sendInquiryMails({ company, name, email, tel, message }, { skipAutoReply: recent > 3 }).catch(() => {});
   } catch (e) {
     console.error('POST /api/inquiry:', e.message);
     res.status(500).json({ error: 'server error' });
@@ -284,7 +341,7 @@ app.post('/api/download', async (req, res) => {
     const email = String(b.email || '').trim().slice(0, 200);
     if (!name || !email) return res.status(400).json({ error: '必須項目が未入力です' });
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'メールアドレスが不正です' });
-    const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.ip || '';
+    const ip = clientIp(req);
     if (!rateOk(ip)) return res.status(429).json({ error: 'しばらくしてから再度お試しください' });
     const interest = (Array.isArray(b.interest) ? b.interest.join(' / ') : String(b.interest || '')).slice(0, 500);
     const note = String(b.note || '').trim().slice(0, 2000);
@@ -311,6 +368,24 @@ app.get('/api/posts/latest', async (_q, res) => {
   catch (e) { res.json({ items: [] }); }
 });
 
+/* 2026-10-06 (audit #2/#6): lọc body + kiểm URL trước khi lưu. URL sai → 400 nói rõ ô nào (không lặng lẽ xoá). */
+const POST_URL_FIELDS = { cover_image: '画像URL', og_image: 'OG 画像URL', canonical_url: 'Canonical URL' };
+function cleanPostInput(b) {
+  const out = { ...b }, bad = [];
+  if (typeof out.body === 'string') out.body = cleanHtml(out.body);
+  for (const [k, label] of Object.entries(POST_URL_FIELDS)) {
+    if (out[k] == null || String(out[k]).trim() === '') continue;
+    const v = safeUrl(out[k]); if (v) out[k] = v; else bad.push(label);
+  }
+  if (out.download_pdf != null && String(out.download_pdf).trim()) {
+    const v = safeUrlList(out.download_pdf); if (v) out.download_pdf = v; else bad.push('ダウンロード資料 URL');
+  }
+  if (Array.isArray(out.cta_blocks)) out.cta_blocks = out.cta_blocks.map((c, i) => {
+    if (!c || typeof c !== 'object' || !c.url || !String(c.url).trim()) return c;
+    const v = safeUrl(c.url); if (!v) bad.push('CTA ' + (i + 1) + ' のリンクURL'); return { ...c, url: v || '' };
+  });
+  return { b: out, bad };
+}
 function slugify(s) {
   return String(s || '').trim().toLowerCase()
     .replace(/\s+/g, '-')
@@ -321,7 +396,7 @@ function slugify(s) {
 // ================= AUTH =================
 app.get('/healthz', (_q, res) => res.json({ ok: true }));
 app.get('/api/config', (_q, res) => res.json({ googleClientId: GOOGLE_CLIENT_ID }));
-app.get('/api/me', (req, res) => res.json({ user: req.session.user || null }));
+app.get('/api/me', (req, res) => res.json({ user: (req.session && req.session.user) || null }));
 
 function sessionUser(prof) {
   return { email: prof.email, name: prof.name || prof.email, picture: prof.picture || '', role: prof.role, mail_enabled: !!prof.mail_enabled, gas_url: prof.gas_url || '', status: prof.status };
@@ -351,6 +426,9 @@ app.post('/auth/google', async (req, res) => {
       audit(req, 'login_denied', 'auth', email, 'ログイン拒否（' + prof.status + '）', null, { email, name: prof.name });
       return res.status(403).json({ error: prof.status === 'disabled' ? 'このアカウントは無効化されています。' : '承認待ちです。管理者の承認をお待ちください。' });
     }
+    profCacheDrop(email);
+    // Phiên MỚI mỗi lần đăng nhập (chống session fixation).
+    await new Promise((ok, ng) => req.session.regenerate(err => err ? ng(err) : ok()));
     req.session.user = sessionUser(prof);
     audit(req, 'login', 'auth', email, 'ログイン');
     res.json({ ok: true, user: req.session.user });
@@ -377,7 +455,9 @@ function requirePerm(appKey, action) { return (req, res, next) => can(req, appKe
 function requireMail(req, res, next) { const u = req.session && req.session.user; if (u && (u.mail_enabled || isAdmin(req))) return next(); res.status(403).json({ error: 'メール送信の権限がありません（管理者に許可を依頼してください）' }); }
 
 // ---- 監査ログ: 失敗しても本処理は止めない ----
-function clientIp(req) { return (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.ip || ''; }
+/* 2026-10-06 (audit #5): lấy IP bằng req.ip (trust proxy = 1 → địa chỉ do Caddy ghi), KHÔNG đọc phần tử đầu của
+   X-Forwarded-For — phần đó khách tự đặt được → né hạn mức chống spam và giả IP trong 監査ログ. */
+function clientIp(req) { return String(req.ip || '').replace(/^::ffff:/, ''); }
 async function audit(req, action, entity, entityId, summary, detail, actor) {
   let u = actor || (req.session && req.session.user) || {};
   if (!actor && req.apiKey) u = { email: u.email, name: 'API:' + req.apiKey.name + '／' + (u.name || '') };
@@ -401,7 +481,8 @@ function diffOf(before, after, keys) {
 
 // ---- ユーザー管理 (admin) ----
 app.get('/api/profiles', requireAuth, requireAdmin, async (_q, res) => {
-  const r = await pool.query('SELECT email,name,picture,role,status,mail_enabled,gas_url,last_login,created_at FROM profiles ORDER BY (status=\'pending\') DESC, last_login DESC NULLS LAST');
+  // URL GAS = quyền gửi Gmail của người đó → không trả về cho người khác, chỉ cho biết có/không.
+  const r = await pool.query('SELECT email,name,picture,role,status,mail_enabled,(gas_url IS NOT NULL AND gas_url<>\'\') AS gas_set,last_login,created_at FROM profiles ORDER BY (status=\'pending\') DESC, last_login DESC NULLS LAST');
   res.json({ items: r.rows });
 });
 app.put('/api/profiles/:email', requireAuth, requireAdmin, async (req, res) => {
@@ -413,16 +494,21 @@ app.put('/api/profiles/:email', requireAuth, requireAdmin, async (req, res) => {
     const role = ['admin', 'manager', 'staff', 'viewer'].includes(b.role) ? b.role : cur.role;
     const status = ['pending', 'active', 'disabled'].includes(b.status) ? b.status : cur.status;
     const mail = b.mail_enabled !== undefined ? !!b.mail_enabled : cur.mail_enabled;
-    const r = await pool.query('UPDATE profiles SET role=$1,status=$2,mail_enabled=$3 WHERE email=$4 RETURNING *', [role, status, mail, email]);
+    const r = await pool.query('UPDATE profiles SET role=$1,status=$2,mail_enabled=$3 WHERE email=$4 RETURNING email,name,picture,role,status,mail_enabled,last_login,created_at', [role, status, mail, email]);
+    profCacheDrop(email);
+    if (status !== 'active') await pool.query("DELETE FROM admin_session WHERE sess->'user'->>'email' = $1", [email]).catch(() => {});
     const d = diffOf(cur, r.rows[0], ['role', 'status', 'mail_enabled']);
     if (Object.keys(d).length) audit(req, 'update', 'user', email, 'ユーザー権限を変更: ' + email, d);
     res.json({ item: r.rows[0] });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { serverErr(res, e); }
 });
 app.delete('/api/profiles/:email', requireAuth, requireAdmin, async (req, res) => {
   const email = String(req.params.email || '').toLowerCase();
   if (ADMIN_EMAILS.includes(email)) return res.status(400).json({ error: 'このアカウントは削除できません（管理者）' });
   await pool.query('DELETE FROM profiles WHERE email=$1', [email]);
+  profCacheDrop(email);
+  // Đăng xuất ngay mọi phiên của người này (bảng admin_session của connect-pg-simple).
+  await pool.query("DELETE FROM admin_session WHERE sess->'user'->>'email' = $1", [email]).catch(() => {});
   audit(req, 'delete', 'user', email, 'ユーザーを削除: ' + email);
   res.json({ ok: true });
 });
@@ -449,6 +535,19 @@ app.post('/api/me/gas', requireAuth, async (req, res) => {
   res.json({ ok: true });
 });
 
+// GAS v4 の鍵（本人だけ）: 無ければ作る。スクリプトに埋め込んで 貼ってもらう。
+app.get('/api/me/gas-secret', requireAuth, async (req, res) => {
+  const email = req.session.user.email;
+  let row = (await pool.query('SELECT gas_secret FROM profiles WHERE email=$1', [email])).rows[0];
+  if (!row) return res.status(404).json({ error: 'not found' });
+  if (!row.gas_secret) {
+    const sec = crypto.randomBytes(24).toString('base64url');
+    row = (await pool.query('UPDATE profiles SET gas_secret=COALESCE(gas_secret,$1) WHERE email=$2 RETURNING gas_secret', [sec, email])).rows[0];
+    audit(req, 'create', 'gas', email, 'GAS v4 の鍵を発行');
+  }
+  res.set('Cache-Control', 'no-store');
+  res.json({ secret: row.gas_secret });
+});
 // GAS のバージョン確認: GAS の doGet を GET して「v3」が含まれるか（自分 or 管理者が他人を）
 app.post('/api/gas/check', requireAuth, async (req, res) => {
   const email = String((req.body || {}).email || req.session.user.email).toLowerCase();
@@ -460,7 +559,8 @@ app.post('/api/gas/check', requireAuth, async (req, res) => {
     const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 12000);
     const r = await fetch(gas, { signal: ctl.signal }); clearTimeout(t);
     const txt = (await r.text()).slice(0, 2000);
-    if (/BIGLIGHT mail GAS v3/.test(txt)) return res.json({ version: 'v3', label: 'v3（差出人名・添付 対応）' });
+    if (/BIGLIGHT mail GAS v4/.test(txt)) return res.json({ version: 'v4', label: 'v4（鍵つき・安全）' });
+    if (/BIGLIGHT mail GAS v3/.test(txt)) return res.json({ version: 'v3', label: 'v3（鍵なし: URL が漏れると誰でも送信可）— v4 に更新してください' });
     if (/\/a\/macros\//.test(gas) || /ServiceLogin|Sign in - Google Accounts/.test(txt) || /accounts\.google\.com|ServiceLogin/.test(r.url || '')) return res.json({ version: 'access', label: 'アクセス設定エラー: 「全員」になっていません（組織内限定 URL）。デプロイを「全員」で作り直して新 URL を登録' });
     if (/<html/i.test(txt) && /google/i.test(txt)) return res.json({ version: 'old', label: '旧版（doGet なし・差出人名が固定）— v3 を貼り直してください' });
     return res.json({ version: 'old', label: '旧版 — v3 を貼り直してください' });
@@ -478,15 +578,20 @@ app.get('/api/stats', requireAuth, async (_q, res) => {
     const e2 = await pool.query("SELECT COUNT(*)::int n FROM downloads");
     const top = await pool.query("SELECT id,slug,title,views,status FROM posts ORDER BY views DESC, created_at DESC LIMIT 10");
     res.json({ inquiriesNew: a.rows[0].n, inquiriesTotal: b.rows[0].n, postsPublished: c.rows[0].n, postsTotal: d.rows[0].n, postsDraft: dr.rows[0].n, downloadsTotal: e2.rows[0].n, topPosts: top.rows });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { serverErr(res, e); }
 });
 
 // 一覧に「最後に送ったメール」と送信回数を付ける
 const LAST_MAIL = kind => `(SELECT max(created_at) FROM mail_logs ml WHERE ml.recipient_kind='${kind}' AND ml.recipient_id=t.id) AS last_mail_at,
   (SELECT count(*)::int FROM mail_logs ml WHERE ml.recipient_kind='${kind}' AND ml.recipient_id=t.id) AS mail_count`;
-app.get('/api/inquiries', requireAuth, async (_q, res) => {
-  const r = await pool.query(`SELECT t.*, ${LAST_MAIL('inquiry')} FROM inquiries t ORDER BY t.created_at DESC LIMIT 500`);
-  res.json({ items: r.rows });
+/* 2026-10-06 (audit #9): trước đây cắt cứng 500 dòng, im lặng — bản ghi cũ biến mất khỏi màn hình và MCP.
+   Nay limit (mặc định 2000, tối đa 10000) + total để màn hình nói rõ khi chưa hiện hết. */
+const listLimit = q => Math.max(1, Math.min(10000, toInt(q.limit) || 2000));
+app.get('/api/inquiries', requireAuth, async (req, res) => {
+  const lim = listLimit(req.query || {});
+  const r = await pool.query(`SELECT t.*, ${LAST_MAIL('inquiry')} FROM inquiries t ORDER BY t.created_at DESC LIMIT ${lim}`);
+  const total = (await pool.query('SELECT count(*)::int n FROM inquiries')).rows[0].n;
+  res.json({ items: r.rows, total });
 });
 app.patch('/api/inquiries/:id', requireAuth, requirePerm('inquiries', 'edit'), async (req, res) => {
   const st = String((req.body || {}).status || '').trim();
@@ -503,9 +608,11 @@ app.delete('/api/inquiries/:id', requireAuth, requirePerm('inquiries', 'del'), a
   res.json({ ok: true });
 });
 
-app.get('/api/downloads', requireAuth, async (_q, res) => {
-  const r = await pool.query(`SELECT t.*, ${LAST_MAIL('download')} FROM downloads t ORDER BY t.created_at DESC LIMIT 500`);
-  res.json({ items: r.rows });
+app.get('/api/downloads', requireAuth, async (req, res) => {
+  const lim = listLimit(req.query || {});
+  const r = await pool.query(`SELECT t.*, ${LAST_MAIL('download')} FROM downloads t ORDER BY t.created_at DESC LIMIT ${lim}`);
+  const total = (await pool.query('SELECT count(*)::int n FROM downloads')).rows[0].n;
+  res.json({ items: r.rows, total });
 });
 app.delete('/api/downloads/:id', requireAuth, requirePerm('downloads', 'del'), async (req, res) => {
   const r = await pool.query('DELETE FROM downloads WHERE id=$1 RETURNING company,name,email,interest,note,created_at', [req.params.id]);
@@ -559,7 +666,7 @@ app.post('/api/materials', requireAuth, requirePerm('salesmail', 'create'), (req
       }
       audit(req, 'create', 'material', row.id, '資料を登録: ' + row.name, { category: row.category, file: req.file ? req.file.originalname : null, link_url: row.link_url });
       res.json({ item: row });
-    } catch (e) { console.error('POST /api/materials:', e.message); res.status(500).json({ error: e.message }); }
+    } catch (e) { serverErr(res, e, 'POST /api/materials'); }
   });
 });
 app.put('/api/materials/:id', requireAuth, requirePerm('salesmail', 'edit'), (req, res) => {
@@ -580,7 +687,7 @@ app.put('/api/materials/:id', requireAuth, requirePerm('salesmail', 'edit'), (re
       if (req.file) d.file = { to: req.file.originalname };
       audit(req, req.file ? 'replace' : 'update', 'material', cur.id, (req.file ? '資料ファイルを差し替え: ' : '資料を編集: ') + row.name, d);
       res.json({ item: row });
-    } catch (e) { console.error('PUT /api/materials:', e.message); res.status(500).json({ error: e.message }); }
+    } catch (e) { serverErr(res, e, 'PUT /api/materials'); }
   });
 });
 app.delete('/api/materials/:id', requireAuth, requirePerm('salesmail', 'del'), async (req, res) => {
@@ -604,7 +711,7 @@ app.get('/api/recipients', requireAuth, async (_q, res) => {
       ...i.rows.map(r => ({ key: 'inquiry:' + r.id, kind: 'inquiry', id: r.id, company: r.company || '', name: r.name || '', email: r.email, tel: r.tel || '', industry: '', address: '', created_at: r.created_at })),
     ];
     res.json({ items });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { serverErr(res, e); }
 });
 
 // ----- テンプレート -----
@@ -622,7 +729,7 @@ app.post('/api/mail/templates', requireAuth, requirePerm('salesmail', 'create'),
       [name, b.category || 'その他', b.subject || '', b.body || '', toInt(b.signature_id), JSON.stringify(b.attach_ids || []), !!b.favorite, senderName(req)]);
     audit(req, 'create', 'template', r.rows[0].id, 'テンプレートを作成: ' + name, { category: r.rows[0].category, subject: r.rows[0].subject });
     res.json({ item: { ...r.rows[0], attach_ids: jparse(r.rows[0].attach_ids, []) } });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { serverErr(res, e); }
 });
 app.put('/api/mail/templates/:id', requireAuth, requirePerm('salesmail', 'edit'), async (req, res) => {
   try {
@@ -640,7 +747,7 @@ app.put('/api/mail/templates/:id', requireAuth, requirePerm('salesmail', 'edit')
     const d = diffOf(cur, r.rows[0], ['name', 'category', 'subject', 'body', 'signature_id', 'attach_ids', 'favorite']);
     if (Object.keys(d).length) audit(req, 'update', 'template', cur.id, 'テンプレートを編集: ' + r.rows[0].name, d);
     res.json({ item: { ...r.rows[0], attach_ids: jparse(r.rows[0].attach_ids, []) } });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { serverErr(res, e); }
 });
 app.delete('/api/mail/templates/:id', requireAuth, requirePerm('salesmail', 'del'), async (req, res) => {
   const r = await pool.query('DELETE FROM mail_templates WHERE id=$1 RETURNING name,category,subject,body', [req.params.id]);
@@ -661,7 +768,7 @@ app.post('/api/mail/signatures', requireAuth, requirePerm('salesmail', 'create')
     const r = await pool.query('INSERT INTO mail_signatures(name,body,is_default) VALUES($1,$2,$3) RETURNING *', [name, b.body || '', !!b.is_default]);
     audit(req, 'create', 'signature', r.rows[0].id, '署名を作成: ' + name);
     res.json({ item: r.rows[0] });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { serverErr(res, e); }
 });
 app.put('/api/mail/signatures/:id', requireAuth, requirePerm('salesmail', 'edit'), async (req, res) => {
   try {
@@ -674,7 +781,7 @@ app.put('/api/mail/signatures/:id', requireAuth, requirePerm('salesmail', 'edit'
     const d = diffOf(cur, r.rows[0], ['name', 'body', 'is_default']);
     if (Object.keys(d).length) audit(req, 'update', 'signature', cur.id, '署名を編集: ' + r.rows[0].name, d);
     res.json({ item: r.rows[0] });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { serverErr(res, e); }
 });
 app.delete('/api/mail/signatures/:id', requireAuth, requirePerm('salesmail', 'del'), async (req, res) => {
   const r = await pool.query('DELETE FROM mail_signatures WHERE id=$1 RETURNING name,body', [req.params.id]);
@@ -690,32 +797,33 @@ app.get('/api/mail/logs', requireAuth, async (req, res) => {
     : await pool.query('SELECT * FROM mail_logs ORDER BY created_at DESC LIMIT 1000');
   res.json({ items: r.rows });
 });
-app.delete('/api/mail/logs/:id', requireAuth, requirePerm('salesmail', 'del'), async (req, res) => {
+// 送信履歴は 証跡 → 削除は 管理者だけ（2026-10-06 audit: staff 既定で 消せた）
+app.delete('/api/mail/logs/:id', requireAuth, requireAdmin, async (req, res) => {
   const r = await pool.query('DELETE FROM mail_logs WHERE id=$1 RETURNING to_email,subject,created_at', [req.params.id]);
   if (r.rows[0]) audit(req, 'delete', 'mail_log', req.params.id, '送信履歴を削除: ' + r.rows[0].to_email, r.rows[0]);
   res.json({ ok: true });
 });
 
 // ----- 下書き -----
-app.get('/api/mail/drafts', requireAuth, async (_q, res) => {
-  const r = await pool.query('SELECT * FROM mail_drafts ORDER BY updated_at DESC');
+app.get('/api/mail/drafts', requireAuth, async (req, res) => {
+  const r = await pool.query('SELECT * FROM mail_drafts WHERE owner_email=$1 ORDER BY updated_at DESC', [req.session.user.email]);
   res.json({ items: r.rows.map(d => ({ ...d, attach_ids: jparse(d.attach_ids, []) })) });
 });
 app.post('/api/mail/drafts', requireAuth, requireMail, async (req, res) => {   // upsert
   try {
     const b = req.body || {};
     if (b.id) {
-      const r = await pool.query('UPDATE mail_drafts SET recipient_key=$1,subject=$2,body=$3,template_id=$4,attach_ids=$5,updated_at=now() WHERE id=$6 RETURNING *',
-        [b.recipient_key || '', b.subject || '', b.body || '', toInt(b.template_id), JSON.stringify(b.attach_ids || []), b.id]);
+      const r = await pool.query('UPDATE mail_drafts SET recipient_key=$1,subject=$2,body=$3,template_id=$4,attach_ids=$5,updated_at=now() WHERE id=$6 AND owner_email=$7 RETURNING *',
+        [b.recipient_key || '', b.subject || '', b.body || '', toInt(b.template_id), JSON.stringify(b.attach_ids || []), toInt(b.id), req.session.user.email]);
       if (r.rows[0]) return res.json({ item: { ...r.rows[0], attach_ids: jparse(r.rows[0].attach_ids, []) } });
     }
-    const r = await pool.query('INSERT INTO mail_drafts(recipient_key,subject,body,template_id,attach_ids) VALUES($1,$2,$3,$4,$5) RETURNING *',
-      [b.recipient_key || '', b.subject || '', b.body || '', toInt(b.template_id), JSON.stringify(b.attach_ids || [])]);
+    const r = await pool.query('INSERT INTO mail_drafts(recipient_key,subject,body,template_id,attach_ids,owner_email) VALUES($1,$2,$3,$4,$5,$6) RETURNING *',
+      [b.recipient_key || '', b.subject || '', b.body || '', toInt(b.template_id), JSON.stringify(b.attach_ids || []), req.session.user.email]);
     res.json({ item: { ...r.rows[0], attach_ids: jparse(r.rows[0].attach_ids, []) } });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { serverErr(res, e); }
 });
 app.delete('/api/mail/drafts/:id', requireAuth, requireMail, async (req, res) => {
-  await pool.query('DELETE FROM mail_drafts WHERE id=$1', [req.params.id]); res.json({ ok: true });
+  await pool.query('DELETE FROM mail_drafts WHERE id=$1 AND owner_email=$2', [toInt(req.params.id), req.session.user.email]); res.json({ ok: true });
 });
 
 // ----- meta (カテゴリ) -----
@@ -783,11 +891,14 @@ app.get('/api/posts', requireAuth, async (_q, res) => {
 app.get('/api/posts/:id', requireAuth, async (req, res) => {
   const r = await pool.query('SELECT * FROM posts WHERE id=$1', [req.params.id]);
   if (!r.rows[0]) return res.status(404).json({ error: 'not found' });
-  res.json({ item: r.rows[0] });
+  // Bài cũ lưu trước khi có bộ lọc cũng KHÔNG được chạy script trong trình duyệt admin.
+  res.json({ item: { ...r.rows[0], body: cleanHtml(r.rows[0].body) } });
 });
 app.post('/api/posts', requireAuth, requirePerm('posts', 'create'), async (req, res) => {
   try {
-    const b = normalizePostLinks(req.body || {});
+    const cp = cleanPostInput(normalizePostLinks(req.body || {}));
+    if (cp.bad.length) return res.status(400).json({ error: 'URL が不正です（http(s):// または / から始まる形式のみ）: ' + cp.bad.join('、') });
+    const b = cp.b;
     const title = String(b.title || '').trim();
     if (!title) return res.status(400).json({ error: 'タイトルは必須です' });
     let slug = slugify(b.slug) || ('post-' + Date.now());
@@ -803,11 +914,13 @@ app.post('/api/posts', requireAuth, requirePerm('posts', 'create'), async (req, 
     audit(req, 'create', 'post', r.rows[0].id, '記事を作成: ' + r.rows[0].title, { slug: r.rows[0].slug, status: r.rows[0].status });
     res.json({ item: r.rows[0] });
     news.regenerate(pool).catch(() => {});
-  } catch (e) { console.error('POST /api/posts:', e.message); res.status(500).json({ error: e.message }); }
+  } catch (e) { serverErr(res, e, 'POST /api/posts'); }
 });
 app.put('/api/posts/:id', requireAuth, requirePerm('posts', 'edit'), async (req, res) => {
   try {
-    const b = normalizePostLinks(req.body || {});
+    const cp = cleanPostInput(normalizePostLinks(req.body || {}));
+    if (cp.bad.length) return res.status(400).json({ error: 'URL が不正です（http(s):// または / から始まる形式のみ）: ' + cp.bad.join('、') });
+    const b = cp.b;
     const cur = await pool.query('SELECT * FROM posts WHERE id=$1', [req.params.id]);
     if (!cur.rows[0]) return res.status(404).json({ error: 'not found' });
     const old = cur.rows[0];
@@ -835,7 +948,7 @@ app.put('/api/posts/:id', requireAuth, requirePerm('posts', 'edit'), async (req,
     if (old.slug !== slug) news.removeSlug(old.slug);
     if (r.rows[0].status !== 'published') news.removeSlug(slug);
     news.regenerate(pool).catch(() => {});
-  } catch (e) { console.error('PUT /api/posts:', e.message); res.status(500).json({ error: e.message }); }
+  } catch (e) { serverErr(res, e, 'PUT /api/posts'); }
 });
 app.delete('/api/posts/:id', requireAuth, requirePerm('posts', 'del'), async (req, res) => {
   const c = await pool.query('SELECT slug,title,status FROM posts WHERE id=$1', [req.params.id]);
@@ -847,7 +960,7 @@ app.delete('/api/posts/:id', requireAuth, requirePerm('posts', 'del'), async (re
 });
 app.post('/api/news/regenerate', requireAuth, requirePerm('posts', 'edit'), async (req, res) => {
   try { const n = await news.regenerate(pool); audit(req, 'regenerate', 'post', null, '公開サイトを再生成（' + n + '記事）'); res.json({ ok: true, count: n }); }
-  catch (e) { res.status(500).json({ error: e.message }); }
+  catch (e) { serverErr(res, e); }
 });
 
 // ----- アップロード画像 -----
@@ -874,7 +987,7 @@ app.post('/api/categories', requireAuth, requirePerm('posts', 'edit'), async (re
     const r = await pool.query('INSERT INTO categories(slug,name,sort) VALUES($1,$2,$3) RETURNING *', [slug, name, parseInt((req.body || {}).sort, 10) || 99]);
     audit(req, 'create', 'category', r.rows[0].id, 'カテゴリを追加: ' + name, { slug });
     res.json({ item: r.rows[0] });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { serverErr(res, e); }
 });
 app.delete('/api/categories/:id', requireAuth, requirePerm('posts', 'del'), async (req, res) => {
   const r = await pool.query('DELETE FROM categories WHERE id=$1 RETURNING slug,name', [req.params.id]);
@@ -914,7 +1027,7 @@ app.get('/api/audit', requireAuth, requireAdmin, async (req, res) => {
     const items = (await pool.query(`SELECT * FROM audit_logs ${w} ORDER BY created_at DESC, id DESC LIMIT ${limit} OFFSET ${offset}`, args)).rows;
     const actors = (await pool.query('SELECT actor_email, max(actor_name) AS actor_name FROM audit_logs WHERE actor_email IS NOT NULL GROUP BY actor_email ORDER BY actor_email')).rows;
     res.json({ total, items, actors });
-  } catch (e) { console.error('GET /api/audit:', e.message); res.status(500).json({ error: e.message }); }
+  } catch (e) { serverErr(res, e, 'GET /api/audit'); }
 });
 
 // ================= API・MCP連携 =================
@@ -923,14 +1036,40 @@ mountMcp(app, { pool, sessionUser, audit, clientIp, requireAuth, requireAdmin, S
   isAdminUser: u => !!u && (u.role === 'admin' || ADMIN_EMAILS.includes(u.email)), canUser: (u, a, x) => { if (!u) return false; if (u.role === 'admin' || ADMIN_EMAILS.includes(u.email)) return true; const rp = ROLE_PERMS[u.role]; return !!(rp && rp[a] && rp[a][x]); } });
 
 // ================= admin UI (tĩnh) =================
+/* 2026-10-06 (audit #7): CSP cho trang quản trị. Trang dùng script/onclick nội tuyến nên còn 'unsafe-inline',
+   nhưng chặn được: tải script từ tên miền lạ, gửi dữ liệu (fetch) ra ngoài, nhúng trang vào iframe, <base>/<object>.
+   Quill nay tự lưu ở /vendor (trước tải từ cdn.quilljs.com — tên miền đó đã chuyển hướng 301). */
+const ADMIN_CSP = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/client",
+  "style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style",
+  "img-src 'self' data: blob: https:",
+  "connect-src 'self' https://accounts.google.com/gsi/",
+  "frame-src https://accounts.google.com/gsi/ https://www.youtube.com https://www.youtube-nocookie.com",
+  "font-src 'self' data:",
+  "object-src 'none'", "base-uri 'self'", "form-action 'self'", "frame-ancestors 'none'",
+].join('; ');
+function adminHtmlHeaders(res) {
+  res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+  res.setHeader('Content-Security-Policy', ADMIN_CSP);
+  res.setHeader('Referrer-Policy', 'same-origin');
+}
 // SPA: đường dẫn màn hình (/inquiries/12 …) trả index.html; JS phía client tự mở đúng trang
 app.get(/^\/(inquiries|downloads|posts|mail|users|audit|integrations)(\/[A-Za-z0-9_-]+)?\/?$/, (_q, res) => {
-  res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+  adminHtmlHeaders(res);
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 app.use(express.static(path.join(__dirname, 'public'), {
-  setHeaders: (res, p) => { if (p.endsWith('.html')) res.setHeader('Cache-Control', 'no-cache, must-revalidate'); }
+  setHeaders: (res, p) => { if (p.endsWith('.html')) adminHtmlHeaders(res); }
 }));
+
+// Bộ xử lý lỗi cuối cùng (handler async ném lỗi → next(err) ở lớp bọc đầu file).
+app.use((err, req, res, _next) => {
+  if (err && (err.type === 'entity.parse.failed' || err.status === 400)) return res.status(400).json({ error: 'リクエストが不正です' });
+  if (err && err.type === 'entity.too.large') return res.status(413).json({ error: 'データが大きすぎます' });
+  serverErr(res, err, req.method + ' ' + req.path);
+});
+process.on('unhandledRejection', e => console.error('unhandledRejection:', e && e.message));
 
 const PORT = process.env.PORT || 3000;
 async function publishDue() {

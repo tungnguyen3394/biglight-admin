@@ -4,15 +4,26 @@
   "description": "Admin quản trị biglight.jp — 問い合わせ + お知らせ (PostgreSQL)",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "node test/audit.test.js"
   },
   "dependencies": {
     "connect-pg-simple": "^9.0.1",
     "express": "^4.19.2",
     "express-session": "^1.18.0",
     "google-auth-library": "^9.11.0",
-    "multer": "^1.4.5-lts.1",
-    "nodemailer": "^6.9.14",
-    "pg": "^8.12.0"
+    "multer": "^2.0.2",
+    "nodemailer": "^10.0.15",
+    "pg": "^8.12.0",
+    "sanitize-html": "^2.18.0"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "overrides": {
+    "uuid": "^11.1.1"
+  },
+  "devDependencies": {
+    "smtp-server": "^3.19.17"
   }
 }
