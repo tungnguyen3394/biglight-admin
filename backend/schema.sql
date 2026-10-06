@@ -232,3 +232,8 @@ INSERT INTO categories(slug,name,sort) VALUES
   ('magazine','HR Magazine',2),
   ('seido','制度・法改正情報',3)
 ON CONFLICT (slug) DO NOTHING;
+
+-- 2026-10-06 (audit): GAS v4 — khoá bí mật riêng từng người. GAS kiểm khoá này; lộ URL thôi thì không gửi được mail.
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS gas_secret TEXT;
+-- 2026-10-06 (audit): nháp mail thuộc về người tạo (trước đây ai cũng đọc/ghi đè nháp của người khác theo id).
+ALTER TABLE mail_drafts ADD COLUMN IF NOT EXISTS owner_email TEXT;

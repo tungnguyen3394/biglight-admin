@@ -53,3 +53,11 @@ docker compose up -d --build
 
 ## 監査ログ（管理者のみ）
 - テーブル `audit_logs`。ログイン、作成・変更・削除、メール送信（失敗含む）、CSV出力を記録。画面から削除する手段はない。
+
+## 2026-10-06 — bản vá audit bảo mật
+- **Phiên**: mỗi request đọc lại `profiles` (cache 20 giây). Đặt 無効・xoá・hạ quyền có tác dụng ngay; phiên hết sau 7 ngày không dùng.
+- **Bài viết**: body được lọc HTML ở máy chủ (`backend/sanitize.js`) khi lưu, khi mở trong trình soạn và khi sinh trang `/news/`. URL ảnh bìa / OG / PDF / CTA / canonical chỉ nhận `http(s)://` hoặc `/…`.
+- **GAS v4 (có khoá)**: mỗi người mở「メール設定」→ chép lại script v4 (đã có khoá riêng) → GAS「デプロイを管理」→ phiên bản mới. Script v3 cũ vẫn gửi được, nhưng URL lộ ra là ai cũng gửi được → cần cập nhật hết. Màn ユーザー管理 →「GAS✓ 確認」hiện v3/v4.
+- **Thư viện**: Node 22, `npm ci` theo `package-lock.json`, nodemailer 10, multer 2; Quill tự lưu ở `public/vendor/`.
+- **Test**: `cd backend && TEST_DATABASE_URL=postgres://admin:adminlocal@127.0.0.1:55436/admin npm test` (DB đó bị XOÁ SẠCH — chỉ dùng Postgres cục bộ; lệnh docker ở đầu `test/audit.test.js`). GitHub Actions chạy tự động khi push/PR.
+- **Deploy lần này**: `git pull` rồi `docker compose -f docker-compose.yml up -d --build admin` như cũ (image dựng lại với Node 22). Máy chủ sẽ DỪNG nếu `.env` thiếu `SESSION_SECRET` hoặc còn giá trị mẫu.

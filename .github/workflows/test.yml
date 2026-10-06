@@ -1,0 +1,29 @@
+name: Test admin.biglight.jp
+
+# 2026-10-06 (audit): repo chưa có test nào chạy tự động. Bộ này dựng máy chủ thật trên Postgres thật
+# và kiểm các bản vá bảo mật (phiên, lọc HTML, IP, GAS v4, nháp, lỗi không làm sập máy chủ…).
+on:
+  push: { branches: [main] }
+  pull_request: {}
+  workflow_dispatch: {}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env: { POSTGRES_USER: admin, POSTGRES_PASSWORD: adminlocal, POSTGRES_DB: admin }
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U admin" --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+      - name: Cài thư viện (theo package-lock)
+        run: cd backend && npm ci --no-audit --no-fund
+      - name: npm audit (thư viện chạy production)
+        run: cd backend && npm audit --omit=dev --audit-level=high
+      - name: Kiểm thử
+        run: cd backend && TEST_DATABASE_URL=postgres://admin:adminlocal@127.0.0.1:5432/admin node test/audit.test.js
