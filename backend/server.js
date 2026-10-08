@@ -12,6 +12,7 @@ const news = require('./news');
 const { normalizePostLinks, findBrokenPostLinks } = require('./postLinks');
 const mountMcp = require('./mcp');
 const { cleanHtml, safeUrl, safeUrlList } = require('./sanitize');
+const spam = require('./spam');
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
@@ -294,12 +295,30 @@ function setCors(res) {
 }
 app.options('/api/inquiry', (_q, res) => { setCors(res); res.sendStatus(204); });
 
-const rl = new Map();                      // chống spam đơn giản theo IP
-function rateOk(ip) {
-  const now = Date.now(), win = 10 * 60 * 1000, max = 8;
+const rl = new Map();                      // chống spam đơn giản theo IP (key có tiền tố để tách từng loại)
+function rateOk(ip, max = 8, win = 10 * 60 * 1000) {
+  const now = Date.now();
   const arr = (rl.get(ip) || []).filter(t => now - t < win);
   if (arr.length >= max) { rl.set(ip, arr); return false; }
   arr.push(now); rl.set(ip, arr); return true;
+}
+setInterval(() => { const now = Date.now(); for (const [k, a] of rl) if (!a.length || now - a[a.length - 1] > 60 * 60 * 1000) rl.delete(k); }, 30 * 60 * 1000).unref();
+
+/* 2026-10-08 chống bot (A + D): Turnstile của Cloudflare + mã thời gian ký bằng khoá server.
+   TURNSTILE_SITE_KEY / TURNSTILE_SECRET chưa đặt → bỏ qua Turnstile (form vẫn chạy như cũ). */
+const TURNSTILE_SITE_KEY = process.env.TURNSTILE_SITE_KEY || '';
+const TURNSTILE_SECRET = process.env.TURNSTILE_SECRET || '';
+const FORM_SECRET = crypto.createHmac('sha256', SESSION_SECRET || 'dev-only-secret-not-for-production-use').update('public-form-token').digest('hex');
+app.options('/api/form-config', (_q, res) => { setCors(res); res.set('Access-Control-Allow-Methods', 'GET, OPTIONS'); res.sendStatus(204); });
+app.get('/api/form-config', (_q, res) => {
+  setCors(res);
+  res.set('Cache-Control', 'no-store');
+  res.json({ turnstileSiteKey: TURNSTILE_SITE_KEY || null, ft: spam.makeFormToken(FORM_SECRET) });
+});
+/** Đánh giá chung cho 2 form → { turnstileFail: lý do | null, bot: lý do gắn cờ | null } */
+async function judgeForm(b, ip) {
+  const ts = await spam.verifyTurnstile(TURNSTILE_SECRET, b.turnstile, ip);
+  return { turnstileFail: ts.ok ? null : ts.reason, bot: spam.checkFormToken(FORM_SECRET, b.ft) };
 }
 
 app.post('/api/inquiry', async (req, res) => {
@@ -312,17 +331,29 @@ app.post('/api/inquiry', async (req, res) => {
     const email = String(b.email || '').trim().slice(0, 200);
     const tel = String(b.tel || '').trim().slice(0, 60);
     const message = String(b.message || '').trim().slice(0, 5000);
+    const kind = String(b.kind || '').trim().slice(0, 60) || null;
     if (!name || !email || !tel || !message) return res.status(400).json({ error: '必須項目が未入力です' });
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'メールアドレスが不正です' });
     const ip = clientIp(req);
-    if (!rateOk(ip)) return res.status(429).json({ error: 'しばらくしてから再度お試しください' });
+    if (!rateOk('inq:' + ip)) return res.status(429).json({ error: 'しばらくしてから再度お試しください' });
+    // Cùng một địa chỉ mail: tối đa 5 lần / 24 giờ (đổi IP cũng không vượt được).
+    const recent = (await pool.query("SELECT count(*)::int n FROM inquiries WHERE lower(email)=lower($1) AND created_at > now() - interval '24 hours'", [email])).rows[0].n;
+    if (recent >= 5) return res.status(429).json({ error: '同じメールアドレスからの送信が多すぎます。お急ぎの場合はお電話（052-908-7944）でご連絡ください。' });
+    const j = await judgeForm(b, ip);
+    if (j.turnstileFail) {
+      console.warn('inquiry rejected:', j.turnstileFail, ip);
+      return res.status(400).json({ error: '送信の確認に失敗しました。ページを再読み込みして、もう一度お試しください。', code: 'turnstile' });
+    }
+    let flag = null, reason = null;
+    if (j.bot) { flag = 'bot'; reason = j.bot; }
+    else { const s = spam.classifySales({ kind, company, message }); if (s) { flag = 'sales'; reason = s; } }
     await pool.query(
-      'INSERT INTO inquiries(company,name,email,tel,message,ip,user_agent) VALUES($1,$2,$3,$4,$5,$6,$7)',
-      [company, name, email, tel, message, ip, String(req.headers['user-agent'] || '').slice(0, 300)]
+      'INSERT INTO inquiries(company,name,email,tel,message,ip,user_agent,kind,spam,spam_reason) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',
+      [company, name, email, tel, message, ip, String(req.headers['user-agent'] || '').slice(0, 300), kind, flag, reason]
     );
     res.json({ ok: true });
-    const recent = (await pool.query("SELECT count(*)::int n FROM inquiries WHERE lower(email)=lower($1) AND created_at > now() - interval '24 hours'", [email])).rows[0].n;
-    sendInquiryMails({ company, name, email, tel, message }, { skipAutoReply: recent > 3 }).catch(() => {});
+    // 営業・迷惑: không gửi thông báo, không tự động trả lời (vẫn xem được ở tab 「営業・迷惑」).
+    if (!flag) sendInquiryMails({ company, name, email, tel, message: kind ? '【種別】' + kind + '\n' + message : message }, { skipAutoReply: recent >= 3 }).catch(() => {});
   } catch (e) {
     console.error('POST /api/inquiry:', e.message);
     res.status(500).json({ error: 'server error' });
@@ -342,10 +373,14 @@ app.post('/api/download', async (req, res) => {
     if (!name || !email) return res.status(400).json({ error: '必須項目が未入力です' });
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'メールアドレスが不正です' });
     const ip = clientIp(req);
-    if (!rateOk(ip)) return res.status(429).json({ error: 'しばらくしてから再度お試しください' });
+    if (!rateOk('dl:' + ip)) return res.status(429).json({ error: 'しばらくしてから再度お試しください' });
     const interest = (Array.isArray(b.interest) ? b.interest.join(' / ') : String(b.interest || '')).slice(0, 500);
     const note = String(b.note || '').trim().slice(0, 2000);
-    await pool.query('INSERT INTO downloads(company,name,email,interest,note,ip) VALUES($1,$2,$3,$4,$5,$6)', [company, name, email, interest, note, ip]);
+    // PDF đã tải ở trình duyệt trước khi gửi (PDF công khai) → không từ chối, chỉ gắn cờ 迷惑 để danh sách khách sạch.
+    const j = await judgeForm(b, ip);
+    const reason = j.turnstileFail || j.bot;
+    await pool.query('INSERT INTO downloads(company,name,email,interest,note,ip,spam,spam_reason) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',
+      [company, name, email, interest, note, ip, reason ? 'bot' : null, reason || null]);
     res.json({ ok: true });
   } catch (e) {
     console.error('POST /api/download:', e.message);
@@ -357,6 +392,7 @@ app.post('/api/download', async (req, res) => {
 app.options('/api/posts/:id/view', (_q, res) => { setCors(res); res.sendStatus(204); });
 app.post('/api/posts/:id/view', async (req, res) => {
   setCors(res);
+  if (!rateOk('view:' + clientIp(req), 120)) return res.json({ ok: false });   // bot không thổi phồng lượt xem
   try { await pool.query('UPDATE posts SET views = views + 1 WHERE id=$1', [req.params.id]); res.json({ ok: true }); }
   catch (e) { res.json({ ok: false }); }
 });
@@ -403,6 +439,8 @@ function sessionUser(prof) {
 }
 app.post('/auth/google', async (req, res) => {
   try {
+    // 2026-10-08 (G): tối đa 20 lần thử / 10 phút / IP.
+    if (!rateOk('auth:' + clientIp(req), 20)) return res.status(429).json({ error: 'ログインの試行が多すぎます。10分ほど待ってから再度お試しください。' });
     const { credential } = req.body || {};
     if (!credential) return res.status(400).json({ error: 'no credential' });
     const ticket = await oauth.verifyIdToken({ idToken: credential, audience: GOOGLE_CLIENT_ID });
@@ -410,8 +448,13 @@ app.post('/auth/google', async (req, res) => {
     const email = (p.email || '').toLowerCase();
     if (!p.email_verified) return res.status(403).json({ error: 'メールが確認されていません' });
     const boot = ADMIN_EMAILS.includes(email);
-    // profiles に自動登録（初回=承認待ち。ADMIN_EMAILS は常に admin/有効）
     const existing = (await pool.query('SELECT * FROM profiles WHERE email=$1', [email])).rows[0];
+    /* 2026-10-08 (G): trước đây BẤT KỲ tài khoản Google nào cũng tạo được dòng 「承認待ち」 → bot làm đầy danh sách.
+       Nay chỉ email admin đã thêm trước ở ユーザー管理 (hoặc ADMIN_EMAILS) mới đăng nhập được; người lạ không tạo dòng nào. */
+    if (!existing && !boot) {
+      audit(req, 'login_denied', 'auth', email, 'ログイン拒否（未登録）', null, { email, name: p.name || email });
+      return res.status(403).json({ error: 'このアカウントは登録されていません。管理者にユーザー追加を依頼してください。' });
+    }
     let prof;
     if (!existing) {
       prof = (await pool.query(
@@ -484,6 +527,21 @@ app.get('/api/profiles', requireAuth, requireAdmin, async (_q, res) => {
   // URL GAS = quyền gửi Gmail của người đó → không trả về cho người khác, chỉ cho biết có/không.
   const r = await pool.query('SELECT email,name,picture,role,status,mail_enabled,(gas_url IS NOT NULL AND gas_url<>\'\') AS gas_set,last_login,created_at FROM profiles ORDER BY (status=\'pending\') DESC, last_login DESC NULLS LAST');
   res.json({ items: r.rows });
+});
+// 2026-10-08 (G): admin thêm người dùng trước (đăng nhập Google lần đầu là dùng được ngay).
+app.post('/api/profiles', requireAuth, requireAdmin, async (req, res) => {
+  const b = req.body || {};
+  const email = String(b.email || '').trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 200) return res.status(400).json({ error: 'メールアドレスが不正です' });
+  const role = ['admin', 'manager', 'staff', 'viewer'].includes(b.role) ? b.role : 'viewer';
+  const mail = !!b.mail_enabled;
+  const r = await pool.query(
+    "INSERT INTO profiles(email,name,role,status,mail_enabled) VALUES($1,$1,$2,'active',$3) ON CONFLICT (email) DO NOTHING RETURNING email,name,role,status,mail_enabled,created_at",
+    [email, role, mail]);
+  if (!r.rows[0]) return res.status(409).json({ error: 'このメールアドレスは既に登録されています' });
+  profCacheDrop(email);
+  audit(req, 'create', 'user', email, 'ユーザーを追加: ' + email, { role, mail_enabled: mail });
+  res.json({ item: r.rows[0] });
 });
 app.put('/api/profiles/:email', requireAuth, requireAdmin, async (req, res) => {
   try {
@@ -570,14 +628,16 @@ app.post('/api/gas/check', requireAuth, async (req, res) => {
 // ================= ADMIN API =================
 app.get('/api/stats', requireAuth, async (_q, res) => {
   try {
-    const a = await pool.query("SELECT COUNT(*)::int n FROM inquiries WHERE status='new'");
-    const b = await pool.query("SELECT COUNT(*)::int n FROM inquiries");
+    // 営業・迷惑 (spam) không tính vào 未対応 / 合計 — chúng chỉ nằm ở tab riêng.
+    const a = await pool.query("SELECT COUNT(*)::int n FROM inquiries WHERE status='new' AND spam IS NULL");
+    const b = await pool.query("SELECT COUNT(*)::int n FROM inquiries WHERE spam IS NULL");
+    const sp = await pool.query("SELECT COUNT(*)::int n FROM inquiries WHERE spam IS NOT NULL AND created_at > now() - interval '30 days'");
     const c = await pool.query("SELECT COUNT(*)::int n FROM posts WHERE status='published'");
     const d = await pool.query("SELECT COUNT(*)::int n FROM posts");
     const dr = await pool.query("SELECT COUNT(*)::int n FROM posts WHERE status='draft'");
-    const e2 = await pool.query("SELECT COUNT(*)::int n FROM downloads");
+    const e2 = await pool.query("SELECT COUNT(*)::int n FROM downloads WHERE spam IS NULL");
     const top = await pool.query("SELECT id,slug,title,views,status FROM posts ORDER BY views DESC, created_at DESC LIMIT 10");
-    res.json({ inquiriesNew: a.rows[0].n, inquiriesTotal: b.rows[0].n, postsPublished: c.rows[0].n, postsTotal: d.rows[0].n, postsDraft: dr.rows[0].n, downloadsTotal: e2.rows[0].n, topPosts: top.rows });
+    res.json({ inquiriesNew: a.rows[0].n, inquiriesTotal: b.rows[0].n, postsPublished: c.rows[0].n, postsTotal: d.rows[0].n, postsDraft: dr.rows[0].n, downloadsTotal: e2.rows[0].n, inquiriesSpam30d: sp.rows[0].n, topPosts: top.rows });
   } catch (e) { serverErr(res, e); }
 });
 
@@ -593,7 +653,25 @@ app.get('/api/inquiries', requireAuth, async (req, res) => {
   const total = (await pool.query('SELECT count(*)::int n FROM inquiries')).rows[0].n;
   res.json({ items: r.rows, total });
 });
+/* 2026-10-08: đổi cờ 営業・迷惑 bằng tay (bộ lọc nhận nhầm → 「営業ではない」). body {spam: null | 'sales' | 'bot'} */
+function spamPatch(table, entity, label) {
+  return async (req, res) => {
+    const v = req.body.spam == null || req.body.spam === '' ? null : String(req.body.spam);
+    if (v !== null && !['sales', 'bot'].includes(v)) return res.status(400).json({ error: 'bad spam' });
+    const cur = (await pool.query(`SELECT spam,company,name FROM ${table} WHERE id=$1`, [toInt(req.params.id)])).rows[0];
+    if (!cur) return res.status(404).json({ error: 'not found' });
+    await pool.query(`UPDATE ${table} SET spam=$1, spam_reason=$2 WHERE id=$3`, [v, v ? '手動' : null, toInt(req.params.id)]);
+    if (cur.spam !== v) audit(req, 'update', entity, req.params.id, `${label}の分類を変更: ${cur.company || ''} ${cur.name || ''}`.trim(), { spam: { from: cur.spam, to: v } });
+    res.json({ ok: true });
+  };
+}
+const inqSpamPatch = spamPatch('inquiries', 'inquiry', '問い合わせ'), dlSpamPatch = spamPatch('downloads', 'download', '資料請求');
+app.patch('/api/downloads/:id', requireAuth, requirePerm('downloads', 'edit'), (req, res) => {
+  if (!req.body || !('spam' in req.body)) return res.status(400).json({ error: 'bad request' });
+  return dlSpamPatch(req, res);
+});
 app.patch('/api/inquiries/:id', requireAuth, requirePerm('inquiries', 'edit'), async (req, res) => {
+  if (req.body && 'spam' in req.body) return inqSpamPatch(req, res);
   const st = String((req.body || {}).status || '').trim();
   if (!['new', 'replied', 'done'].includes(st)) return res.status(400).json({ error: 'bad status' });
   const cur = (await pool.query('SELECT status,company,name FROM inquiries WHERE id=$1', [req.params.id])).rows[0];

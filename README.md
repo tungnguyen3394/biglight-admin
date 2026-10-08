@@ -61,3 +61,11 @@ docker compose up -d --build
 - **Thư viện**: Node 22, `npm ci` theo `package-lock.json`, nodemailer 10, multer 2; Quill tự lưu ở `public/vendor/`.
 - **Test**: `cd backend && TEST_DATABASE_URL=postgres://admin:adminlocal@127.0.0.1:55436/admin npm test` (DB đó bị XOÁ SẠCH — chỉ dùng Postgres cục bộ; lệnh docker ở đầu `test/audit.test.js`). GitHub Actions chạy tự động khi push/PR.
 - **Deploy lần này**: `git pull` rồi `docker compose -f docker-compose.yml up -d --build admin` như cũ (image dựng lại với Node 22). Máy chủ sẽ DỪNG nếu `.env` thiếu `SESSION_SECRET` hoặc còn giá trị mẫu.
+
+## 2026-10-08 — chống bot + lọc 営業 (form biglight.jp)
+- **Turnstile (Cloudflare)**: đặt `TURNSTILE_SITE_KEY` + `TURNSTILE_SECRET` trong `.env` rồi khởi động lại → form お問い合わせ bắt buộc qua Turnstile (thiếu/sai → 400, không lưu); form 資料DL chỉ gắn cờ 迷惑. **Chưa đặt khoá = bỏ qua Turnstile**, mọi thứ khác vẫn chạy. biglight.jp lấy site key từ `GET /api/form-config` nên đổi khoá không cần sửa trang.
+- **Mã thời gian**: `GET /api/form-config` trả `ft` ký bằng khoá server. Không có `ft` / chữ ký sai / gửi trong < 3 giây → lưu với `spam='bot'`.
+- **営業**: người gửi chọn 種別「営業・ご提案」 hoặc bộ chấm điểm (`backend/spam.js`, hiệu chỉnh trên 88 thư thật: bắt 72, nhận nhầm 0) → `spam='sales'`.
+- 営業・迷惑 **không bị xoá**: nằm ở tab「営業・迷惑」, không gửi thông báo / tự động trả lời, không tính vào 未対応. Nhận nhầm → nút「営業・迷惑ではない」 trong trang chi tiết.
+- Cùng một email: tối đa 5 lần / 24 giờ. `/auth/google`: tối đa 20 lần / 10 phút / IP.
+- **Đăng nhập**: chỉ email đã thêm ở ユーザー管理 (nút「ユーザーを追加」) hoặc `ADMIN_EMAILS`. Người lạ đăng nhập → 403, không tạo dòng 承認待ち, 監査ログ ghi「ログイン拒否（未登録）」.

@@ -237,3 +237,11 @@ ON CONFLICT (slug) DO NOTHING;
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS gas_secret TEXT;
 -- 2026-10-06 (audit): nháp mail thuộc về người tạo (trước đây ai cũng đọc/ghi đè nháp của người khác theo id).
 ALTER TABLE mail_drafts ADD COLUMN IF NOT EXISTS owner_email TEXT;
+
+-- ============ 2026-10-08 chống bot + lọc 営業 (form công khai) ============
+-- spam: NULL = bình thường | 'sales' = thư chào hàng (営業) | 'bot' = máy gửi. Không xoá — chỉ đưa sang tab 「営業・迷惑」.
+ALTER TABLE inquiries ADD COLUMN IF NOT EXISTS kind        TEXT;   -- お問い合わせ種別 (người gửi tự chọn)
+ALTER TABLE inquiries ADD COLUMN IF NOT EXISTS spam        TEXT;
+ALTER TABLE inquiries ADD COLUMN IF NOT EXISTS spam_reason TEXT;
+ALTER TABLE downloads ADD COLUMN IF NOT EXISTS spam        TEXT;
+ALTER TABLE downloads ADD COLUMN IF NOT EXISTS spam_reason TEXT;
