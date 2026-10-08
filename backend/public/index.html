@@ -57,7 +57,7 @@
   .mtoggle{margin-top:5px;display:inline-block;padding:0;font-size:12px}
   td .sub{color:var(--muted);font-size:12px}
   .pill{display:inline-block;white-space:nowrap;font-size:11px;font-weight:700;border-radius:20px;padding:3px 10px}
-  .pill.new{background:#fdeccb;color:#9a5b00}.pill.replied{background:#e7eefb;color:var(--navy)}.pill.done{background:#e2f4ea;color:#1c7a47}
+  .pill.new{background:#fdeccb;color:#9a5b00}.pill.replied{background:#e7eefb;color:var(--navy)}.pill.done{background:#e2f4ea;color:#1c7a47}.pill.spam{background:#ececec;color:#5b5b5b}
   .pill.draft{background:#eceff3;color:#64748b}.pill.published{background:#e2f4ea;color:#1c7a47}.pill.scheduled{background:#fdeccb;color:#9a5b00}
   select.st{font-family:inherit;font-size:12.5px;padding:5px 8px;border:1px solid var(--line);border-radius:8px}
   .del{color:#e23b3b;cursor:pointer;font-size:12.5px;background:none;border:0}
@@ -600,7 +600,7 @@ async function renderDashboard(){
       <div class="stat"><div class="n">${s.postsPublished||0}</div><div class="l">公開中の記事</div></div>
       <div class="stat"><div class="n">${s.postsDraft||0}</div><div class="l">下書き</div></div>
       <div class="stat"><div class="n">${s.inquiriesNew||0}</div><div class="l">未対応の問い合わせ</div></div>
-      <div class="stat"><div class="n">${s.inquiriesTotal||0}</div><div class="l">問い合わせ 合計</div></div>
+      <div class="stat"><div class="n">${s.inquiriesTotal||0}</div><div class="l">問い合わせ 合計</div>${s.inquiriesSpam30d?`<div class="sub" style="margin-top:4px">営業・迷惑 ${s.inquiriesSpam30d}件（30日）は除外</div>`:''}</div>
       <div class="stat"><div class="n">${s.downloadsTotal||0}</div><div class="l">資料請求 合計</div></div>
     </div>
     <div class="panel"><h3 style="display:flex;align-items:center;gap:8px">${IC.fire} 人気記事 TOP 10（閲覧数）</h3>
@@ -619,6 +619,7 @@ async function renderInquiries(){
     <div class="toolbar">
       <span class="tab on" data-f="all">すべて</span><span class="tab" data-f="new">未対応</span>
       <span class="tab" data-f="replied">対応中</span><span class="tab" data-f="done">完了</span>
+      <span class="tab" data-f="spam" title="営業・売り込み・ボットと判定されたもの（通知メールなし）">営業・迷惑 <span id="spamcnt"></span></span>
       <span id="selcnt" style="margin-left:auto;font-size:12.5px;color:var(--muted);align-self:center"></span>
       <button class="btn" id="reload">${IC.reload} 更新</button>${MAIL_TOOLBAR()}${C(can('inquiries','del'),`<button class="btn" id="delsel">${IC.trash} 選択削除</button>`)}<button class="btn gold" id="csv">CSV出力</button>
     </div><div id="body"></div>`;
@@ -626,15 +627,19 @@ async function renderInquiries(){
   document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{INQF=t.dataset.f;document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x===t));paintInq();});
   $('#reload').onclick=loadInq;
   { const b=$('#delsel'); if(b) b.onclick=()=>bulkDelete('/api/inquiries',loadInq); }
-  $('#csv').onclick=()=>{ const ids=checkedIds(); const rows=ids.length?INQ.filter(r=>ids.includes(String(r.id))):INQ; csv(rows,['id','受信','会社','氏名','メール','電話','状態','内容','最終メール送信'],r=>[r.id,fmt(r.created_at),r.company,r.name,r.email,r.tel,ST[r.status],r.message,r.last_mail_at?fmt(r.last_mail_at):''],'inquiries.csv','inquiry'); };
+  $('#csv').onclick=()=>{ const ids=checkedIds(); const rows=ids.length?INQ.filter(r=>ids.includes(String(r.id))):INQ; csv(rows,['id','受信','会社','氏名','メール','電話','種別','状態','分類','内容','最終メール送信'],r=>[r.id,fmt(r.created_at),r.company,r.name,r.email,r.tel,r.kind||'',ST[r.status],SPAM_LABEL[r.spam]||'',r.message,r.last_mail_at?fmt(r.last_mail_at):''],'inquiries.csv','inquiry'); };
   await loadInq();
 }
 async function loadInq(){ $('#body').innerHTML='<div class="empty">読み込み中…</div>';
   try{ const d=await(await api('/api/inquiries')).json(); INQ=d.items||[]; INQ_TOTAL=d.total||INQ.length; }catch(e){INQ=[];INQ_TOTAL=0;} paintInq(); refreshBadge(); }
 let INQ_TOTAL=0, DL_TOTAL=0;
 function moreNote(shown,total){ return total>shown?`<div class="sub" style="margin:0 0 8px;color:#b45309">最新 ${shown.toLocaleString()}件を表示中（全 ${total.toLocaleString()}件）。それより古い記録が必要な場合は 管理者にご相談ください。</div>`:''; }
+/* 2026-10-08: 営業・迷惑 (r.spam) は専用タブだけに出す。判定理由は詳細ページ。 */
+const SPAM_LABEL={sales:'営業',bot:'迷惑'};
+const spamPill=r=>r.spam?`<span class="pill spam" title="${esc(r.spam_reason||'')}">${SPAM_LABEL[r.spam]||r.spam}</span>`:'';
 function paintInq(){
-  const rows=INQ.filter(r=>INQF==='all'||r.status===INQF);
+  const sc=$('#spamcnt'); if(sc){ const n=INQ.filter(r=>r.spam).length; sc.textContent=n?'('+n+')':''; }
+  const rows=INQ.filter(r=>INQF==='spam'?!!r.spam:(!r.spam&&(INQF==='all'||r.status===INQF)));
   if(!rows.length){ $('#body').innerHTML='<div class="tablewrap"><div class="empty">該当する問い合わせはありません。</div></div>'; selInfo(); return; }
   const stSel=r=>C(can('inquiries','edit'),`<select class="st" data-id="${r.id}"><option value="new"${r.status==='new'?' selected':''}>未対応</option><option value="replied"${r.status==='replied'?' selected':''}>対応中</option><option value="done"${r.status==='done'?' selected':''}>完了</option></select>`);
   $('#body').innerHTML=moreNote(INQ.length,INQ_TOTAL)+`<div class="tablewrap hasm"><table><thead><tr><th style="width:34px;text-align:center"><input type="checkbox" id="chkall"></th><th class="nowrap">受信日時</th><th>会社 / 氏名</th><th>連絡先</th><th style="width:36%">内容</th><th>状態</th><th class="nowrap">メール</th><th>操作</th></tr></thead><tbody>${rows.map(r=>`
@@ -642,12 +647,12 @@ function paintInq(){
     <td class="nowrap"><b>${esc(r.company)||'—'}</b><div class="sub">${esc(r.name)}</div></td>
     <td class="nowrap">${esc(r.email)}<div class="sub">${esc(r.tel)}</div></td>
     <td class="ell"><span class="rowline">${esc((r.message||'').replace(/\s+/g,' ').trim())||'—'}</span></td>
-    <td><span class="pill ${r.status}">${ST[r.status]}</span></td>
+    <td class="nowrap">${spamPill(r)||`<span class="pill ${r.status}">${ST[r.status]}</span>`}</td>
     <td class="nowrap">${mailBadge(r)}</td>
     <td class="nowrap">${stSel(r)}${C(can('inquiries','del'),`<br><button class="del" data-del="${r.id}" style="margin-top:6px">削除</button>`)}${(!can('inquiries','edit')&&!can('inquiries','del'))?'<span class="sub">閲覧のみ</span>':''}</td></tr>`).join('')}</tbody></table></div>
     <div class="mcards">${rows.map(r=>`<div class="mcard clk" data-open="renderInquiryDetail" data-id="${r.id}">
       <label class="mchk"><input type="checkbox" class="rowchk" value="${r.id}"></label>
-      <div class="mbody"><div class="mtop"><b>${esc(r.company)||esc(r.name)||'—'}</b><span class="pill ${r.status}">${ST[r.status]}</span></div>
+      <div class="mbody"><div class="mtop"><b>${esc(r.company)||esc(r.name)||'—'}</b>${spamPill(r)||`<span class="pill ${r.status}">${ST[r.status]}</span>`}</div>
         <div class="msub">${r.company?esc(r.name)+' · ':''}${esc(r.email)}</div>
         <div class="msnip">${esc((r.message||'').replace(/\s+/g,' ').trim())||'—'}</div>
         <div class="mfoot"><span>${fmt(r.created_at)}</span><span>${r.last_mail_at?'<span class="sent-badge">送信済</span>':'<span class="sub">未送信</span>'}</span></div></div></div>`).join('')}</div>`;
@@ -672,13 +677,15 @@ async function renderInquiryDetail(id,noPush){
     <div class="backbar"><button class="btn" id="back">${IC.back} 一覧へ戻る</button><span class="sub">お問い合わせ #${r.id}</span></div>
     <div class="dhero">
       <div class="dco">${IC.building} ${esc(r.company)||'（会社名なし）'}</div>
-      <div class="dnm">${esc(r.name)||'—'} 様 <span class="pill ${r.status}">${ST[r.status]}</span></div>
+      <div class="dnm">${esc(r.name)||'—'} 様 <span class="pill ${r.status}">${ST[r.status]}</span> ${spamPill(r)}</div>
       ${_dchips(r)}
     </div>
-    <div class="dcard"><div class="dlbl">お問い合わせ内容</div><div class="dmsg">${esc(r.message)||'—'}</div></div>
+    ${r.spam?`<div class="dcard" style="background:#f6f6f6"><div class="dlbl">${SPAM_LABEL[r.spam]||''}と判定（通知メール・自動返信なし）</div><div class="sub">理由: ${esc(r.spam_reason||'—')}</div></div>`:''}
+    <div class="dcard"><div class="dlbl">お問い合わせ内容${r.kind?' ・ 種別: '+esc(r.kind):''}</div><div class="dmsg">${esc(r.message)||'—'}</div></div>
     <div class="dcard dact">
       ${C(can('inquiries','edit'),`<select class="st selin" id="dst">${['new','replied','done'].map(s=>`<option value="${s}"${r.status===s?' selected':''}>${ST[s]}</option>`).join('')}</select>`)}
       ${C(canMail(),`<button class="btn" style="${MAIL_BTN_CSS}" onclick="openMailCompose('inquiry',['${r.id}'])">${IC.send} メール送信</button>`)}
+      ${C(can('inquiries','edit'),`<button class="btn" id="dspam">${r.spam?'営業・迷惑ではない（一覧に戻す）':'営業・迷惑に移す'}</button>`)}
       ${C(can('inquiries','del'),`<button class="btn red" id="ddel" style="margin-left:auto">${IC.trash} 削除</button>`)}
     </div>
     ${mailHistoryBox('inquiry',r)}
@@ -693,14 +700,16 @@ async function renderInquiryDetail(id,noPush){
   loadMailHistory('inquiry',r.id);
   { const s=$('#dst'); if(s) s.onchange=async()=>{ await api('/api/inquiries/'+r.id,{method:'PATCH',body:JSON.stringify({status:s.value})}); r.status=s.value; refreshBadge(); renderInquiryDetail(id,true); }; }
   { const b=$('#ddel'); if(b) b.onclick=async()=>{ if(!confirm('削除しますか？'))return; await api('/api/inquiries/'+r.id,{method:'DELETE'}); INQ=INQ.filter(x=>String(x.id)!==String(id)); refreshBadge(); go('inquiries'); }; }
+  { const b=$('#dspam'); if(b) b.onclick=async()=>{ const v=r.spam?null:'sales'; const x=await api('/api/inquiries/'+r.id,{method:'PATCH',body:JSON.stringify({spam:v})}); if(!x.ok) return alert('変更に失敗しました'); r.spam=v; r.spam_reason=v?'手動':null; refreshBadge(); renderInquiryDetail(id,true); }; }
 }
 
 /* ===== 資料請求 ===== */
-let DL=[];
+let DL=[],DLF='ok';
 async function renderDownloads(){
   $('#main').innerHTML=`<div class="h1">資料請求 管理</div><div class="crumb">資料ダウンロードフォームからの請求一覧</div>
-    <div class="toolbar"><span id="selcnt" style="margin-left:auto;font-size:12.5px;color:var(--muted);align-self:center"></span><button class="btn" id="reload">${IC.reload} 更新</button>${MAIL_TOOLBAR()}${C(can('downloads','del'),`<button class="btn" id="delsel">${IC.trash} 選択削除</button>`)}<button class="btn gold" id="csv">CSV出力</button></div><div id="body"></div>`;
+    <div class="toolbar"><span class="tab${DLF==='spam'?'':' on'}" data-f="ok">請求一覧</span><span class="tab${DLF==='spam'?' on':''}" data-f="spam" title="ボットと判定されたもの">迷惑 <span id="spamcnt"></span></span><span id="selcnt" style="margin-left:auto;font-size:12.5px;color:var(--muted);align-self:center"></span><button class="btn" id="reload">${IC.reload} 更新</button>${MAIL_TOOLBAR()}${C(can('downloads','del'),`<button class="btn" id="delsel">${IC.trash} 選択削除</button>`)}<button class="btn gold" id="csv">CSV出力</button></div><div id="body"></div>`;
   bindMailToolbar('download',()=>DL,'downloads');
+  document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{DLF=t.dataset.f;document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x===t));loadDl();});
   $('#reload').onclick=loadDl;
   { const b=$('#delsel'); if(b) b.onclick=()=>bulkDelete('/api/downloads',loadDl); }
   $('#csv').onclick=()=>{ const ids=checkedIds(); const rows=ids.length?DL.filter(r=>ids.includes(String(r.id))):DL; csv(rows,['id','日時','会社','氏名','メール','関心内容','備考','最終メール送信','送信資料'],r=>[r.id,fmt(r.created_at),r.company,r.name,r.email,r.interest,r.note,r.last_mail_at?fmt(r.last_mail_at):'',r.sent_note||''],'downloads.csv','download'); };
@@ -708,13 +717,15 @@ async function renderDownloads(){
 }
 async function loadDl(){ $('#body').innerHTML='<div class="empty">読み込み中…</div>';
   try{ const d=await(await api('/api/downloads')).json(); DL=d.items||[]; DL_TOTAL=d.total||DL.length; }catch(e){DL=[];DL_TOTAL=0;}
-  if(!DL.length){ $('#body').innerHTML='<div class="tablewrap"><div class="empty">まだ資料請求はありません。</div></div>'; selInfo(); return; }
-  $('#body').innerHTML=moreNote(DL.length,DL_TOTAL)+`<div class="tablewrap hasm"><table><thead><tr><th style="width:34px;text-align:center"><input type="checkbox" id="chkall"></th><th class="nowrap">請求日時</th><th>会社名</th><th>氏名</th><th>メール</th><th>関心内容</th><th>備考</th><th class="nowrap">メール</th><th>操作</th></tr></thead><tbody>${DL.map(r=>`
-    <tr class="clk" data-open="renderDownloadDetail" data-id="${r.id}"><td style="text-align:center"><input type="checkbox" class="rowchk" value="${r.id}"></td><td class="nowrap">${fmt(r.created_at)}</td><td class="nowrap"><b>${esc(r.company)||'—'}</b></td><td class="nowrap">${esc(r.name)}</td><td class="nowrap">${esc(r.email)}</td>
+  { const sc=$('#spamcnt'); if(sc){ const n=DL.filter(r=>r.spam).length; sc.textContent=n?'('+n+')':''; } }
+  const DLV=DL.filter(r=>DLF==='spam'?!!r.spam:!r.spam);
+  if(!DLV.length){ $('#body').innerHTML='<div class="tablewrap"><div class="empty">'+(DLF==='spam'?'迷惑と判定された請求はありません。':'まだ資料請求はありません。')+'</div></div>'; selInfo(); return; }
+  $('#body').innerHTML=moreNote(DL.length,DL_TOTAL)+`<div class="tablewrap hasm"><table><thead><tr><th style="width:34px;text-align:center"><input type="checkbox" id="chkall"></th><th class="nowrap">請求日時</th><th>会社名</th><th>氏名</th><th>メール</th><th>関心内容</th><th>備考</th><th class="nowrap">メール</th><th>操作</th></tr></thead><tbody>${DLV.map(r=>`
+    <tr class="clk" data-open="renderDownloadDetail" data-id="${r.id}"><td style="text-align:center"><input type="checkbox" class="rowchk" value="${r.id}"></td><td class="nowrap">${fmt(r.created_at)}</td><td class="nowrap"><b>${esc(r.company)||'—'}</b> ${spamPill(r)}</td><td class="nowrap">${esc(r.name)}</td><td class="nowrap">${esc(r.email)}</td>
     <td class="ell" style="max-width:180px"><span class="rowline">${esc(r.interest)||'—'}</span></td><td class="ell" style="max-width:220px"><span class="rowline">${esc((r.note||'').replace(/\s+/g,' ').trim())||'—'}</span></td>
     <td class="nowrap">${mailBadge(r)}</td>
     <td class="nowrap">${C(can('downloads','del'),`<button class="del" data-del="${r.id}">削除</button>`)||'<span class="sub">—</span>'}</td></tr>`).join('')}</tbody></table></div>
-    <div class="mcards">${DL.map(r=>`<div class="mcard clk" data-open="renderDownloadDetail" data-id="${r.id}">
+    <div class="mcards">${DLV.map(r=>`<div class="mcard clk" data-open="renderDownloadDetail" data-id="${r.id}">
       <label class="mchk"><input type="checkbox" class="rowchk" value="${r.id}"></label>
       <div class="mbody"><div class="mtop"><b>${esc(r.company)||esc(r.name)||'—'}</b>${r.last_mail_at?'<span class="sent-badge">送信済</span>':'<span class="pill new">未送信</span>'}</div>
         <div class="msub">${r.company?esc(r.name)+' · ':''}${esc(r.email)}</div>
@@ -741,12 +752,15 @@ async function renderDownloadDetail(id,noPush){
       ${r.sent_note?`<div class="dlbl" style="margin-top:14px">最後に送った資料</div><div class="dmsg">${IC.file} ${esc(r.sent_note)}</div>`:''}</div>
     <div class="dcard dact">
       ${C(canMail(),`<button class="btn" style="${MAIL_BTN_CSS}" onclick="openMailCompose('download',['${r.id}'])">${IC.send} 資料をメール送信</button>`)}
+      ${C(can('downloads','edit'),`<button class="btn" id="dspam">${r.spam?'迷惑ではない（一覧に戻す）':'迷惑に移す'}</button>`)}
       ${C(can('downloads','del'),`<button class="btn red" id="ddel" style="margin-left:auto">${IC.trash} 削除</button>`)}
     </div>
+    ${r.spam?`<div class="dcard" style="background:#f6f6f6;margin-top:12px"><div class="dlbl">迷惑と判定</div><div class="sub">理由: ${esc(r.spam_reason||'—')}</div></div>`:''}
     ${mailHistoryBox('download',r)}
   </div>`;
   $('#back').onclick=()=>go('downloads');
   { const b=$('#ddel'); if(b) b.onclick=async()=>{ if(!confirm('削除しますか？'))return; await api('/api/downloads/'+r.id,{method:'DELETE'}); DL=DL.filter(x=>String(x.id)!==String(id)); go('downloads'); }; }
+  { const b=$('#dspam'); if(b) b.onclick=async()=>{ const v=r.spam?null:'bot'; const x=await api('/api/downloads/'+r.id,{method:'PATCH',body:JSON.stringify({spam:v})}); if(!x.ok) return alert('変更に失敗しました'); r.spam=v; r.spam_reason=v?'手動':null; renderDownloadDetail(id,true); }; }
   loadMailHistory('download',r.id);
 }
 
@@ -1674,7 +1688,13 @@ async function renderUsers(){
   try{ PERM=await(await api('/api/perms')).json(); }catch(e){}
   const rolesEdit=['manager','staff','viewer'];
   $('#main').innerHTML=`<div class="h1">ユーザー管理</div>
-    <div class="crumb">Googleでログインした人が自動で表示されます。承認待ちの人は権限を選び、ステータスを<b>有効</b>にして「保存」すると利用可能になります。変更はPostgreSQL（profiles）に即時保存されます。</div>
+    <div class="crumb">ログインできるのは<b>ここに追加されたGoogleアカウントだけ</b>です（未登録の人がログインしても一覧には増えず、監査ログに「ログイン拒否（未登録）」が残ります）。追加した人は、初回のGoogleログインからすぐ利用できます。</div>
+    <div class="toolbar" style="flex-wrap:wrap;gap:8px;margin-bottom:14px">
+      <input class="selin" id="nu_email" type="email" placeholder="追加するGoogleアカウント（example@gmail.com）" style="min-width:260px;flex:1">
+      <select class="selin" id="nu_role">${Object.keys(ROLE_LABEL).map(r=>`<option value="${r}" ${r==='staff'?'selected':''}>${ROLE_LABEL[r]}</option>`).join('')}</select>
+      <label class="sub" style="display:flex;align-items:center;gap:4px"><input type="checkbox" id="nu_mail"> メール送信</label>
+      <button class="btn navy" onclick="addProfile()">${IC.plus} ユーザーを追加</button>
+    </div>
     <div class="tablewrap" style="margin-bottom:26px"><table><thead><tr><th>氏名</th><th>メール</th><th>権限ロール</th><th>ステータス</th><th>メール送信</th><th class="nowrap">最終ログイン</th><th>操作</th></tr></thead>
     <tbody>${PROFILES.map((u,ui)=>`<tr>
       <td class="nowrap"><b>${esc(u.name||'-')}</b></td>
@@ -1697,6 +1717,12 @@ async function renderUsers(){
     <div class="crumb">メールは<b>各自のGmail</b>から送信され、差出人名はログイン名がそのまま表示されます。スクリプトとURL登録は「メール設定」から（各自が自分のアカウントで行います）。GAS未登録の場合はサーバSMTPで送信されます。</div>
     <div style="margin-bottom:30px"><button class="btn navy" onclick="loadMail().then(smMailSetting)">${IC.send} メール設定を開く（GAS v4）</button></div>`;
 }
+async function addProfile(){
+  const email=$('#nu_email').value.trim(), role=$('#nu_role').value, mail=$('#nu_mail').checked;
+  if(!email) return alert('メールアドレスを入力してください');
+  const r=await api('/api/profiles',{method:'POST',body:JSON.stringify({email,role,mail_enabled:mail})});
+  if(r.ok) renderUsers(); else { const d=await r.json().catch(()=>({})); alert(d.error||'追加に失敗しました'); }
+}
 async function saveProfile(i){
   const email=PROFILES[i].email;
   const role=document.getElementById('ur_'+i).value, status=document.getElementById('us_'+i).value, mail=document.getElementById('um_'+i).checked;
@@ -1705,7 +1731,7 @@ async function saveProfile(i){
 }
 async function delProfile(i){
   const email=PROFILES[i].email;
-  if(!confirm(email+' を削除しますか？（次回ログインで再度承認待ちになります）'))return;
+  if(!confirm(email+' を削除しますか？（削除後はログインできなくなります）'))return;
   const r=await api('/api/profiles/'+encodeURIComponent(email),{method:'DELETE'});
   if(r.ok) renderUsers(); else { const d=await r.json(); alert(d.error||'削除に失敗しました'); }
 }

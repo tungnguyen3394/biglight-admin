@@ -86,8 +86,8 @@ module.exports = function mountMcp(app, deps) {
     return { p, tpl, subject: fillVars(subject, p, sender).trim(), body: text, files, links, attachIds: files.map(m => m.id), att: mats.map(m => m.name).join(', ') };
   }
 
-  const shapeInq = r => ({ id: r.id, kind: 'inquiry', recipient_key: 'inquiry:' + r.id, company: r.company, name: r.name, email: r.email, tel: r.tel, message: r.message, status: r.status, created_at: r.created_at, last_mail_at: r.last_mail_at || null, mail_count: r.mail_count || 0 });
-  const shapeDl = r => ({ id: r.id, kind: 'download', recipient_key: 'download:' + r.id, company: r.company, name: r.name, email: r.email, interest: r.interest, note: r.note, created_at: r.created_at, last_mail_at: r.last_mail_at || null, mail_count: r.mail_count || 0, sent_note: r.sent_note || null });
+  const shapeInq = r => ({ id: r.id, kind: 'inquiry', recipient_key: 'inquiry:' + r.id, company: r.company, name: r.name, email: r.email, tel: r.tel, message: r.message, status: r.status, kind: r.kind || null, spam: r.spam || null, created_at: r.created_at, last_mail_at: r.last_mail_at || null, mail_count: r.mail_count || 0 });
+  const shapeDl = r => ({ id: r.id, kind: 'download', recipient_key: 'download:' + r.id, company: r.company, name: r.name, email: r.email, interest: r.interest, note: r.note, spam: r.spam || null, created_at: r.created_at, last_mail_at: r.last_mail_at || null, mail_count: r.mail_count || 0, sent_note: r.sent_note || null });
   const q = (rows, s, fields) => { if (!s) return rows; const t = String(s).toLowerCase(); return rows.filter(r => fields.some(f => String(r[f] || '').toLowerCase().includes(t))); };
   const lim = (rows, n, d = 50) => rows.slice(0, Math.max(1, Math.min(500, toInt(n) || d)));
   const POST_FIELDS = ['slug', 'title', 'category', 'subcategory', 'excerpt', 'body', 'cover_image', 'cover_alt', 'cover_caption', 'meta_description', 'seo_title', 'focus_keyword', 'sub_keyword', 'related_keywords', 'canonical_url', 'og_title', 'og_description', 'og_image', 'author', 'tags', 'faq', 'cta_blocks', 'related_articles', 'related_category', 'download_pdf', 'consult_block', 'pinned', 'featured', 'robots_index', 'robots_follow'];
@@ -111,7 +111,7 @@ module.exports = function mountMcp(app, deps) {
   const TOOLS = [
     { name: 'admin_get_stats', title: '概況', scope: 'read', description: 'Counts: inquiries (new/total), downloads, posts (published/draft/total) and top viewed posts.',
       inputSchema: obj({}), run: ctx => callRoute(ctx, 'get', '/api/stats') },
-    { name: 'admin_list_inquiries', title: '問い合わせ一覧', scope: 'read', description: 'Contact-form inquiries (お問い合わせ) newest first. Contains customer personal data — use only for the operator\'s own work.',
+    { name: 'admin_list_inquiries', title: '問い合わせ一覧', scope: 'read', description: 'Contact-form inquiries (お問い合わせ) newest first. spam="sales" (営業・売り込み) or "bot" = filtered as junk; do not reply to those. Contains customer personal data — use only for the operator\'s own work.',
       inputSchema: obj({ status: { type: 'string', enum: ['new', 'replied', 'done'] }, q: { type: 'string', description: 'search company/name/email/message' }, limit: { type: 'integer', minimum: 1, maximum: 500 } }),
       run: async (ctx, a) => { let rows = (await callRoute(ctx, 'get', '/api/inquiries')).items; if (a.status) rows = rows.filter(r => r.status === a.status); return { items: lim(q(rows, a.q, ['company', 'name', 'email', 'message']), a.limit).map(shapeInq) }; } },
     { name: 'admin_get_inquiry', title: '問い合わせ詳細', scope: 'read', description: 'One inquiry with its mail history.', inputSchema: obj({ id: { type: 'integer' } }, ['id']),

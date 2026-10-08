@@ -206,12 +206,95 @@ async function call(p, opt) {
     const ips = (await pool.query('SELECT DISTINCT ip FROM downloads')).rows.map(r => r.ip);
     assert.deepStrictEqual(ips, ['203.0.113.9'], 'IP ghi sai: ' + ips);
   });
+  // Mã thời gian (2026-10-08): form thật lấy ft từ /api/form-config rồi mới gửi (≥ 3 giây sau).
+  const FT = (await call('/api/form-config')).json.ft; await sleep(3100);
   await ok('cùng một email gửi form 5 lần/24h → chỉ 3 thư tự động trả lời tới email đó (thông báo nội bộ vẫn đủ 5)', async () => {
     smtpGot.length = 0;
-    for (let i = 0; i < 5; i++) await call('/api/inquiry', { method: 'POST', headers: { 'X-Forwarded-For': '198.51.100.' + i }, body: { name: 'N', email: 'victim@example.com', tel: '000', message: 'hi' } });
+    for (let i = 0; i < 5; i++) await call('/api/inquiry', { method: 'POST', headers: { 'X-Forwarded-For': '198.51.100.' + i }, body: { name: 'N', email: 'victim@example.com', tel: '000', message: 'hi', ft: FT } });
     await sleep(1500);
     const toVictim = smtpGot.filter(m => m.to.includes('victim@example.com')).length, toNotify = smtpGot.filter(m => m.to.includes('notify@example.com')).length;
     assert.strictEqual(toVictim, 3, 'victim ' + toVictim); assert.strictEqual(toNotify, 5, 'notify ' + toNotify);
+  });
+
+  await ok('cùng một email lần thứ 6 trong 24h → 429 (đổi IP cũng không qua)', async () => {
+    const r = await call('/api/inquiry', { method: 'POST', headers: { 'X-Forwarded-For': '198.51.100.77' }, body: { name: 'N', email: 'VICTIM@example.com', tel: '000', message: 'hi', ft: FT } });
+    assert.strictEqual(r.status, 429, r.text);
+  });
+
+  console.log('\n2026-10-08 Chống bot + lọc 営業');
+  const inq = (ip, body) => call('/api/inquiry', { method: 'POST', headers: { 'X-Forwarded-For': ip }, body: { name: '林', tel: '052', ...body } });
+  const lastInq = async email => (await pool.query('SELECT * FROM inquiries WHERE email=$1 ORDER BY id DESC LIMIT 1', [email])).rows[0];
+  await ok('/api/form-config: CORS biglight.jp, no-store, ft có chữ ký, chưa có khoá Turnstile → null', async () => {
+    const r = await call('/api/form-config');
+    assert.strictEqual(r.headers.get('access-control-allow-origin'), 'https://biglight.jp');
+    assert.strictEqual(r.headers.get('cache-control'), 'no-store');
+    assert.ok(/^\d+\.[A-Za-z0-9_-]{22}$/.test(r.json.ft)); assert.strictEqual(r.json.turnstileSiteKey, null);
+  });
+  await ok('không có ft (bot POST thẳng) → vẫn lưu nhưng spam=bot, KHÔNG gửi mail nào', async () => {
+    smtpGot.length = 0;
+    assert.strictEqual((await inq('192.0.2.1', { email: 'bot1@example.com', message: '採用を検討しています' })).status, 200);
+    await sleep(800);
+    const r = await lastInq('bot1@example.com'); assert.strictEqual(r.spam, 'bot'); assert.ok(/トークンなし/.test(r.spam_reason));
+    assert.strictEqual(smtpGot.length, 0);
+  });
+  await ok('ft giả chữ ký / gửi ngay khi vừa mở form (< 3 giây) → spam=bot', async () => {
+    await inq('192.0.2.2', { email: 'bot2@example.com', message: 'x', ft: Date.now() + '.AAAAAAAAAAAAAAAAAAAAAA' });
+    assert.ok(/不正/.test((await lastInq('bot2@example.com')).spam_reason));
+    const fresh = (await call('/api/form-config')).json.ft;
+    await inq('192.0.2.3', { email: 'bot3@example.com', message: 'x', ft: fresh });
+    assert.ok(/速すぎる/.test((await lastInq('bot3@example.com')).spam_reason));
+  });
+  await ok('thư chào hàng (突然のご連絡…ご案内) → spam=sales, không thông báo', async () => {
+    smtpGot.length = 0;
+    await inq('192.0.2.4', { email: 'sales@example.com', company: '株式会社マルジュ', ft: FT, message: '突然のご連絡失礼いたします。株式会社マルジュの庭木と申します。弊社では登録支援機関様向けにフォームDMツールを提供しております。ぜひご案内させていただきたく、ご連絡いたしました。' });
+    await sleep(800);
+    const r = await lastInq('sales@example.com'); assert.strictEqual(r.spam, 'sales', JSON.stringify(r)); assert.strictEqual(smtpGot.length, 0);
+  });
+  await ok('người gửi tự chọn 種別「営業・ご提案」 → spam=sales, cột kind lưu lại', async () => {
+    await inq('192.0.2.5', { email: 'kind@example.com', kind: '営業・ご提案', message: 'よろしくお願いします', ft: FT });
+    const r = await lastInq('kind@example.com'); assert.strictEqual(r.spam, 'sales'); assert.strictEqual(r.kind, '営業・ご提案');
+  });
+  await ok('khách thật viết trang trọng (と申します・弊社・採用を検討) → KHÔNG bị gắn 営業, thông báo có 種別', async () => {
+    smtpGot.length = 0;
+    await inq('192.0.2.6', { email: 'act@example.com', company: 'アクト株式会社', kind: '外国人材の採用について', ft: FT, message: 'はじめまして。愛知県清須市で精密加工業を営んでおります、アクト株式会社の林と申します。このたび製造部門の体制強化に伴い、ベトナム人材の採用を検討しており、ご相談させていただきたくご連絡いたしました。弊社は半導体関連の部品を製造しております。' });
+    await sleep(800);
+    const r = await lastInq('act@example.com'); assert.strictEqual(r.spam, null, r.spam_reason);
+    const n = smtpGot.find(m => m.to.includes('notify@example.com')); assert.ok(n, 'không có thông báo');
+  });
+  await ok('stats: 未対応 / 合計 không tính 営業・迷惑; có số 30 ngày', async () => {
+    const st = (await call('/api/stats', { cookie: A })).json;
+    const real = (await pool.query("SELECT count(*)::int n FROM inquiries WHERE spam IS NULL")).rows[0].n;
+    assert.strictEqual(st.inquiriesTotal, real); assert.ok(st.inquiriesSpam30d >= 5, JSON.stringify(st));
+  });
+  await ok('PATCH spam: 「営業ではない」 trả về null + 監査ログ; giá trị lạ → 400; 資料請求 cũng đổi được', async () => {
+    const id = (await lastInq('kind@example.com')).id;
+    assert.strictEqual((await call('/api/inquiries/' + id, { method: 'PATCH', cookie: A, body: { spam: 'xxx' } })).status, 400);
+    assert.strictEqual((await call('/api/inquiries/' + id, { method: 'PATCH', cookie: A, body: { spam: null } })).status, 200);
+    assert.strictEqual((await lastInq('kind@example.com')).spam, null);
+    const a = (await pool.query("SELECT detail FROM audit_logs WHERE entity='inquiry' AND entity_id=$1 ORDER BY id DESC LIMIT 1", [String(id)])).rows[0];
+    assert.deepStrictEqual(a.detail.spam, { from: 'sales', to: null });
+    const did = (await pool.query('SELECT id FROM downloads ORDER BY id LIMIT 1')).rows[0].id;
+    assert.strictEqual((await call('/api/downloads/' + did, { method: 'PATCH', cookie: A, body: { spam: null } })).status, 200);
+  });
+  await ok('資料DL không ft → vẫn 200 (PDF đã tải) nhưng spam=bot; có ft → bình thường', async () => {
+    await call('/api/download', { method: 'POST', headers: { 'X-Forwarded-For': '192.0.2.20' }, body: { name: 'n', email: 'dl1@example.com' } });
+    await call('/api/download', { method: 'POST', headers: { 'X-Forwarded-For': '192.0.2.20' }, body: { name: 'n', email: 'dl2@example.com', ft: FT } });
+    const rows = (await pool.query("SELECT email,spam FROM downloads WHERE email IN ('dl1@example.com','dl2@example.com') ORDER BY email")).rows;
+    assert.deepStrictEqual(rows.map(r => r.spam), ['bot', null]);
+  });
+
+  console.log('\n2026-10-08 (G) Đăng nhập chỉ cho người đã thêm');
+  await ok('admin thêm người dùng → active ngay; trùng → 409; email sai → 400; staff → 403', async () => {
+    const r = await call('/api/profiles', { method: 'POST', cookie: A, body: { email: 'New@Example.com', role: 'staff', mail_enabled: true } });
+    assert.strictEqual(r.status, 200, r.text); assert.strictEqual(r.json.item.status, 'active'); assert.strictEqual(r.json.item.email, 'new@example.com');
+    assert.strictEqual((await call('/api/profiles', { method: 'POST', cookie: A, body: { email: 'new@example.com' } })).status, 409);
+    assert.strictEqual((await call('/api/profiles', { method: 'POST', cookie: A, body: { email: 'abc' } })).status, 400);
+    assert.strictEqual((await call('/api/profiles', { method: 'POST', cookie: S, body: { email: 'x@example.com' } })).status, 403);
+  });
+  await ok('/auth/google: quá 20 lần / 10 phút / IP → 429', async () => {
+    const codes = [];
+    for (let i = 0; i < 21; i++) codes.push((await call('/auth/google', { method: 'POST', headers: { 'X-Forwarded-For': '192.0.2.99' }, body: { credential: 'bad.token.' + i } })).status);
+    assert.ok(codes.slice(0, 20).every(c => c === 401), codes.join(',')); assert.strictEqual(codes[20], 429);
   });
 
   console.log('\nGAS v4 + gửi mail (nodemailer 10)');
@@ -283,6 +366,21 @@ async function call(p, opt) {
   });
 
   await ok('trong suốt bài test máy chủ không in unhandledRejection', async () => { assert.ok(!/unhandledRejection/.test(srvLog), srvLog.slice(-500)); });
+
+  console.log('\n2026-10-08 Turnstile bật (TURNSTILE_SECRET)');
+  srv.kill(); await new Promise(r => srv.on('exit', r));
+  // Khoá thử của Cloudflare: 1x…AA luôn đạt (cần mạng; mất mạng thì server cho qua — vẫn đạt).
+  await startServer({ TURNSTILE_SITE_KEY: '1x00000000000000000000AA', TURNSTILE_SECRET: '1x0000000000000000000000000000000AA' });
+  await ok('form-config trả site key; thiếu token Turnstile → 400 code=turnstile, không lưu', async () => {
+    assert.strictEqual((await call('/api/form-config')).json.turnstileSiteKey, '1x00000000000000000000AA');
+    const r = await inq('192.0.2.30', { email: 'ts1@example.com', message: 'x', ft: FT });
+    assert.strictEqual(r.status, 400); assert.strictEqual(r.json.code, 'turnstile');
+    assert.strictEqual(await lastInq('ts1@example.com'), undefined);
+  });
+  await ok('có token (khoá thử luôn đạt) → lưu bình thường', async () => {
+    const r = await inq('192.0.2.31', { email: 'ts2@example.com', message: '採用を検討しています', ft: FT, turnstile: 'XXXX.DUMMY.TOKEN.XXXX' });
+    assert.strictEqual(r.status, 200, r.text); assert.strictEqual((await lastInq('ts2@example.com')).spam, null);
+  });
 
   console.log('\n' + (fail ? '✗' : '✓') + ' 通過 ' + pass + ' / 失敗 ' + fail);
   srv.kill(); smtp.close(); gas.close(); await pool.end();
