@@ -112,9 +112,6 @@ const SMTP_USER = process.env.SMTP_USER || '';
 const SMTP_PASS = process.env.SMTP_PASS || '';
 const MAIL_FROM = process.env.MAIL_FROM || ('BIGLIGHT <' + SMTP_USER + '>');
 const ADMIN_NOTIFY_TO = process.env.ADMIN_NOTIFY_TO || SMTP_USER;
-// 2026-10-13: 種別ごとの通知先（ホーチミン採用 → 担当 ノン タン フン）。ここに無い種別は ADMIN_NOTIFY_TO。
-const KIND_HCMC = 'ホーチミン採用スタッフへの応募';
-const KIND_NOTIFY_TO = { [KIND_HCMC]: process.env.RECRUIT_HCMC_TO || 'nt-hung@biglight.jp' };
 const SMTP_HOST = process.env.SMTP_HOST || 'smtp.gmail.com';
 const SMTP_PORT = parseInt(process.env.SMTP_PORT || '465', 10);
 const SMTP_SECURE = process.env.SMTP_SECURE ? (process.env.SMTP_SECURE === 'true') : (SMTP_PORT === 465);
@@ -131,35 +128,7 @@ async function sendInquiryMails(q, opt) {
   const sep = '\n――――――――――――――――――\n';
   const detail = `会社名：${q.company || '-'}\nお名前：${q.name}\nメール：${q.email}\n電話：${q.tel}\nお問い合わせ内容：\n${q.message}`;
   const greet = (q.company ? q.company + '\n' : '') + `${q.name} 様`;
-  const isApply = q.kind === KIND_HCMC;
-  const autoReply = isApply ? {
-    from: MAIL_FROM, to: q.email,
-    subject: '【BIGLIGHT】ご応募ありがとうございます（自動返信）',
-    text:
-`${q.name} 様
-
-この度は、ホーチミン拠点 採用スタッフの求人にご応募いただき、誠にありがとうございます。
-内容を確認のうえ、採用担当より3営業日以内にご連絡いたします。
-ご連絡の際に、履歴書とJLPTの合格証をお送りいただくようお願いいたします。
-
-──────────────────────────
-■ ご応募内容
-現在の所属・学校名：${q.company || '（未入力）'}
-お名前：${q.name}
-メールアドレス：${q.email}
-電話番号：${q.tel}
-自己紹介など：
-${q.message}
-──────────────────────────
-
-※本メールは送信専用アドレスからの自動返信です。
-※お心当たりのない場合は、お手数ですが本メールを破棄してください。
-
-──────────────────────────
-BIGLIGHT HR JOINT STOCK COMPANY ／ BIGLIGHT株式会社
-URL：https://biglight.jp/recruit/hcmc/
-──────────────────────────`,
-  } : {
+  const autoReply = {
     from: MAIL_FROM, to: q.email,
     subject: '【BIGLIGHT株式会社】お問い合わせありがとうございます（自動返信）',
     text:
@@ -192,8 +161,8 @@ URL：https://biglight.jp
 ──────────────────────────`,
   };
   const notify = {
-    from: MAIL_FROM, to: KIND_NOTIFY_TO[q.kind] || ADMIN_NOTIFY_TO, replyTo: q.email,
-    subject: isApply ? `【応募】ホーチミン採用スタッフ ${q.name}` : `【新規問い合わせ】${q.company || ''} ${q.name}`,
+    from: MAIL_FROM, to: ADMIN_NOTIFY_TO, replyTo: q.email,
+    subject: `【新規問い合わせ】${q.company || ''} ${q.name}`,
     text: `新しいお問い合わせが届きました。${sep}${detail}${sep}管理画面：https://admin.biglight.jp`,
   };
   // 2026-10-06 (audit #5): cùng một địa chỉ nhận tối đa 3 thư tự động / 24h — form không thành công cụ bắn mail vào hộp thư người khác.
@@ -384,7 +353,7 @@ app.post('/api/inquiry', async (req, res) => {
     );
     res.json({ ok: true });
     // 営業・迷惑: không gửi thông báo, không tự động trả lời (vẫn xem được ở tab 「営業・迷惑」).
-    if (!flag) sendInquiryMails({ company, name, email, tel, kind, message: kind ? '【種別】' + kind + '\n' + message : message }, { skipAutoReply: recent >= 3 }).catch(() => {});
+    if (!flag) sendInquiryMails({ company, name, email, tel, message: kind ? '【種別】' + kind + '\n' + message : message }, { skipAutoReply: recent >= 3 }).catch(() => {});
   } catch (e) {
     console.error('POST /api/inquiry:', e.message);
     res.status(500).json({ error: 'server error' });
