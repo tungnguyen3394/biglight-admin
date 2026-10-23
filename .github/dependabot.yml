@@ -1,0 +1,15 @@
+# 2026-10-24: chỉ PR vá bảo mật (open-pull-requests-limit: 0 tắt PR nâng bản thường kỳ).
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /backend
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 0
+  - package-ecosystem: docker
+    directory: /backend
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 0
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 0
