@@ -234,6 +234,8 @@ const app = express();
 });
 app.set('trust proxy', 1);                 // chạy sau Caddy (HTTPS)
 app.disable('x-powered-by');
+// 2026-10-24: trình duyệt không được đoán kiểu file (MIME sniffing) — mọi phản hồi.
+app.use((_req, res, next) => { res.setHeader('X-Content-Type-Options', 'nosniff'); next(); });
 app.use(express.json({ limit: '4mb' }));
 // 2026-10-06 (audit #11): không còn giá trị mặc định 'change-me' — không chạy production với khoá đoán được.
 const SESSION_SECRET = process.env.SESSION_SECRET || '';

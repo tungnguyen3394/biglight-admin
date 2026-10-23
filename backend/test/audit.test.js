@@ -113,6 +113,7 @@ async function call(p, opt) {
     const csp = r.headers.get('content-security-policy') || '';
     assert.ok(/frame-ancestors 'none'/.test(csp) && /object-src 'none'/.test(csp), csp);
     assert.ok(!r.headers.get('x-powered-by'));
+    assert.strictEqual(r.headers.get('x-content-type-options'), 'nosniff');
     assert.ok(r.text.includes('/vendor/quill.min.js') && !r.text.includes('cdn.quilljs.com'));
   });
   await ok('/posts/12 (đường SPA) cũng có CSP · /vendor/quill.min.js tải được', async () => {
