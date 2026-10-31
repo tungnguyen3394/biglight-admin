@@ -355,7 +355,7 @@ app.post('/api/inquiry', async (req, res) => {
     );
     res.json({ ok: true });
     // 営業・迷惑: không gửi thông báo, không tự động trả lời (vẫn xem được ở tab 「営業・迷惑」).
-    if (!flag) sendInquiryMails({ company, name, email, tel, message: kind ? '【種別】' + kind + '\n' + message : message }, { skipAutoReply: recent >= 3 }).catch(() => {});
+    if (!flag) sendInquiryMails({ company, name, email, tel, message: kind ? '【種別】' + kind + '\n' + message : message }, { skipAutoReply: recent >= 3 || kind === '資料請求（自動送付）' })   /* 2026-11-01: CRM đã gửi mail có link, không gửi thêm mail chung */.catch(() => {});
   } catch (e) {
     console.error('POST /api/inquiry:', e.message);
     res.status(500).json({ error: 'server error' });
