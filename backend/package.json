@@ -13,7 +13,7 @@
     "express-session": "^1.18.0",
     "google-auth-library": "^9.11.0",
     "multer": "^2.0.2",
-    "nodemailer": "^10.0.15",
+    "nodemailer": "^10.3.1",
     "pg": "^8.12.0",
     "sanitize-html": "^2.18.0"
   },
@@ -24,6 +24,6 @@
     "uuid": "^11.1.1"
   },
   "devDependencies": {
-    "smtp-server": "^3.19.17"
+    "smtp-server": "^3.21.3"
   }
 }
