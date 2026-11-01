@@ -388,9 +388,6 @@
       <a data-page="downloads">
         <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/></svg>
         <span class="label">資料請求</span></a>
-      <a data-page="materials">
-        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/><path d="M8 13h8M8 17h5"/></svg>
-        <span class="label">資料一覧</span></a>
       <a data-page="posts">
         <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="14" y2="17"/></svg>
         <span class="label">お知らせ・Magazine</span></a>
@@ -576,7 +573,7 @@ function go(page,noPush){ setActive(page); if(!noPush) setPath(ROUTES[page]||'/'
   if(page==='dashboard') return renderDashboard();
   if(page==='inquiries') return renderInquiries();
   if(page==='downloads') return renderDownloads();
-  if(page==='materials') return renderMaterials();
+  if(page==='materials'){ setActive('downloads'); return renderDownloads('mat'); }
   if(page==='posts') return renderPosts();
   if(page==='mail') return renderMailLib(SM_BACK,null,true);
   if(page==='users') return renderUsers();
@@ -709,24 +706,62 @@ async function renderInquiryDetail(id,noPush){
 
 /* ===== 資料一覧（2026-11-01）: 顧客へ送る資料を その場で開く ===== */
 async function renderMaterials(){
-  $('#main').innerHTML='<div class="h1">資料一覧</div><div class="crumb">読み込み中…</div>';
-  let items=null; try{ const r=await api('/api/materials'); if(r.ok) items=(await r.json()).items; }catch(e){}
-  if(!items){ $('#main').innerHTML='<div class="h1">資料一覧</div><div class="tablewrap"><div class="empty">資料一覧を読み込めませんでした。</div></div>'; return; }
-  $('#main').innerHTML=`<div class="h1">資料一覧</div><div class="crumb">お客様へお送りしている資料</div>
+  $('#main').innerHTML=dlHead()+'<div class="crumb">読み込み中…</div>'; bindDlHead();
+  let items=null; try{ const r=await api('/api/shiryo-list'); if(r.ok) items=(await r.json()).items; }catch(e){}
+  if(!items){ $('#main').innerHTML=dlHead()+'<div class="tablewrap"><div class="empty">資料一覧を読み込めませんでした。</div></div>'; return; }
+  $('#main').innerHTML=`${dlHead()}<div class="crumb">お客様へお送りしている資料</div>
     <div style="display:grid;gap:12px;max-width:860px">${items.map(m=>`<div class="tablewrap" style="display:grid;grid-template-columns:150px 1fr;gap:20px;align-items:center;padding:12px 18px 12px 12px">
       <a href="${esc(m.url)}" target="_blank" rel="noopener"><img src="${esc(m.thumb)}" alt="" style="display:block;width:100%;aspect-ratio:297/210;object-fit:cover;border:1px solid var(--line);border-radius:4px"></a>
       <div><div style="font-size:16px;font-weight:700">${esc(m.name)} <span class="pill ${m.live?'published':'draft'}">${m.live?'Web掲載中':'非掲載'}</span></div>
         <div style="font-size:13px;color:var(--muted);margin:4px 0 10px">${esc(m.desc)}　${esc(m.meta)}</div>
         <a class="btn navy" style="text-decoration:none;display:inline-block" href="${esc(m.url)}" target="_blank" rel="noopener">Webで見る</a>
-        <a class="btn" style="text-decoration:none;display:inline-block" href="${esc(m.pdf)}" target="_blank" rel="noopener">PDF</a></div></div>`).join('')}</div>`;
+        <a class="btn" style="text-decoration:none;display:inline-block" href="${esc(m.pdf)}" target="_blank" rel="noopener">PDF</a></div></div>`).join('')}</div>`; bindDlHead();
 }
 /* ===== 資料請求 ===== */
 let DL=[],DLF='ok';
-async function renderDownloads(){
-  $('#main').innerHTML=`<div class="h1">資料請求 管理</div><div class="crumb">資料ダウンロードフォームからの請求一覧</div>
+/* 2026-11-01 資料請求 = 1 画面 4 タブ: 請求一覧（Web の新フォーム）/ 資料一覧 / 設定（管理者のみ）/ 旧フォーム */
+let DLT='req';
+function dlHead(){ const t=[['req','請求一覧'],['mat','資料一覧']].concat(PERM.isAdmin?[['set','設定']]:[]).concat([['old','旧フォーム']]);
+  return `<div class="h1">資料請求</div><div class="toolbar" style="margin-top:12px">${t.map(([k,l])=>`<span class="tab dtab${DLT===k?' on':''}" data-t="${k}">${l}</span>`).join('')}</div>`; }
+function bindDlHead(){ document.querySelectorAll('.dtab').forEach(t=>t.onclick=()=>renderDownloads(t.dataset.t)); }
+async function renderDownloads(t){ if(t) DLT=t; if(DLT==='set'&&!PERM.isAdmin) DLT='req';
+  if(DLT==='mat') return renderMaterials(); if(DLT==='set') return renderDlSettings(); if(DLT==='old') return renderDownloadsOld();
+  $('#main').innerHTML=dlHead()+'<div id="body"><div class="empty">読み込み中…</div></div>'; bindDlHead();
+  try{ INQ=(await(await api('/api/inquiries?shiryo=1')).json()).items||[]; }catch(e){ INQ=[]; }
+  const L=INQ.filter(r=>!r.spam);
+  $('#body').innerHTML=L.length?`<div class="tablewrap"><table><thead><tr><th class="nowrap">請求日時</th><th>会社名</th><th>氏名</th><th>メール</th><th>電話</th><th>内容</th></tr></thead><tbody>${L.map(r=>`<tr class="clk" data-open="renderInquiryDetail" data-id="${r.id}"><td class="nowrap">${fmt(r.created_at)}</td><td class="nowrap"><b>${esc(r.company)||'—'}</b></td><td class="nowrap">${esc(r.name)}</td><td>${esc(r.email)}</td><td class="nowrap">${esc(r.tel)}</td><td class="ell" style="max-width:260px"><span class="rowline">${esc((r.message||'').replace(/\s+/g,' '))}</span></td></tr>`).join('')}</tbody></table></div>`:'<div class="tablewrap"><div class="empty">まだ資料請求はありません。</div></div>';
+  rowClickable();
+}
+async function renderDlSettings(){
+  $('#main').innerHTML=dlHead()+'<div id="body"><div class="empty">読み込み中…</div></div>'; bindDlHead();
+  let d=null; try{ const r=await api('/api/material-settings'); if(r.ok) d=await r.json(); }catch(e){}
+  if(!d){ $('#body').innerHTML='<div class="tablewrap"><div class="empty">設定を読み込めませんでした。</div></div>'; return; }
+  const s=d.settings, days=[14,30,90,365];
+  $('#body').innerHTML=`<div style="max-width:760px"><div class="tablewrap" style="padding:20px 22px;overflow:visible">
+    <div class="fg"><label>送信元の名前</label><input id="msName" value="${esc(s.fromName)}"></div>
+    <div class="fg"><label>送信元アドレス<span class="hint">@biglight.jp のみ。Google で別名に登録してから。空欄 = 今の既定</span></label><input id="msFrom" value="${esc(s.fromAddr)}" placeholder="info@biglight.jp"></div>
+    <div class="fg"><label>返信先<span class="hint">お客様が返信したときに届くアドレス</span></label><input id="msReply" value="${esc(s.replyTo)}"></div>
+    <div class="fg"><label>通知先<span class="hint">請求が届いたら知らせるアドレス。複数はカンマで</span></label><input id="msNotify" value="${esc((s.notifyTo||[]).join(', '))}"></div>
+    <div class="fg"><label>件名</label><input id="msSubj" value="${esc(s.subject)}"></div>
+    <div class="fg"><label>本文<span class="hint">{{会社名}} {{お名前}} {{資料リンク}}（必須） {{期限}} {{連絡先}}</span></label><textarea id="msBody" style="min-height:260px">${esc(s.body)}</textarea></div>
+    <div class="fg"><label>プレビュー</label><pre id="msPrev" style="white-space:pre-wrap;background:#f5f7fa;border-radius:8px;padding:12px 14px;font-size:13px;line-height:1.7;font-family:inherit;margin:0"></pre></div>
+    <div class="fg"><label>リンクの期限<span class="hint">新しいリンクから適用。過ぎると再請求のご案内を表示</span></label><select id="msDays">${days.map(x=>`<option value="${x}"${x===s.days?' selected':''}>${x}日</option>`).join('')}</select></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn navy" id="msSave">保存</button><button class="btn" id="msTest">テスト送信（${esc(d.me)}）</button><button class="btn" id="msReset">本文を元に戻す</button><span id="msMsg" class="sub" style="align-self:center"></span></div>
+  </div></div>`;
+  const prev=()=>{ $('#msPrev').textContent=$('#msBody').value.split('{{会社名}}').join('株式会社○○').split('{{お名前}}').join('山田 太郎').split('{{資料リンク}}').join('■ 会社案内\nWebで見る: https://…\nPDFで保存: https://…').split('{{期限}}').join(new Date(Date.now()+$('#msDays').value*864e5).toLocaleDateString('ja-JP')).split('{{連絡先}}').join('BIGLIGHT株式会社\nTEL 052-908-7944'); };
+  $('#msBody').oninput=prev; $('#msDays').onchange=prev; prev();
+  $('#msReset').onclick=()=>{ $('#msBody').value=d.defaults.body; prev(); };
+  const msg=(t,bad)=>{ const m=$('#msMsg'); m.textContent=t; m.style.color=bad?'#c0392b':''; };
+  const save=async()=>{ const r=await api('/api/material-settings',{method:'PUT',body:JSON.stringify({fromName:$('#msName').value,fromAddr:$('#msFrom').value,replyTo:$('#msReply').value,notifyTo:$('#msNotify').value,subject:$('#msSubj').value,body:$('#msBody').value,days:Number($('#msDays').value)})}); const j=await r.json().catch(()=>({})); if(!r.ok){ msg(j.error||'保存できませんでした',true); return false; } msg('保存しました'); return true; };
+  $('#msSave').onclick=save;
+  $('#msTest').onclick=async()=>{ if(!await save()) return; msg('送信中…'); const r=await api('/api/material-settings/test',{method:'POST',body:'{}'}); const j=await r.json().catch(()=>({})); msg(j.ok?j.to+' に送りました。届いたメールの差出人を確認してください':'送れませんでした'+(j.reason?'（'+j.reason+'）':''),!j.ok); };
+}
+async function renderDownloadsOld(){
+  $('#main').innerHTML=`${dlHead()}<div class="crumb">2026年10月までの旧フォームからの請求</div>
     <div class="toolbar"><span class="tab${DLF==='spam'?'':' on'}" data-f="ok">請求一覧</span><span class="tab${DLF==='spam'?' on':''}" data-f="spam" title="ボットと判定されたもの">迷惑 <span id="spamcnt"></span></span><span id="selcnt" style="margin-left:auto;font-size:12.5px;color:var(--muted);align-self:center"></span><button class="btn" id="reload">${IC.reload} 更新</button>${MAIL_TOOLBAR()}${C(can('downloads','del'),`<button class="btn" id="delsel">${IC.trash} 選択削除</button>`)}<button class="btn gold" id="csv">CSV出力</button></div><div id="body"></div>`;
   bindMailToolbar('download',()=>DL,'downloads');
-  document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{DLF=t.dataset.f;document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x===t));loadDl();});
+  document.querySelectorAll('.tab:not(.dtab)').forEach(t=>t.onclick=()=>{DLF=t.dataset.f;document.querySelectorAll('.tab:not(.dtab)').forEach(x=>x.classList.toggle('on',x===t));loadDl();});
+  bindDlHead();
   $('#reload').onclick=loadDl;
   { const b=$('#delsel'); if(b) b.onclick=()=>bulkDelete('/api/downloads',loadDl); }
   $('#csv').onclick=()=>{ const ids=checkedIds(); const rows=ids.length?DL.filter(r=>ids.includes(String(r.id))):DL; csv(rows,['id','日時','会社','氏名','メール','関心内容','備考','最終メール送信','送信資料'],r=>[r.id,fmt(r.created_at),r.company,r.name,r.email,r.interest,r.note,r.last_mail_at?fmt(r.last_mail_at):'',r.sent_note||''],'downloads.csv','download'); };
