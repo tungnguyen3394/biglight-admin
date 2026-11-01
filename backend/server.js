@@ -628,6 +628,24 @@ app.post('/api/gas/check', requireAuth, async (req, res) => {
 });
 
 // ================= ADMIN API =================
+/* 2026-11-01 資料一覧: 顧客へ送る資料（会社案内など）を 管理画面から そのまま開く。元データは biglight.jp のビルドが 出す materials.json */
+let MATERIALS_CACHE = { at: 0, items: null };
+app.get('/api/materials', requireAuth, async (_q, res) => {
+  if (MATERIALS_CACHE.items && Date.now() - MATERIALS_CACHE.at < 5 * 60 * 1000) return res.json({ items: MATERIALS_CACHE.items });
+  try {
+    const r = await fetch('https://biglight.jp/materials.json', { signal: AbortSignal.timeout(8000), headers: { 'User-Agent': 'biglight-admin' } });
+    if (!r.ok) throw new Error('status ' + r.status);
+    const ok = u => /^https:\/\/biglight\.jp\//.test(String(u || ''));
+    const items = (await r.json()).filter(x => ok(x.url) && ok(x.pdf) && ok(x.thumb));
+    MATERIALS_CACHE = { at: Date.now(), items };
+    res.json({ items });
+  } catch (e) {
+    console.error('materials:', e.message);
+    if (MATERIALS_CACHE.items) return res.json({ items: MATERIALS_CACHE.items });
+    res.status(502).json({ error: '資料一覧を読み込めませんでした' });
+  }
+});
+
 app.get('/api/stats', requireAuth, async (_q, res) => {
   try {
     // 営業・迷惑 (spam) không tính vào 未対応 / 合計 — chúng chỉ nằm ở tab riêng.
@@ -1135,7 +1153,7 @@ function adminHtmlHeaders(res) {
   res.setHeader('Referrer-Policy', 'same-origin');
 }
 // SPA: đường dẫn màn hình (/inquiries/12 …) trả index.html; JS phía client tự mở đúng trang
-app.get(/^\/(inquiries|downloads|posts|mail|users|audit|integrations)(\/[A-Za-z0-9_-]+)?\/?$/, (_q, res) => {
+app.get(/^\/(inquiries|downloads|materials|posts|mail|users|audit|integrations)(\/[A-Za-z0-9_-]+)?\/?$/, (_q, res) => {
   adminHtmlHeaders(res);
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
