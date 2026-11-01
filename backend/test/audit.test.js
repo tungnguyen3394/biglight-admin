@@ -211,9 +211,14 @@ async function call(p, opt) {
   const FT = (await call('/api/form-config')).json.ft; await sleep(3100);
   await ok('cùng một email gửi form 5 lần/24h → chỉ 3 thư tự động trả lời tới email đó (thông báo nội bộ vẫn đủ 5)', async () => {
     smtpGot.length = 0;
+    /* 2026-11-01 お礼は CRM の 口（relay）で 送る。上限 3 通は 同じ */
+    const relayed = [];
+    const crm0 = http.createServer((q, w) => { let b = ''; q.on('data', c => b += c); q.on('end', async () => { relayed.push(await (await fetch(BASE + '/api/public/mail-ticket/' + JSON.parse(b).ticket)).json()); w.setHeader('Content-Type', 'application/json'); w.end('{"ok":true}'); }); });
+    await new Promise(r => crm0.listen(PORT + 700, '127.0.0.1', r));
     for (let i = 0; i < 5; i++) await call('/api/inquiry', { method: 'POST', headers: { 'X-Forwarded-For': '198.51.100.' + i }, body: { name: 'N', email: 'victim@example.com', tel: '000', message: 'hi', ft: FT } });
     await sleep(1500);
-    const toVictim = smtpGot.filter(m => m.to.includes('victim@example.com')).length, toNotify = smtpGot.filter(m => m.to.includes('notify@example.com')).length;
+    crm0.close();
+    const toVictim = relayed.filter(m => m.to.includes('victim@example.com')).length, toNotify = smtpGot.filter(m => m.to.includes('notify@example.com')).length;
     assert.strictEqual(toVictim, 3, 'victim ' + toVictim); assert.strictEqual(toNotify, 5, 'notify ' + toNotify);
   });
 
@@ -371,7 +376,7 @@ async function call(p, opt) {
   console.log('\n2026-11-01 資料請求の設定');
   await ok('設定: 管理者のみ・公開 API に 通知先は 出ない', async () => {
     assert.strictEqual((await call('/api/material-settings', { cookie: S })).status, 403);
-    const b = { fromName: 'BIGLIGHT', fromAddr: 'info@biglight.jp', replyTo: 'sales@biglight.jp', notifyTo: 'a@biglight.jp, b@biglight.jp', subject: '件名', body: 'x {{資料リンク}}', days: 90 };
+    const b = { fromName: 'BIGLIGHT', fromAddr: 'info@biglight.jp', replyTo: 'sales@biglight.jp', notifyTo: 'a@biglight.jp, b@biglight.jp', subject: '件名', body: 'x {{資料リンク}}', days: 90, docDays: { profile: 14, guide: 90, preparation: 30, field: 365 }, inquirySubject: 'お礼', inquiryBody: '{{お名前}} {{お問い合わせ内容}}' };
     assert.strictEqual((await call('/api/material-settings', { method: 'PUT', cookie: A, body: { ...b, fromAddr: 'x@gmail.com' } })).status, 400);
     assert.strictEqual((await call('/api/material-settings', { method: 'PUT', cookie: A, body: { ...b, body: 'リンクなし' } })).status, 400);
     assert.strictEqual((await call('/api/material-settings', { method: 'PUT', cookie: A, body: { ...b, days: 7 } })).status, 400);
@@ -379,6 +384,9 @@ async function call(p, opt) {
     assert.deepStrictEqual(r.json.settings.notifyTo, ['a@biglight.jp', 'b@biglight.jp']);
     const p = await call('/api/public/material-settings');
     assert.strictEqual(p.json.fromAddr, 'info@biglight.jp'); assert.strictEqual(p.json.notifyTo, undefined);
+    assert.strictEqual(p.json.docDays.profile, 14); assert.strictEqual(p.json.inquiryBody, undefined);
+    assert.strictEqual((await call('/api/material-settings', { method: 'PUT', cookie: A, body: { ...b, inquiryBody: 'なし' } })).status, 400);
+    assert.strictEqual((await call('/api/material-settings', { method: 'PUT', cookie: A, body: { ...b, docDays: { profile: 7 } } })).status, 400);
   });
   await ok('テスト送信: 券は 1 回限り・宛先は ログイン中の本人', async () => {
     let got = null;
@@ -387,6 +395,22 @@ async function call(p, opt) {
     const r = await call('/api/material-settings/test', { method: 'POST', cookie: A, body: {} });
     crm.close();
     assert.strictEqual(r.json.ok, true, r.text); assert.deepStrictEqual(got.to, [ADMIN]); assert.strictEqual(got.fresh, true);
+  });
+  await ok('お問い合わせ: お礼は 本人へ 内容つき・通知は 分類つき・営業は どちらも 送らない・自動送付は お礼なし', async () => {
+    const got = [];
+    const crm = http.createServer((q, w) => { let b = ''; q.on('data', c => b += c); q.on('end', async () => { got.push(await (await fetch(BASE + '/api/public/mail-ticket/' + JSON.parse(b).ticket)).json()); w.setHeader('Content-Type', 'application/json'); w.end('{"ok":true}'); }); });
+    await new Promise(r => crm.listen(PORT + 700, '127.0.0.1', r));
+    const F = (await call('/api/form-config')).json.ft; await sleep(3100);
+    const send = (ip, x) => call('/api/inquiry', { method: 'POST', headers: { 'X-Forwarded-For': ip }, body: { name: '林', tel: '052', company: '株式会社A', ft: F, ...x } });
+    await send('192.0.2.71', { email: 't1@example.com', kind: '無料相談（採用について）', message: '採用を検討しています。溶接3名' }); await sleep(500);
+    const th = got.find(x => x.to[0] === 't1@example.com'), nf = got.find(x => x.to[0] === 'a@biglight.jp');
+    assert.ok(th && th.text.includes('採用を検討しています。溶接3名'), JSON.stringify(got)); assert.ok(nf && nf.subject.startsWith('【採用のご相談】'), JSON.stringify(got));
+    got.length = 0;
+    await send('192.0.2.72', { email: 't2@example.com', kind: 'その他', message: '突然のご連絡失礼いたします。弊社は人材紹介サービスを運営しております。ご提案させていただきたく' }); await sleep(400);
+    assert.strictEqual(got.length, 0, JSON.stringify(got));
+    await send('192.0.2.73', { email: 't3@example.com', kind: '資料請求（自動送付）', message: '【資料請求】会社案内' }); await sleep(400);
+    assert.ok(!got.some(x => x.to[0] === 't3@example.com')); assert.ok(got.some(x => x.subject.startsWith('【資料請求】')));
+    crm.close();
   });
   await ok('?shiryo=1 は 資料請求だけ', async () => {
     await pool.query("INSERT INTO inquiries(company,name,email,tel,message,kind) VALUES('C','N','s1@example.com','0','m','資料請求（自動送付）'),('C','N','s2@example.com','0','m','無料相談')");

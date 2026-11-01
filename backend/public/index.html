@@ -736,25 +736,28 @@ async function renderDlSettings(){
   $('#main').innerHTML=dlHead()+'<div id="body"><div class="empty">読み込み中…</div></div>'; bindDlHead();
   let d=null; try{ const r=await api('/api/material-settings'); if(r.ok) d=await r.json(); }catch(e){}
   if(!d){ $('#body').innerHTML='<div class="tablewrap"><div class="empty">設定を読み込めませんでした。</div></div>'; return; }
-  const s=d.settings, days=[14,30,90,365];
+  const s=d.settings, days=[14,30,90,365], DK=[['profile','会社案内'],['guide','特定技能ガイド'],['preparation','受入れ準備ガイド'],['field','分野別ガイド（5分野 共通）']];
   $('#body').innerHTML=`<div style="max-width:760px"><div class="tablewrap" style="padding:20px 22px;overflow:visible">
     <div class="fg"><label>送信元の名前</label><input id="msName" value="${esc(s.fromName)}"></div>
     <div class="fg"><label>送信元アドレス<span class="hint">@biglight.jp のみ。Google で別名に登録してから。空欄 = 今の既定</span></label><input id="msFrom" value="${esc(s.fromAddr)}" placeholder="info@biglight.jp"></div>
     <div class="fg"><label>返信先<span class="hint">お客様が返信したときに届くアドレス</span></label><input id="msReply" value="${esc(s.replyTo)}"></div>
     <div class="fg"><label>通知先<span class="hint">請求が届いたら知らせるアドレス。複数はカンマで</span></label><input id="msNotify" value="${esc((s.notifyTo||[]).join(', '))}"></div>
-    <div class="fg"><label>件名</label><input id="msSubj" value="${esc(s.subject)}"></div>
-    <div class="fg"><label>本文<span class="hint">{{会社名}} {{お名前}} {{資料リンク}}（必須） {{期限}} {{連絡先}}</span></label><textarea id="msBody" style="min-height:260px">${esc(s.body)}</textarea></div>
+    <div class="fg"><label>資料請求メールの件名</label><input id="msSubj" value="${esc(s.subject)}"></div>
+    <div class="fg"><label>本文<span class="hint">{{会社名}} {{お名前}} {{資料リンク}}（必須） {{連絡先}}</span></label><textarea id="msBody" style="min-height:260px">${esc(s.body)}</textarea></div>
     <div class="fg"><label>プレビュー</label><pre id="msPrev" style="white-space:pre-wrap;background:#f5f7fa;border-radius:8px;padding:12px 14px;font-size:13px;line-height:1.7;font-family:inherit;margin:0"></pre></div>
-    <div class="fg"><label>リンクの期限<span class="hint">新しいリンクから適用。過ぎると再請求のご案内を表示</span></label><select id="msDays">${days.map(x=>`<option value="${x}"${x===s.days?' selected':''}>${x}日</option>`).join('')}</select></div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn navy" id="msSave">保存</button><button class="btn" id="msTest">テスト送信（${esc(d.me)}）</button><button class="btn" id="msReset">本文を元に戻す</button><span id="msMsg" class="sub" style="align-self:center"></span></div>
+    <div class="fg"><label>リンクの期限<span class="hint">資料ごと。新しいリンクから適用。過ぎると再請求のご案内を表示</span></label><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">${DK.map(([k,l])=>`<div><div class="sub" style="margin-bottom:4px">${l}</div><select class="msDoc" data-k="${k}">${days.map(x=>`<option value="${x}"${x===((s.docDays||{})[k]||s.days)?' selected':''}>${x}日</option>`).join('')}</select></div>`).join('')}</div></div>
+    <div class="fg" style="margin-top:26px"><label>お問い合わせの自動返信の件名</label><input id="msIS" value="${esc(s.inquirySubject)}"></div>
+    <div class="fg"><label>お問い合わせの自動返信の本文<span class="hint">{{会社名}} {{お名前}} {{お問い合わせ内容}}（必須） {{連絡先}}</span></label><textarea id="msIB" style="min-height:220px">${esc(s.inquiryBody)}</textarea></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn navy" id="msSave">保存</button><button class="btn" id="msTest">資料請求のテスト送信</button><button class="btn" id="msTest2">お問い合わせのテスト送信</button><button class="btn" id="msReset">本文を元に戻す</button><span id="msMsg" class="sub" style="align-self:center"></span></div>
   </div></div>`;
-  const prev=()=>{ $('#msPrev').textContent=$('#msBody').value.split('{{会社名}}').join('株式会社○○').split('{{お名前}}').join('山田 太郎').split('{{資料リンク}}').join('■ 会社案内\nWebで見る: https://…\nPDFで保存: https://…').split('{{期限}}').join(new Date(Date.now()+$('#msDays').value*864e5).toLocaleDateString('ja-JP')).split('{{連絡先}}').join('BIGLIGHT株式会社\nTEL 052-908-7944'); };
-  $('#msBody').oninput=prev; $('#msDays').onchange=prev; prev();
-  $('#msReset').onclick=()=>{ $('#msBody').value=d.defaults.body; prev(); };
+  const prev=()=>{ $('#msPrev').textContent=$('#msBody').value.split('{{会社名}}').join('株式会社○○').split('{{お名前}}').join('山田 太郎').split('{{資料リンク}}').join('■ 会社案内\nWebで見る: https://…\nPDFで保存: https://…\nリンクの期限: '+new Date(Date.now()+Number(document.querySelector('.msDoc').value)*864e5).toLocaleDateString('ja-JP')).split('{{連絡先}}').join('BIGLIGHT株式会社\nTEL 052-908-7944'); };
+  $('#msBody').oninput=prev; document.querySelector('.msDoc').onchange=prev; prev();
+  $('#msReset').onclick=()=>{ $('#msBody').value=d.defaults.body; $('#msIB').value=d.defaults.inquiryBody; prev(); };
   const msg=(t,bad)=>{ const m=$('#msMsg'); m.textContent=t; m.style.color=bad?'#c0392b':''; };
-  const save=async()=>{ const r=await api('/api/material-settings',{method:'PUT',body:JSON.stringify({fromName:$('#msName').value,fromAddr:$('#msFrom').value,replyTo:$('#msReply').value,notifyTo:$('#msNotify').value,subject:$('#msSubj').value,body:$('#msBody').value,days:Number($('#msDays').value)})}); const j=await r.json().catch(()=>({})); if(!r.ok){ msg(j.error||'保存できませんでした',true); return false; } msg('保存しました'); return true; };
+  const save=async()=>{ const r=await api('/api/material-settings',{method:'PUT',body:JSON.stringify({fromName:$('#msName').value,fromAddr:$('#msFrom').value,replyTo:$('#msReply').value,notifyTo:$('#msNotify').value,subject:$('#msSubj').value,body:$('#msBody').value,days:s.days,docDays:Object.fromEntries([].map.call(document.querySelectorAll('.msDoc'),x=>[x.dataset.k,Number(x.value)])),inquirySubject:$('#msIS').value,inquiryBody:$('#msIB').value})}); const j=await r.json().catch(()=>({})); if(!r.ok){ msg(j.error||'保存できませんでした',true); return false; } msg('保存しました'); return true; };
   $('#msSave').onclick=save;
-  $('#msTest').onclick=async()=>{ if(!await save()) return; msg('送信中…'); const r=await api('/api/material-settings/test',{method:'POST',body:'{}'}); const j=await r.json().catch(()=>({})); msg(j.ok?j.to+' に送りました。届いたメールの差出人を確認してください':'送れませんでした'+(j.reason?'（'+j.reason+'）':''),!j.ok); };
+  const test=t=>async()=>{ if(!await save()) return; msg('送信中…'); const r=await api('/api/material-settings/test',{method:'POST',body:JSON.stringify({type:t})}); const j=await r.json().catch(()=>({})); msg(j.ok?j.to+' に送りました。届いたメールの差出人を確認してください':'送れませんでした'+(j.reason?'（'+j.reason+'）':''),!j.ok); };
+  $('#msTest').onclick=test('doc'); $('#msTest2').onclick=test('inquiry');
 }
 async function renderDownloadsOld(){
   $('#main').innerHTML=`${dlHead()}<div class="crumb">2026年10月までの旧フォームからの請求</div>
