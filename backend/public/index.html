@@ -727,9 +727,17 @@ function bindDlHead(){ document.querySelectorAll('.dtab').forEach(t=>t.onclick=(
 async function renderDownloads(t){ if(t) DLT=t; if(DLT==='set'&&!PERM.isAdmin) DLT='req';
   if(DLT==='mat') return renderMaterials(); if(DLT==='set') return renderDlSettings(); if(DLT==='old') return renderDownloadsOld();
   $('#main').innerHTML=dlHead()+'<div id="body"><div class="empty">読み込み中…</div></div>'; bindDlHead();
-  try{ INQ=(await(await api('/api/inquiries?shiryo=1')).json()).items||[]; }catch(e){ INQ=[]; }
-  const L=INQ.filter(r=>!r.spam);
-  $('#body').innerHTML=L.length?`<div class="tablewrap"><table><thead><tr><th class="nowrap">請求日時</th><th>会社名</th><th>氏名</th><th>メール</th><th>電話</th><th>内容</th></tr></thead><tbody>${L.map(r=>`<tr class="clk" data-open="renderInquiryDetail" data-id="${r.id}"><td class="nowrap">${fmt(r.created_at)}</td><td class="nowrap"><b>${esc(r.company)||'—'}</b></td><td class="nowrap">${esc(r.name)}</td><td>${esc(r.email)}</td><td class="nowrap">${esc(r.tel)}</td><td class="ell" style="max-width:260px"><span class="rowline">${esc((r.message||'').replace(/\s+/g,' '))}</span></td></tr>`).join('')}</tbody></table></div>`:'<div class="tablewrap"><div class="empty">まだ資料請求はありません。</div></div>';
+  let CR=[],crmOk=true;
+  await Promise.all([(async()=>{ try{ INQ=(await(await api('/api/inquiries?shiryo=1')).json()).items||[]; }catch(e){ INQ=[]; } })(),(async()=>{ try{ const r=await api('/api/material-requests'), j=await r.json(); CR=j.items||[]; crmOk=r.ok; }catch(e){ crmOk=false; } })()]);
+  /* CRM の請求（送信・開封）と admin の受付を 同じメール・10 分以内で 1 行に */
+  const inq=INQ.filter(r=>!r.spam), used=new Set();
+  const rows=CR.map(c=>{ const m=inq.find(r=>!used.has(r.id)&&String(r.email).toLowerCase()===String(c.email).toLowerCase()&&Math.abs(new Date(r.created_at)-new Date(c.at))<6e5); if(m) used.add(m.id); return {at:c.at,company:c.company,name:c.name,email:c.email,tel:c.tel,links:c.links||[],mailOk:c.mailOk,wantPrice:c.wantPrice,inqId:m?m.id:null}; });
+  inq.filter(r=>!used.has(r.id)).forEach(r=>rows.push({at:r.created_at,company:r.company,name:r.name,email:r.email,tel:r.tel,links:[],mailOk:null,msg:r.message,inqId:r.id}));
+  rows.sort((a,b)=>new Date(b.at)-new Date(a.at));
+  const seen=l=>l.opens>0||l.pdfs>0;
+  const send=r=>r.mailOk===true?'<span class="pill done">送信済</span>':r.mailOk===false?'<span class="pill new">未送信・要対応</span>':'<span class="pill new">担当者が対応</span>';
+  const docs=r=>r.links.length?r.links.map(l=>`<div style="white-space:nowrap">${esc(l.label)} ${seen(l)?`<span class="pill done">閲覧済</span> <span class="sub">開封${l.opens}回${l.pdfs?'・PDF'+l.pdfs+'回':''}${l.lastOpenAt?'・'+fmt(l.lastOpenAt):''}</span>`:'<span class="pill draft">未閲覧</span>'}</div>`).join('')+(r.wantPrice?'<div class="sub">料金の案内を希望</div>':''):`<span class="sub">${esc((r.msg||(r.wantPrice?'料金の案内を希望':'')).replace(/\s+/g,' ').slice(0,60))}</span>`;
+  $('#body').innerHTML=(crmOk?'':'<div class="tablewrap" style="padding:10px 14px;margin-bottom:12px;color:#c0392b;font-size:13px">送信・閲覧の状況を読み込めませんでした。受付の情報だけ表示しています。</div>')+(rows.length?`<div class="tablewrap"><table><thead><tr><th class="nowrap">請求日時</th><th>会社名</th><th>氏名</th><th>メール</th><th>電話</th><th>送信</th><th>資料・閲覧状況</th></tr></thead><tbody>${rows.map(r=>`<tr${r.inqId?` class="clk" data-open="renderInquiryDetail" data-id="${r.inqId}"`:''}><td class="nowrap">${fmt(r.at)}</td><td class="nowrap"><b>${esc(r.company)||'—'}</b></td><td class="nowrap">${esc(r.name)}</td><td>${esc(r.email)}</td><td class="nowrap">${esc(r.tel)||'—'}</td><td class="nowrap">${send(r)}</td><td>${docs(r)}</td></tr>`).join('')}</tbody></table></div>`:'<div class="tablewrap"><div class="empty">まだ資料請求はありません。</div></div>');
   rowClickable();
 }
 async function renderDlSettings(){

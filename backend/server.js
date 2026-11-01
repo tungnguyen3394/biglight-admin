@@ -702,6 +702,21 @@ async function relayMail(m) {
   const r = await fetch(process.env.CRM_RELAY_URL || 'https://api-crm.biglight.jp/materials/relay', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ticket: t }), signal: AbortSignal.timeout(20000) });
   return r.json().catch(() => ({ ok: false }));
 }
+/* 請求一覧: だれに どの資料を 送り、開いたか。実データは CRM（share_links）。券で 1 回だけ 取りに行く */
+let STATUS_CACHE = { at: 0, items: null };
+app.get('/api/material-requests', requireAuth, async (_q, res) => {
+  if (STATUS_CACHE.items && Date.now() - STATUS_CACHE.at < 30000) return res.json({ items: STATUS_CACHE.items });
+  try {
+    const t = crypto.randomBytes(24).toString('hex');
+    mailTickets.set(t, { m: { purpose: 'status' }, at: Date.now() });
+    setTimeout(() => mailTickets.delete(t), 120000).unref();
+    const r = await fetch((process.env.CRM_RELAY_URL || 'https://api-crm.biglight.jp/materials/relay').replace(/relay$/, 'status'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ticket: t }), signal: AbortSignal.timeout(15000) });
+    if (!r.ok) throw new Error('status ' + r.status);
+    const items = (await r.json()).items || [];
+    STATUS_CACHE = { at: Date.now(), items };
+    res.json({ items });
+  } catch (e) { console.error('material-requests:', e.message); res.status(502).json({ error: '送信状況を読み込めませんでした', items: STATUS_CACHE.items || [] }); }
+});
 app.get('/api/public/mail-ticket/:t', (req, res) => { const x = mailTickets.get(String(req.params.t)); mailTickets.delete(String(req.params.t)); res.set('Cache-Control', 'no-store'); if (!x) return res.status(404).json({ error: 'not-found' }); res.json(x.m); });
 app.post('/api/material-settings/test', requireAuth, requireAdmin, async (req, res) => {
   try {

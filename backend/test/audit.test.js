@@ -58,7 +58,7 @@ function startServer(extraEnv) {
     srv = spawn(process.execPath, ['server.js'], { cwd: ROOT, env: { ...process.env, DATABASE_URL: DB, SESSION_SECRET: SECRET, PORT: String(PORT),
       SITE_DIR: SITE, ADMIN_EMAILS: ADMIN, GOOGLE_CLIENT_ID: 'test.apps.googleusercontent.com', NODE_ENV: 'test', NODE_TLS_REJECT_UNAUTHORIZED: '0',
       SMTP_HOST: '127.0.0.1', SMTP_PORT: String(PORT + 500), SMTP_SECURE: 'false', SMTP_NOAUTH: 'true', SMTP_USER: 'no-reply@example.com',
-      MAIL_FROM: 'BIGLIGHT <no-reply@example.com>', ADMIN_NOTIFY_TO: 'notify@example.com', CRM_RELAY_URL: 'http://127.0.0.1:' + (PORT + 700), ...(extraEnv || {}) } });
+      MAIL_FROM: 'BIGLIGHT <no-reply@example.com>', ADMIN_NOTIFY_TO: 'notify@example.com', CRM_RELAY_URL: 'http://127.0.0.1:' + (PORT + 700) + '/relay', ...(extraEnv || {}) } });
     srv.stdout.on('data', d => { srvLog += d; }); srv.stderr.on('data', d => { srvLog += d; });
     const t0 = Date.now();
     (async function wait() {
@@ -416,6 +416,14 @@ async function call(p, opt) {
     await pool.query("INSERT INTO inquiries(company,name,email,tel,message,kind) VALUES('C','N','s1@example.com','0','m','資料請求（自動送付）'),('C','N','s2@example.com','0','m','無料相談')");
     const r = await call('/api/inquiries?shiryo=1', { cookie: A });
     assert.ok(r.json.items.some(x => x.email === 's1@example.com')); assert.ok(!r.json.items.some(x => x.email === 's2@example.com'));
+  });
+  await ok('請求一覧: ログイン必須・CRM へは 券だけ・券は purpose status', async () => {
+    assert.notStrictEqual((await call('/api/material-requests')).status, 200);
+    let tk = null, url = '';
+    const crm = http.createServer((q, w) => { url = q.url; let b = ''; q.on('data', c => b += c); q.on('end', async () => { tk = await (await fetch(BASE + '/api/public/mail-ticket/' + JSON.parse(b).ticket)).json(); w.setHeader('Content-Type', 'application/json'); w.end(JSON.stringify({ items: [{ id: 'MR1', email: 'a@b.jp', links: [{ label: '会社案内', opens: 2, pdfs: 1 }] }] })); }); });
+    await new Promise(r => crm.listen(PORT + 700, '127.0.0.1', r));
+    const r = await call('/api/material-requests', { cookie: A }); crm.close();
+    assert.strictEqual(r.status, 200, r.text); assert.strictEqual(r.json.items[0].links[0].opens, 2); assert.strictEqual(tk.purpose, 'status'); assert.ok(url.endsWith('/status'), url);
   });
   await ok('資料一覧の /api/shiryo-list と メールの /api/materials は 別物', async () => {
     assert.ok(Array.isArray((await call('/api/materials', { cookie: A })).json.items));
