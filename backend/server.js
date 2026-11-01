@@ -355,12 +355,16 @@ app.post('/api/inquiry', async (req, res) => {
     );
     res.json({ ok: true });
     // 営業・迷惑: không gửi thông báo, không tự động trả lời (vẫn xem được ở tab 「営業・迷惑」).
-    /* 2026-11-01 資料請求: 通知先が 設定されていれば CRM の 口で 送る（admin に SMTP が 無くても 届く） */
-    if (!flag && kind && kind.startsWith('資料請求')) {
-      const ms = await materialSettings();
-      if (ms.notifyTo.length) { relayMail({ to: ms.notifyTo, replyTo: email, subject: `【資料請求】${company || ''} ${name}`, text: `資料請求が届きました。\n\n会社名：${company || '-'}\nお名前：${name}\nメール：${email}\n電話：${tel}\n\n${message}\n\n管理画面：https://admin.biglight.jp/downloads` }).catch(() => {}); return; }
-    }
-    if (!flag) sendInquiryMails({ company, name, email, tel, message: kind ? '【種別】' + kind + '\n' + message : message }, { skipAutoReply: recent >= 3 || kind === '資料請求（自動送付）' })   /* 2026-11-01: CRM đã gửi mail có link, không gửi thêm mail chung */.catch(() => {});
+    /* 営業・迷惑（flag）: 自動返信も 通知も しない（一覧の「営業・迷惑」タブで 見られる）。
+       2026-11-01 お客様への お礼と 担当者への 通知は CRM の 口で 送る（info@ から・admin に SMTP が 無くても 届く） */
+    if (flag) return;
+    const ms = await materialSettings();
+    const auto = kind === '資料請求（自動送付）';   // CRM が リンクつきの メールを 送り済み
+    if (!auto && recent < 3) relayMail({ to: [email], subject: ms.inquirySubject, text: inquiryThanks(ms, { company, name, email, tel, kind, message }) }).catch(e => console.error('inquiry thanks:', e.message));
+    const tag = kind && kind.startsWith('資料請求') ? '資料請求' : /無料相談|採用について$/.test(kind || '') && !/求職者/.test(kind || '') ? '採用のご相談' : 'お問い合わせ';
+    const body = `${kind ? '種別：' + kind + '\n' : ''}会社名：${company || '-'}\nお名前：${name}\nメール：${email}\n電話：${tel}\n\n${message}\n\n管理画面：https://admin.biglight.jp${tag === '資料請求' ? '/downloads' : '/inquiries'}`;
+    if (ms.notifyTo.length) relayMail({ to: ms.notifyTo, replyTo: email, subject: `【${tag}】${company || ''} ${name}`, text: body }).catch(e => console.error('inquiry notify:', e.message));
+    else sendInquiryMails({ company, name, email, tel, message: kind ? '【種別】' + kind + '\n' + message : message }, { skipAutoReply: true }).catch(() => {});
   } catch (e) {
     console.error('POST /api/inquiry:', e.message);
     res.status(500).json({ error: 'server error' });
@@ -653,23 +657,35 @@ app.get('/api/shiryo-list', requireAuth, async (_q, res) => {
 
 /* 2026-11-01 資料請求の設定: 差出人・返信先・通知先・テンプレート・リンクの期限。CRM が 公開 API で 読む（通知先は 出さない）。
    差出人は Google で 別名登録した @biglight.jp だけ（未登録だと Google が marketing@ に書き換える） */
-const MAT_BODY = '{{会社名}}\n{{お名前}} 様\n\n資料のご請求ありがとうございます。\n下記のリンクからご覧いただけます。\n\n{{資料リンク}}\n\nリンクの期限: {{期限}}\n\nご不明な点がございましたら、お気軽にご連絡ください。\n\n※お心当たりのない場合は、本メールを破棄してください。\n\n{{連絡先}}';
-const MAT_DEF = { fromName: 'BIGLIGHT株式会社', fromAddr: '', replyTo: '', notifyTo: [], subject: '【BIGLIGHT】資料のご案内', body: MAT_BODY, days: 90 };
+const MAT_BODY = '{{会社名}}\n{{お名前}} 様\n\n資料のご請求ありがとうございます。\n下記のリンクからご覧いただけます。\n\n{{資料リンク}}\n\nご不明な点がございましたら、お気軽にご連絡ください。\n\n※お心当たりのない場合は、本メールを破棄してください。\n\n{{連絡先}}';
+const INQ_BODY = '{{会社名}}\n{{お名前}} 様\n\nこの度は、BIGLIGHT株式会社へお問い合わせいただき、誠にありがとうございます。\n下記の内容で承りました。\n内容を確認のうえ、担当者より3営業日以内にご連絡いたします。\n\n{{お問い合わせ内容}}\n\n※3営業日を過ぎても連絡がない場合は、お手数ですがお電話ください。\n※お心当たりのない場合は、本メールを破棄してください。\n\n{{連絡先}}';
+const DOC_KEYS = ['profile', 'guide', 'preparation', 'field'], DAY_OK = [14, 30, 90, 365];
+const MAT_CONTACT = 'BIGLIGHT株式会社\n〒462-0007 愛知県名古屋市北区如意一丁目112 A\nTEL 052-908-7944（平日 9:00–18:00）\nhttps://biglight.jp';
+const MAT_DEF = { fromName: 'BIGLIGHT株式会社', fromAddr: '', replyTo: '', notifyTo: [], subject: '【BIGLIGHT】資料のご案内', body: MAT_BODY, days: 90, docDays: {}, inquirySubject: '【BIGLIGHT株式会社】お問い合わせありがとうございます', inquiryBody: INQ_BODY };
+/* お問い合わせの 自動返信を 作る。本文に 長文を そのまま 返すと 踏み台に なるので 内容は 2000 字まで、参照記事の行は 落とす */
+function inquiryThanks(ms, q) {
+  const msg = String(q.message || '').split('\n\n――')[0].slice(0, 2000);
+  const block = `■ お問い合わせ内容\n会社名：${q.company || '（未入力）'}\nお名前：${q.name}\nメールアドレス：${q.email}\n電話番号：${q.tel}\n${q.kind ? '種別：' + q.kind + '\n' : ''}内容：\n${msg}`;
+  return ms.inquiryBody.split('{{会社名}}').join(q.company || '').split('{{お名前}}').join(q.name).split('{{お問い合わせ内容}}').join(block).split('{{連絡先}}').join(MAT_CONTACT).replace(/^\n+/, '');
+}
 async function materialSettings() { const r = await pool.query("SELECT val FROM app_meta WHERE key='material_settings'"); return Object.assign({}, MAT_DEF, (r.rows[0] && r.rows[0].val) || {}); }
 const MAIL_RE = /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/;
 app.get('/api/public/material-settings', async (_q, res) => {
-  try { const { notifyTo, ...pub } = await materialSettings(); res.set('Cache-Control', 'no-store'); res.json(pub); } catch (e) { serverErr(res, e); }
+  try { const { notifyTo, inquirySubject, inquiryBody, ...pub } = await materialSettings(); res.set('Cache-Control', 'no-store'); res.json(pub); } catch (e) { serverErr(res, e); }
 });
 app.get('/api/material-settings', requireAuth, requireAdmin, async (_q, res) => { try { res.json({ settings: await materialSettings(), defaults: MAT_DEF, me: _q.session.user.email }); } catch (e) { serverErr(res, e); } });
 app.put('/api/material-settings', requireAuth, requireAdmin, async (req, res) => {
   const b = req.body || {}, S = (v, n) => String(v == null ? '' : v).trim().slice(0, n);
-  const v = { fromName: S(b.fromName, 60).replace(/["<>\r\n]/g, '') || MAT_DEF.fromName, fromAddr: S(b.fromAddr, 120), replyTo: S(b.replyTo, 120), notifyTo: [...new Set((Array.isArray(b.notifyTo) ? b.notifyTo : String(b.notifyTo || '').split(/[,、\s]+/)).map(x => S(x, 120)).filter(Boolean))].slice(0, 10), subject: S(b.subject, 150), body: String(b.body == null ? '' : b.body).slice(0, 4000), days: Number(b.days) };
+  const v = { fromName: S(b.fromName, 60).replace(/["<>\r\n]/g, '') || MAT_DEF.fromName, fromAddr: S(b.fromAddr, 120), replyTo: S(b.replyTo, 120), notifyTo: [...new Set((Array.isArray(b.notifyTo) ? b.notifyTo : String(b.notifyTo || '').split(/[,、\s]+/)).map(x => S(x, 120)).filter(Boolean))].slice(0, 10), subject: S(b.subject, 150), body: String(b.body == null ? '' : b.body).slice(0, 4000), days: Number(b.days), docDays: {}, inquirySubject: S(b.inquirySubject, 150), inquiryBody: String(b.inquiryBody == null ? '' : b.inquiryBody).slice(0, 4000) };
+  for (const k of DOC_KEYS) { const d = Number(b.docDays && b.docDays[k]); if (!DAY_OK.includes(d)) return res.status(400).json({ error: 'リンクの期限を選んでください' }); v.docDays[k] = d; }
   if (v.fromAddr && !/^[a-z0-9._+-]+@biglight\.jp$/i.test(v.fromAddr)) return res.status(400).json({ error: '送信元は @biglight.jp のアドレスだけ設定できます' });
   if (v.replyTo && !MAIL_RE.test(v.replyTo)) return res.status(400).json({ error: '返信先のメールアドレスが正しくありません' });
   if (v.notifyTo.some(x => !MAIL_RE.test(x))) return res.status(400).json({ error: '通知先のメールアドレスが正しくありません' });
   if (!v.subject) return res.status(400).json({ error: '件名を入力してください' });
   if (!v.body.includes('{{資料リンク}}')) return res.status(400).json({ error: '本文に {{資料リンク}} を入れてください' });
-  if (![14, 30, 90, 365].includes(v.days)) return res.status(400).json({ error: 'リンクの期限を選んでください' });
+  if (!DAY_OK.includes(v.days)) return res.status(400).json({ error: 'リンクの期限を選んでください' });
+  if (!v.inquirySubject) return res.status(400).json({ error: 'お問い合わせの件名を入力してください' });
+  if (!v.inquiryBody.includes('{{お問い合わせ内容}}')) return res.status(400).json({ error: 'お問い合わせの本文に {{お問い合わせ内容}} を入れてください' });
   try {
     const cur = await materialSettings();
     await pool.query("INSERT INTO app_meta(key,val) VALUES('material_settings',$1) ON CONFLICT(key) DO UPDATE SET val=$1", [JSON.stringify(v)]);
@@ -690,7 +706,12 @@ app.get('/api/public/mail-ticket/:t', (req, res) => { const x = mailTickets.get(
 app.post('/api/material-settings/test', requireAuth, requireAdmin, async (req, res) => {
   try {
     const ms = await materialSettings(), to = req.session.user.email;
-    const text = '【テスト送信】\n\n' + ms.body.split('{{会社名}}').join('株式会社テスト').split('{{お名前}}').join('山田 太郎').split('{{資料リンク}}').join('■ 会社案内\nWebで見る: https://biglight.jp/\nPDFで保存: https://biglight.jp/').split('{{期限}}').join('（期限の日付）').split('{{連絡先}}').join('BIGLIGHT株式会社\nTEL 052-908-7944');
+    if ((req.body || {}).type === 'inquiry') {
+      const o = await relayMail({ to: [to], subject: '【テスト】' + ms.inquirySubject, text: '【テスト送信】\n\n' + inquiryThanks(ms, { company: '株式会社テスト', name: '山田 太郎', email: to, tel: '052-000-0000', kind: '無料相談（採用について）', message: '特定技能の採用について相談したいです。' }), fresh: true });
+      audit(req, 'send', 'material_settings', null, 'テスト送信（問い合わせ）: ' + to, { ok: !!o.ok });
+      return res.json({ ok: !!o.ok, to, reason: o.reason || '' });
+    }
+    const text = '【テスト送信】\n\n' + ms.body.split('{{会社名}}').join('株式会社テスト').split('{{お名前}}').join('山田 太郎').split('{{資料リンク}}').join('■ 会社案内\nWebで見る: https://biglight.jp/\nPDFで保存: https://biglight.jp/\nリンクの期限: （期限の日付）').split('{{連絡先}}').join('BIGLIGHT株式会社\nTEL 052-908-7944');
     const o = await relayMail({ to: [to], subject: '【テスト】' + ms.subject, text, fresh: true });
     audit(req, 'send', 'material_settings', null, 'テスト送信: ' + to, { ok: !!o.ok });
     res.json({ ok: !!o.ok, to, reason: o.reason || '' });
