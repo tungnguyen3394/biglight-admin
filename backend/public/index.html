@@ -388,6 +388,9 @@
       <a data-page="downloads">
         <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/></svg>
         <span class="label">資料請求</span></a>
+      <a data-page="materials">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/><path d="M8 13h8M8 17h5"/></svg>
+        <span class="label">資料一覧</span></a>
       <a data-page="posts">
         <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="14" y2="17"/></svg>
         <span class="label">お知らせ・Magazine</span></a>
@@ -567,12 +570,13 @@ function setActive(p){ document.querySelectorAll('.nav a').forEach(a=>a.classLis
 async function refreshBadge(){ try{ const s=await(await api('/api/stats')).json(); const nb=$('#nbInq');
   if(s.inquiriesNew>0){nb.style.display='inline-block';nb.textContent=s.inquiriesNew;}else nb.style.display='none'; }catch(e){} }
 /* ===== ルーティング（URL ↔ 画面）: /inquiries/12 のように直接開ける・戻る/進む対応 ===== */
-const ROUTES={dashboard:'/',inquiries:'/inquiries',downloads:'/downloads',posts:'/posts',mail:'/mail',users:'/users',audit:'/audit',integrations:'/integrations'};
+const ROUTES={dashboard:'/',inquiries:'/inquiries',downloads:'/downloads',materials:'/materials',posts:'/posts',mail:'/mail',users:'/users',audit:'/audit',integrations:'/integrations'};
 function setPath(p){ try{ if(/^https?:/.test(location.protocol)&&location.pathname!==p) history.pushState({p},'',p); }catch(e){} }
 function go(page,noPush){ setActive(page); if(!noPush) setPath(ROUTES[page]||'/'); window.scrollTo(0,0);
   if(page==='dashboard') return renderDashboard();
   if(page==='inquiries') return renderInquiries();
   if(page==='downloads') return renderDownloads();
+  if(page==='materials') return renderMaterials();
   if(page==='posts') return renderPosts();
   if(page==='mail') return renderMailLib(SM_BACK,null,true);
   if(page==='users') return renderUsers();
@@ -581,7 +585,7 @@ function go(page,noPush){ setActive(page); if(!noPush) setPath(ROUTES[page]||'/'
   return renderDashboard();
 }
 function route(){
-  const m=location.pathname.match(/^\/(inquiries|downloads|posts|mail|users|audit|integrations)(?:\/([A-Za-z0-9_-]+))?\/?$/);
+  const m=location.pathname.match(/^\/(inquiries|downloads|materials|posts|mail|users|audit|integrations)(?:\/([A-Za-z0-9_-]+))?\/?$/);
   if(!m) return go('dashboard',true);
   const pg=m[1], id=m[2];
   if(id){ if(pg==='inquiries') return renderInquiryDetail(id,true); if(pg==='downloads') return renderDownloadDetail(id,true); if(pg==='posts') return renderEditor(id==='new'?null:id,true); }
@@ -703,6 +707,19 @@ async function renderInquiryDetail(id,noPush){
   { const b=$('#dspam'); if(b) b.onclick=async()=>{ const v=r.spam?null:'sales'; const x=await api('/api/inquiries/'+r.id,{method:'PATCH',body:JSON.stringify({spam:v})}); if(!x.ok) return alert('変更に失敗しました'); r.spam=v; r.spam_reason=v?'手動':null; refreshBadge(); renderInquiryDetail(id,true); }; }
 }
 
+/* ===== 資料一覧（2026-11-01）: 顧客へ送る資料を その場で開く ===== */
+async function renderMaterials(){
+  $('#main').innerHTML='<div class="h1">資料一覧</div><div class="crumb">読み込み中…</div>';
+  let items=null; try{ const r=await api('/api/materials'); if(r.ok) items=(await r.json()).items; }catch(e){}
+  if(!items){ $('#main').innerHTML='<div class="h1">資料一覧</div><div class="tablewrap"><div class="empty">資料一覧を読み込めませんでした。</div></div>'; return; }
+  $('#main').innerHTML=`<div class="h1">資料一覧</div><div class="crumb">お客様へお送りしている資料</div>
+    <div style="display:grid;gap:12px;max-width:860px">${items.map(m=>`<div class="tablewrap" style="display:grid;grid-template-columns:150px 1fr;gap:20px;align-items:center;padding:12px 18px 12px 12px">
+      <a href="${esc(m.url)}" target="_blank" rel="noopener"><img src="${esc(m.thumb)}" alt="" style="display:block;width:100%;aspect-ratio:297/210;object-fit:cover;border:1px solid var(--line);border-radius:4px"></a>
+      <div><div style="font-size:16px;font-weight:700">${esc(m.name)} <span class="pill ${m.live?'published':'draft'}">${m.live?'Web掲載中':'非掲載'}</span></div>
+        <div style="font-size:13px;color:var(--muted);margin:4px 0 10px">${esc(m.desc)}　${esc(m.meta)}</div>
+        <a class="btn navy" style="text-decoration:none;display:inline-block" href="${esc(m.url)}" target="_blank" rel="noopener">Webで見る</a>
+        <a class="btn" style="text-decoration:none;display:inline-block" href="${esc(m.pdf)}" target="_blank" rel="noopener">PDF</a></div></div>`).join('')}</div>`;
+}
 /* ===== 資料請求 ===== */
 let DL=[],DLF='ok';
 async function renderDownloads(){
