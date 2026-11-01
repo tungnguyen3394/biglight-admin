@@ -355,6 +355,11 @@ app.post('/api/inquiry', async (req, res) => {
     );
     res.json({ ok: true });
     // 営業・迷惑: không gửi thông báo, không tự động trả lời (vẫn xem được ở tab 「営業・迷惑」).
+    /* 2026-11-01 資料請求: 通知先が 設定されていれば CRM の 口で 送る（admin に SMTP が 無くても 届く） */
+    if (!flag && kind && kind.startsWith('資料請求')) {
+      const ms = await materialSettings();
+      if (ms.notifyTo.length) { relayMail({ to: ms.notifyTo, replyTo: email, subject: `【資料請求】${company || ''} ${name}`, text: `資料請求が届きました。\n\n会社名：${company || '-'}\nお名前：${name}\nメール：${email}\n電話：${tel}\n\n${message}\n\n管理画面：https://admin.biglight.jp/downloads` }).catch(() => {}); return; }
+    }
     if (!flag) sendInquiryMails({ company, name, email, tel, message: kind ? '【種別】' + kind + '\n' + message : message }, { skipAutoReply: recent >= 3 || kind === '資料請求（自動送付）' })   /* 2026-11-01: CRM đã gửi mail có link, không gửi thêm mail chung */.catch(() => {});
   } catch (e) {
     console.error('POST /api/inquiry:', e.message);
@@ -630,7 +635,7 @@ app.post('/api/gas/check', requireAuth, async (req, res) => {
 // ================= ADMIN API =================
 /* 2026-11-01 資料一覧: 顧客へ送る資料（会社案内など）を 管理画面から そのまま開く。元データは biglight.jp のビルドが 出す materials.json */
 let MATERIALS_CACHE = { at: 0, items: null };
-app.get('/api/materials', requireAuth, async (_q, res) => {
+app.get('/api/shiryo-list', requireAuth, async (_q, res) => {
   if (MATERIALS_CACHE.items && Date.now() - MATERIALS_CACHE.at < 5 * 60 * 1000) return res.json({ items: MATERIALS_CACHE.items });
   try {
     const r = await fetch('https://biglight.jp/materials.json', { signal: AbortSignal.timeout(8000), headers: { 'User-Agent': 'biglight-admin' } });
@@ -644,6 +649,52 @@ app.get('/api/materials', requireAuth, async (_q, res) => {
     if (MATERIALS_CACHE.items) return res.json({ items: MATERIALS_CACHE.items });
     res.status(502).json({ error: '資料一覧を読み込めませんでした' });
   }
+});
+
+/* 2026-11-01 資料請求の設定: 差出人・返信先・通知先・テンプレート・リンクの期限。CRM が 公開 API で 読む（通知先は 出さない）。
+   差出人は Google で 別名登録した @biglight.jp だけ（未登録だと Google が marketing@ に書き換える） */
+const MAT_BODY = '{{会社名}}\n{{お名前}} 様\n\n資料のご請求ありがとうございます。\n下記のリンクからご覧いただけます。\n\n{{資料リンク}}\n\nリンクの期限: {{期限}}\n\nご不明な点がございましたら、お気軽にご連絡ください。\n\n※お心当たりのない場合は、本メールを破棄してください。\n\n{{連絡先}}';
+const MAT_DEF = { fromName: 'BIGLIGHT株式会社', fromAddr: '', replyTo: '', notifyTo: [], subject: '【BIGLIGHT】資料のご案内', body: MAT_BODY, days: 90 };
+async function materialSettings() { const r = await pool.query("SELECT val FROM app_meta WHERE key='material_settings'"); return Object.assign({}, MAT_DEF, (r.rows[0] && r.rows[0].val) || {}); }
+const MAIL_RE = /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/;
+app.get('/api/public/material-settings', async (_q, res) => {
+  try { const { notifyTo, ...pub } = await materialSettings(); res.set('Cache-Control', 'no-store'); res.json(pub); } catch (e) { serverErr(res, e); }
+});
+app.get('/api/material-settings', requireAuth, requireAdmin, async (_q, res) => { try { res.json({ settings: await materialSettings(), defaults: MAT_DEF, me: _q.session.user.email }); } catch (e) { serverErr(res, e); } });
+app.put('/api/material-settings', requireAuth, requireAdmin, async (req, res) => {
+  const b = req.body || {}, S = (v, n) => String(v == null ? '' : v).trim().slice(0, n);
+  const v = { fromName: S(b.fromName, 60).replace(/["<>\r\n]/g, '') || MAT_DEF.fromName, fromAddr: S(b.fromAddr, 120), replyTo: S(b.replyTo, 120), notifyTo: [...new Set((Array.isArray(b.notifyTo) ? b.notifyTo : String(b.notifyTo || '').split(/[,、\s]+/)).map(x => S(x, 120)).filter(Boolean))].slice(0, 10), subject: S(b.subject, 150), body: String(b.body == null ? '' : b.body).slice(0, 4000), days: Number(b.days) };
+  if (v.fromAddr && !/^[a-z0-9._+-]+@biglight\.jp$/i.test(v.fromAddr)) return res.status(400).json({ error: '送信元は @biglight.jp のアドレスだけ設定できます' });
+  if (v.replyTo && !MAIL_RE.test(v.replyTo)) return res.status(400).json({ error: '返信先のメールアドレスが正しくありません' });
+  if (v.notifyTo.some(x => !MAIL_RE.test(x))) return res.status(400).json({ error: '通知先のメールアドレスが正しくありません' });
+  if (!v.subject) return res.status(400).json({ error: '件名を入力してください' });
+  if (!v.body.includes('{{資料リンク}}')) return res.status(400).json({ error: '本文に {{資料リンク}} を入れてください' });
+  if (![14, 30, 90, 365].includes(v.days)) return res.status(400).json({ error: 'リンクの期限を選んでください' });
+  try {
+    const cur = await materialSettings();
+    await pool.query("INSERT INTO app_meta(key,val) VALUES('material_settings',$1) ON CONFLICT(key) DO UPDATE SET val=$1", [JSON.stringify(v)]);
+    audit(req, 'update', 'material_settings', null, '資料請求の設定を変更', { from: cur, to: v });
+    res.json({ settings: v });
+  } catch (e) { serverErr(res, e); }
+});
+/* CRM の SMTP を 借りる: 1 回限りの 券を 作り、CRM が それを 取りに来る（2 台に 鍵を 置かない） */
+const mailTickets = new Map();
+async function relayMail(m) {
+  const t = crypto.randomBytes(24).toString('hex');
+  mailTickets.set(t, { m, at: Date.now() });
+  setTimeout(() => mailTickets.delete(t), 120000).unref();
+  const r = await fetch(process.env.CRM_RELAY_URL || 'https://api-crm.biglight.jp/materials/relay', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ticket: t }), signal: AbortSignal.timeout(20000) });
+  return r.json().catch(() => ({ ok: false }));
+}
+app.get('/api/public/mail-ticket/:t', (req, res) => { const x = mailTickets.get(String(req.params.t)); mailTickets.delete(String(req.params.t)); res.set('Cache-Control', 'no-store'); if (!x) return res.status(404).json({ error: 'not-found' }); res.json(x.m); });
+app.post('/api/material-settings/test', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const ms = await materialSettings(), to = req.session.user.email;
+    const text = '【テスト送信】\n\n' + ms.body.split('{{会社名}}').join('株式会社テスト').split('{{お名前}}').join('山田 太郎').split('{{資料リンク}}').join('■ 会社案内\nWebで見る: https://biglight.jp/\nPDFで保存: https://biglight.jp/').split('{{期限}}').join('（期限の日付）').split('{{連絡先}}').join('BIGLIGHT株式会社\nTEL 052-908-7944');
+    const o = await relayMail({ to: [to], subject: '【テスト】' + ms.subject, text, fresh: true });
+    audit(req, 'send', 'material_settings', null, 'テスト送信: ' + to, { ok: !!o.ok });
+    res.json({ ok: !!o.ok, to, reason: o.reason || '' });
+  } catch (e) { serverErr(res, e); }
 });
 
 app.get('/api/stats', requireAuth, async (_q, res) => {
@@ -669,8 +720,10 @@ const LAST_MAIL = kind => `(SELECT max(created_at) FROM mail_logs ml WHERE ml.re
 const listLimit = q => Math.max(1, Math.min(10000, toInt(q.limit) || 2000));
 app.get('/api/inquiries', requireAuth, async (req, res) => {
   const lim = listLimit(req.query || {});
-  const r = await pool.query(`SELECT t.*, ${LAST_MAIL('inquiry')} FROM inquiries t ORDER BY t.created_at DESC LIMIT ${lim}`);
-  const total = (await pool.query('SELECT count(*)::int n FROM inquiries')).rows[0].n;
+  /* 2026-11-01 ?shiryo=1: 資料請求だけ（form từ 10-10 ghi vào inquiries, kind 資料請求…） */
+  const where = req.query && req.query.shiryo ? "WHERE t.kind LIKE '資料請求%'" : '';
+  const r = await pool.query(`SELECT t.*, ${LAST_MAIL('inquiry')} FROM inquiries t ${where} ORDER BY t.created_at DESC LIMIT ${lim}`);
+  const total = (await pool.query(`SELECT count(*)::int n FROM inquiries t ${where}`)).rows[0].n;
   res.json({ items: r.rows, total });
 });
 /* 2026-10-08: đổi cờ 営業・迷惑 bằng tay (bộ lọc nhận nhầm → 「営業ではない」). body {spam: null | 'sales' | 'bot'} */

@@ -58,7 +58,7 @@ function startServer(extraEnv) {
     srv = spawn(process.execPath, ['server.js'], { cwd: ROOT, env: { ...process.env, DATABASE_URL: DB, SESSION_SECRET: SECRET, PORT: String(PORT),
       SITE_DIR: SITE, ADMIN_EMAILS: ADMIN, GOOGLE_CLIENT_ID: 'test.apps.googleusercontent.com', NODE_ENV: 'test', NODE_TLS_REJECT_UNAUTHORIZED: '0',
       SMTP_HOST: '127.0.0.1', SMTP_PORT: String(PORT + 500), SMTP_SECURE: 'false', SMTP_NOAUTH: 'true', SMTP_USER: 'no-reply@example.com',
-      MAIL_FROM: 'BIGLIGHT <no-reply@example.com>', ADMIN_NOTIFY_TO: 'notify@example.com', ...(extraEnv || {}) } });
+      MAIL_FROM: 'BIGLIGHT <no-reply@example.com>', ADMIN_NOTIFY_TO: 'notify@example.com', CRM_RELAY_URL: 'http://127.0.0.1:' + (PORT + 700), ...(extraEnv || {}) } });
     srv.stdout.on('data', d => { srvLog += d; }); srv.stderr.on('data', d => { srvLog += d; });
     const t0 = Date.now();
     (async function wait() {
@@ -367,6 +367,36 @@ async function call(p, opt) {
   });
 
   await ok('trong suốt bài test máy chủ không in unhandledRejection', async () => { assert.ok(!/unhandledRejection/.test(srvLog), srvLog.slice(-500)); });
+
+  console.log('\n2026-11-01 資料請求の設定');
+  await ok('設定: 管理者のみ・公開 API に 通知先は 出ない', async () => {
+    assert.strictEqual((await call('/api/material-settings', { cookie: S })).status, 403);
+    const b = { fromName: 'BIGLIGHT', fromAddr: 'info@biglight.jp', replyTo: 'sales@biglight.jp', notifyTo: 'a@biglight.jp, b@biglight.jp', subject: '件名', body: 'x {{資料リンク}}', days: 90 };
+    assert.strictEqual((await call('/api/material-settings', { method: 'PUT', cookie: A, body: { ...b, fromAddr: 'x@gmail.com' } })).status, 400);
+    assert.strictEqual((await call('/api/material-settings', { method: 'PUT', cookie: A, body: { ...b, body: 'リンクなし' } })).status, 400);
+    assert.strictEqual((await call('/api/material-settings', { method: 'PUT', cookie: A, body: { ...b, days: 7 } })).status, 400);
+    const r = await call('/api/material-settings', { method: 'PUT', cookie: A, body: b }); assert.strictEqual(r.status, 200, r.text);
+    assert.deepStrictEqual(r.json.settings.notifyTo, ['a@biglight.jp', 'b@biglight.jp']);
+    const p = await call('/api/public/material-settings');
+    assert.strictEqual(p.json.fromAddr, 'info@biglight.jp'); assert.strictEqual(p.json.notifyTo, undefined);
+  });
+  await ok('テスト送信: 券は 1 回限り・宛先は ログイン中の本人', async () => {
+    let got = null;
+    const crm = http.createServer((q, w) => { let b = ''; q.on('data', c => b += c); q.on('end', async () => { const t = JSON.parse(b).ticket; got = await (await fetch(BASE + '/api/public/mail-ticket/' + t)).json(); const again = await fetch(BASE + '/api/public/mail-ticket/' + t); w.setHeader('Content-Type', 'application/json'); w.end(JSON.stringify({ ok: again.status === 404 })); }); });
+    await new Promise(r => crm.listen(PORT + 700, '127.0.0.1', r));
+    const r = await call('/api/material-settings/test', { method: 'POST', cookie: A, body: {} });
+    crm.close();
+    assert.strictEqual(r.json.ok, true, r.text); assert.deepStrictEqual(got.to, [ADMIN]); assert.strictEqual(got.fresh, true);
+  });
+  await ok('?shiryo=1 は 資料請求だけ', async () => {
+    await pool.query("INSERT INTO inquiries(company,name,email,tel,message,kind) VALUES('C','N','s1@example.com','0','m','資料請求（自動送付）'),('C','N','s2@example.com','0','m','無料相談')");
+    const r = await call('/api/inquiries?shiryo=1', { cookie: A });
+    assert.ok(r.json.items.some(x => x.email === 's1@example.com')); assert.ok(!r.json.items.some(x => x.email === 's2@example.com'));
+  });
+  await ok('資料一覧の /api/shiryo-list と メールの /api/materials は 別物', async () => {
+    assert.ok(Array.isArray((await call('/api/materials', { cookie: A })).json.items));
+    assert.notStrictEqual((await call('/api/shiryo-list')).status, 200);
+  });
 
   console.log('\n2026-10-08 Turnstile bật (TURNSTILE_SECRET)');
   srv.kill(); await new Promise(r => srv.on('exit', r));
