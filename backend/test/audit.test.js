@@ -122,6 +122,18 @@ async function call(p, opt) {
   });
 
   console.log('\n#3 Phiên: vô hiệu hoá / hạ quyền có tác dụng NGAY');
+  await ok('印刷データ: chưa đăng nhập → 401; đăng nhập → danh sách + tải được PDF, có ghi 監査ログ; tên ngoài manifest → 404', async () => {
+    assert.strictEqual((await call('/api/print-list')).status, 401);
+    assert.strictEqual((await call('/api/print-file/kaisha-annai-nyuko.pdf')).status, 401);
+    const l = await call('/api/print-list', { cookie: S2 }); assert.strictEqual(l.status, 200);
+    const it = l.json.items.find(x => x.id === 'kaisha-annai'); assert.ok(it, 'thiếu kaisha-annai');
+    assert.deepStrictEqual(it.files.map(f => f.key), ['nyuko', 'book', 'a3', 'a4']); assert.ok(it.files.every(f => f.size > 1e6), 'PDF phải có trong backend/print');
+    const r = await fetch(BASE + '/api/print-file/kaisha-annai-nyuko.pdf', { headers: { Cookie: S2 } }); assert.strictEqual(r.status, 200);
+    assert.ok(/attachment/.test(r.headers.get('content-disposition') || '')); const b = Buffer.from(await r.arrayBuffer()); assert.strictEqual(b.subarray(0, 5).toString(), '%PDF-');
+    assert.strictEqual((await fetch(BASE + '/api/print-file/manifest.json', { headers: { Cookie: S2 } })).status, 404);
+    assert.strictEqual((await fetch(BASE + '/api/print-file/..%2Fserver.js', { headers: { Cookie: S2 } })).status, 404);
+    const a = await pool.query("SELECT count(*)::int n FROM audit_logs WHERE entity='print' AND action='export'"); assert.strictEqual(a.rows[0].n, 1);
+  });
   await ok('staff đang đăng nhập đọc được /api/inquiries', async () => { assert.strictEqual((await call('/api/inquiries', { cookie: S2 })).status, 200); });
   await ok('admin đặt staff2 = 無効 → request kế tiếp của staff2 bị 401 (không chờ 14 ngày)', async () => {
     assert.strictEqual((await call('/api/profiles/' + STAFF2, { method: 'PUT', cookie: A, body: { status: 'disabled' } })).status, 200);
