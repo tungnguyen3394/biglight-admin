@@ -655,6 +655,24 @@ app.get('/api/shiryo-list', requireAuth, async (_q, res) => {
   }
 });
 
+/* 2026-11-20 印刷データ: 会社案内（中綴じ冊子）などの 入稿用 PDF。ログインした 社員だけが 取り出せる（public/ には 置かない）。
+   配るのは print/manifest.json に 載っている ファイルだけ。PDF の ダウンロードは 監査ログに 残す */
+const PRINT_DIR = path.join(__dirname, 'print');
+function printManifest() { try { const m = JSON.parse(fs.readFileSync(path.join(PRINT_DIR, 'manifest.json'), 'utf8')); return Array.isArray(m.items) ? m.items : []; } catch (e) { return []; } }
+app.get('/api/print-list', requireAuth, (_q, res) => {
+  const size = f => { try { return fs.statSync(path.join(PRINT_DIR, f)).size; } catch (e) { return 0; } };
+  res.json({ items: printManifest().map(it => ({ id: it.id, name: it.name, meta: it.meta, updated: it.updated, thumb: it.thumb, files: (it.files || []).map(f => ({ key: f.key, file: f.file, size: size(f.file) })) })) });
+});
+app.get('/api/print-file/:name', requireAuth, async (req, res) => {
+  const items = printManifest(); const name = String(req.params.name || '');
+  res.set('Cache-Control', 'private, no-store');
+  if (items.some(it => it.thumb === name)) return res.sendFile(path.join(PRINT_DIR, name));
+  const f = items.flatMap(it => it.files || []).find(x => x.file === name);
+  if (!f || !fs.existsSync(path.join(PRINT_DIR, f.file))) return res.status(404).json({ error: 'ファイルがありません' });
+  await audit(req, 'export', 'print', f.file, '印刷データをダウンロード: ' + (f.save || f.file));
+  res.download(path.join(PRINT_DIR, f.file), f.save || f.file);
+});
+
 /* 2026-11-01 資料請求の設定: 差出人・返信先・通知先・テンプレート・リンクの期限。CRM が 公開 API で 読む（通知先は 出さない）。
    差出人は Google で 別名登録した @biglight.jp だけ（未登録だと Google が marketing@ に書き換える） */
 const MAT_BODY = '{{会社名}}\n{{お名前}} 様\n\n資料のご請求ありがとうございます。\n下記のリンクからご覧いただけます。\n\n{{資料リンク}}\n\nご不明な点がございましたら、お気軽にご連絡ください。\n\n※お心当たりのない場合は、本メールを破棄してください。\n\n{{連絡先}}';

@@ -1,0 +1,17 @@
+{
+  "items": [
+    {
+      "id": "kaisha-annai",
+      "name": "会社案内",
+      "meta": "中綴じ冊子・16ページ・A4縦",
+      "updated": "2026-11-20",
+      "thumb": "kaisha-annai-cover.jpg",
+      "files": [
+        { "key": "nyuko", "file": "kaisha-annai-nyuko.pdf", "save": "BIGLIGHT_会社案内_入稿用_塗り足し3mm.pdf" },
+        { "key": "book", "file": "kaisha-annai-book.pdf", "save": "BIGLIGHT_会社案内_A4_ページ順.pdf" },
+        { "key": "a3", "file": "kaisha-annai-a3.pdf", "save": "BIGLIGHT_会社案内_面付け済み_A3用紙.pdf" },
+        { "key": "a4", "file": "kaisha-annai-a4.pdf", "save": "BIGLIGHT_会社案内_面付け済み_A4用紙.pdf" }
+      ]
+    }
+  ]
+}

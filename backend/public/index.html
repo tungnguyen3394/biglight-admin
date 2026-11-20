@@ -717,15 +717,40 @@ async function renderMaterials(){
         <a class="btn navy" style="text-decoration:none;display:inline-block" href="${esc(m.url)}" target="_blank" rel="noopener">Webで見る</a>
         <a class="btn" style="text-decoration:none;display:inline-block" href="${esc(m.pdf)}" target="_blank" rel="noopener">PDF</a></div></div>`).join('')}</div>`; bindDlHead();
 }
+/* ===== 印刷データ（2026-11-20）: 会社案内の 冊子を 印刷会社へ 渡す／社内で 刷る。社外には 出ない ===== */
+const PRT_SPEC=[['仕上がりサイズ','A4 縦（210×297mm）'],['ページ数','16ページ（表紙込み）'],['製本','中綴じ・左綴じ'],['印刷','両面フルカラー'],['データ','単ページPDF・塗り足し 各辺3mm（216×303mm）・トンボなし'],['色','RGB']];
+const PRT_FILE={nyuko:['入稿用PDF','塗り足し3mm・単ページ'],book:['ページ順PDF','複合機の 小冊子（中とじ）機能で。用紙 A3・左とじ'],a3:['面付け済み A3','A3・両面・短辺とじ・実際のサイズ（100%）'],a4:['面付け済み A4','A4・両面・短辺とじ・100%。仕上がりは A5']};
+async function renderPrint(){
+  $('#main').innerHTML=dlHead()+'<div class="crumb">読み込み中…</div>'; bindDlHead();
+  let items=null; try{ const r=await api('/api/print-list'); if(r.ok) items=(await r.json()).items; }catch(e){}
+  if(!items){ $('#main').innerHTML=dlHead()+'<div class="tablewrap"><div class="empty">印刷データを読み込めませんでした。</div></div>'; bindDlHead(); return; }
+  const mb=n=>n?(n/1048576).toFixed(1)+' MB':'';
+  const btn=(f,navy)=>{ const L=PRT_FILE[f.key]||[f.file,'']; return `<div style="display:grid;grid-template-columns:190px 1fr;gap:14px;align-items:center;padding:9px 0;border-top:1px solid var(--line)"><a class="btn${navy?' navy':''}" style="text-decoration:none;text-align:center" href="/api/print-file/${encodeURIComponent(f.file)}">${esc(L[0])}</a><div style="font-size:13px;color:var(--muted)">${esc(L[1])}　${mb(f.size)}</div></div>`; };
+  const spec=PRT_SPEC.map(([k,v])=>k+'：'+v).join('\n');
+  $('#main').innerHTML=`${dlHead()}<div class="crumb">社内用（Webには公開されません）</div>
+    <div style="display:grid;gap:12px;max-width:900px">${items.map(m=>{ const by=k=>m.files.filter(f=>f.key===k); return `<div class="tablewrap" style="padding:16px 18px">
+      <div style="display:grid;grid-template-columns:260px 1fr;gap:22px;align-items:start">
+        <img src="/api/print-file/${encodeURIComponent(m.thumb)}" alt="" style="display:block;width:100%;border:1px solid var(--line);border-radius:4px">
+        <div><div style="font-size:17px;font-weight:700">${esc(m.name)}</div><div style="font-size:13px;color:var(--muted);margin:3px 0 0">${esc(m.meta)}　更新 ${esc(m.updated)}</div></div>
+      </div>
+      <div style="font-size:14px;font-weight:700;margin:18px 0 8px">印刷会社に入稿する</div>
+      ${by('nyuko').map(f=>btn(f,true)).join('')}
+      <div style="display:grid;grid-template-columns:190px 1fr;gap:14px;align-items:start;padding:10px 0;border-top:1px solid var(--line)"><button class="btn" id="prtCopy">入稿仕様をコピー</button>
+        <table style="border-collapse:collapse;font-size:13px">${PRT_SPEC.map(([k,v])=>`<tr><td style="color:var(--muted);padding:2px 16px 2px 0;white-space:nowrap">${k}</td><td style="padding:2px 0">${v}</td></tr>`).join('')}</table></div>
+      <div style="font-size:14px;font-weight:700;margin:18px 0 8px">社内の複合機で刷る</div>
+      ${['book','a3','a4'].map(k=>by(k).map(f=>btn(f)).join('')).join('')}
+    </div>`; }).join('')}</div>`; bindDlHead();
+  { const b=$('#prtCopy'); if(b) b.onclick=async()=>{ try{ await navigator.clipboard.writeText(spec); b.textContent='コピーしました'; setTimeout(()=>{ b.textContent='入稿仕様をコピー'; },1600); }catch(e){ prompt('コピーしてください',spec); } }; }
+}
 /* ===== 資料請求 ===== */
 let DL=[],DLF='ok';
 /* 2026-11-01 資料請求 = 1 画面 4 タブ: 請求一覧（Web の新フォーム）/ 資料一覧 / 設定（管理者のみ）/ 旧フォーム */
 let DLT='req';
-function dlHead(){ const t=[['req','請求一覧'],['mat','資料一覧']].concat(PERM.isAdmin?[['set','設定']]:[]).concat([['old','旧フォーム']]);
+function dlHead(){ const t=[['req','請求一覧'],['mat','資料一覧'],['prt','印刷データ']].concat(PERM.isAdmin?[['set','設定']]:[]).concat([['old','旧フォーム']]);
   return `<div class="h1">資料請求</div><div class="toolbar" style="margin-top:12px">${t.map(([k,l])=>`<span class="tab dtab${DLT===k?' on':''}" data-t="${k}">${l}</span>`).join('')}</div>`; }
 function bindDlHead(){ document.querySelectorAll('.dtab').forEach(t=>t.onclick=()=>renderDownloads(t.dataset.t)); }
 async function renderDownloads(t){ if(t) DLT=t; if(DLT==='set'&&!PERM.isAdmin) DLT='req';
-  if(DLT==='mat') return renderMaterials(); if(DLT==='set') return renderDlSettings(); if(DLT==='old') return renderDownloadsOld();
+  if(DLT==='mat') return renderMaterials(); if(DLT==='prt') return renderPrint(); if(DLT==='set') return renderDlSettings(); if(DLT==='old') return renderDownloadsOld();
   $('#main').innerHTML=dlHead()+'<div id="body"><div class="empty">読み込み中…</div></div>'; bindDlHead();
   let CR=[],crmOk=true;
   await Promise.all([(async()=>{ try{ INQ=(await(await api('/api/inquiries?shiryo=1')).json()).items||[]; }catch(e){ INQ=[]; } })(),(async()=>{ try{ const r=await api('/api/material-requests'), j=await r.json(); CR=j.items||[]; crmOk=r.ok; }catch(e){ crmOk=false; } })()]);
@@ -1627,7 +1652,7 @@ function mcDone(){ const kind=MC&&MC.kind; closeModal(); MC=null;
 
 /* ===== 監査ログ（管理者のみ） ===== */
 const AU_ACTION={login:'ログイン',login_denied:'ログイン拒否',logout:'ログアウト',create:'作成',update:'変更',replace:'差し替え',delete:'削除',send:'メール送信',send_failed:'送信失敗',export:'CSV出力',regenerate:'再生成',revoke:'無効化'};
-const AU_ENTITY={auth:'認証',inquiry:'問い合わせ',download:'資料請求',mail:'メール',post:'記事',category:'カテゴリ',template:'テンプレート',signature:'署名',material:'資料',mail_log:'送信履歴',mail_meta:'メール設定',user:'ユーザー',perms:'権限',gas:'GAS設定',api_key:'APIキー',inquiries:'問い合わせ',downloads:'資料請求',posts:'記事'};
+const AU_ENTITY={auth:'認証',inquiry:'問い合わせ',download:'資料請求',mail:'メール',post:'記事',category:'カテゴリ',template:'テンプレート',signature:'署名',material:'資料',print:'印刷データ',mail_log:'送信履歴',mail_meta:'メール設定',user:'ユーザー',perms:'権限',gas:'GAS設定',api_key:'APIキー',inquiries:'問い合わせ',downloads:'資料請求',posts:'記事'};
 const AU_COLOR={delete:'#fde2e2;color:#b91c1c',send_failed:'#fde2e2;color:#b91c1c',login_denied:'#fde2e2;color:#b91c1c',send:'#e2f4ea;color:#1c7a47',create:'#e7eefb;color:#0b3d91',export:'#fdeccb;color:#9a5b00'};
 let AU={f:{from:'',to:'',actor:'',entity:'',action:'',q:''},items:[],total:0,actors:[],open:{}};
 async function renderAudit(){
