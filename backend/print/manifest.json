@@ -7,10 +7,58 @@
       "updated": "2026-11-20",
       "thumb": "kaisha-annai-cover.jpg",
       "files": [
-        { "key": "nyuko", "file": "kaisha-annai-nyuko.pdf", "save": "BIGLIGHT_会社案内_入稿用_塗り足し3mm.pdf" },
-        { "key": "book", "file": "kaisha-annai-book.pdf", "save": "BIGLIGHT_会社案内_A4_ページ順.pdf" },
-        { "key": "a3", "file": "kaisha-annai-a3.pdf", "save": "BIGLIGHT_会社案内_面付け済み_A3用紙.pdf" },
-        { "key": "a4", "file": "kaisha-annai-a4.pdf", "save": "BIGLIGHT_会社案内_面付け済み_A4用紙.pdf" }
+        {
+          "key": "nyuko",
+          "file": "kaisha-annai-nyuko.pdf",
+          "save": "BIGLIGHT_会社案内_入稿用_塗り足し3mm.pdf"
+        },
+        {
+          "key": "book",
+          "file": "kaisha-annai-book.pdf",
+          "save": "BIGLIGHT_会社案内_A4_ページ順.pdf"
+        },
+        {
+          "key": "a3",
+          "file": "kaisha-annai-a3.pdf",
+          "save": "BIGLIGHT_会社案内_面付け済み_A3用紙.pdf"
+        },
+        {
+          "key": "a4",
+          "file": "kaisha-annai-a4.pdf",
+          "save": "BIGLIGHT_会社案内_面付け済み_A4用紙.pdf"
+        }
+      ]
+    },
+    {
+      "id": "chirashi-tobikomi",
+      "kind": "flyer",
+      "name": "チラシ（飛び込み営業用）",
+      "meta": "A4縦・両面（表：ご案内／裏：流れ・ご質問・FAX）",
+      "updated": "2026-11-20",
+      "thumb": "chirashi-thumb.jpg",
+      "note": "印刷：A4・両面・長辺とじ・実際のサイズ（100%）。フチあり（周囲6mmは白）なので、複合機でも印刷会社でもそのまま刷れます。",
+      "files": [
+        {
+          "key": "yosetsu",
+          "file": "chirashi-yosetsu.pdf",
+          "save": "BIGLIGHT_チラシ_溶接.pdf",
+          "label": "溶接",
+          "desc": "溶接・鉄工・製缶の会社様へ"
+        },
+        {
+          "key": "kensetsu",
+          "file": "chirashi-kensetsu.pdf",
+          "save": "BIGLIGHT_チラシ_建設.pdf",
+          "label": "建設",
+          "desc": "建設業の会社様へ"
+        },
+        {
+          "key": "zengyoshu",
+          "file": "chirashi-zengyoshu.pdf",
+          "save": "BIGLIGHT_チラシ_全業種.pdf",
+          "label": "全業種",
+          "desc": "人手不足でお困りの会社様へ"
+        }
       ]
     }
   ]

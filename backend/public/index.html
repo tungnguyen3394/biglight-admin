@@ -717,7 +717,7 @@ async function renderMaterials(){
         <a class="btn navy" style="text-decoration:none;display:inline-block" href="${esc(m.url)}" target="_blank" rel="noopener">Webで見る</a>
         <a class="btn" style="text-decoration:none;display:inline-block" href="${esc(m.pdf)}" target="_blank" rel="noopener">PDF</a></div></div>`).join('')}</div>`; bindDlHead();
 }
-/* ===== 印刷データ（2026-11-20）: 会社案内の 冊子を 印刷会社へ 渡す／社内で 刷る。社外には 出ない ===== */
+/* ===== 印刷データ（2026-11-20）: 会社案内の 冊子と 飛び込み営業用 チラシ（kind=flyer）を 印刷会社へ 渡す／社内で 刷る。社外には 出ない ===== */
 const PRT_SPEC=[['仕上がりサイズ','A4 縦（210×297mm）'],['ページ数','16ページ（表紙込み）'],['製本','中綴じ・左綴じ'],['印刷','両面フルカラー'],['データ','単ページPDF・塗り足し 各辺3mm（216×303mm）・トンボなし'],['色','RGB']];
 const PRT_FILE={nyuko:['入稿用PDF','塗り足し3mm・単ページ'],book:['ページ順PDF','複合機の 小冊子（中とじ）機能で。用紙 A3・左とじ'],a3:['面付け済み A3','A3・両面・短辺とじ・実際のサイズ（100%）'],a4:['面付け済み A4','A4・両面・短辺とじ・100%。仕上がりは A5']};
 async function renderPrint(){
@@ -725,10 +725,19 @@ async function renderPrint(){
   let items=null; try{ const r=await api('/api/print-list'); if(r.ok) items=(await r.json()).items; }catch(e){}
   if(!items){ $('#main').innerHTML=dlHead()+'<div class="tablewrap"><div class="empty">印刷データを読み込めませんでした。</div></div>'; bindDlHead(); return; }
   const mb=n=>n?(n/1048576).toFixed(1)+' MB':'';
-  const btn=(f,navy)=>{ const L=PRT_FILE[f.key]||[f.file,'']; return `<div style="display:grid;grid-template-columns:190px 1fr;gap:14px;align-items:center;padding:9px 0;border-top:1px solid var(--line)"><a class="btn${navy?' navy':''}" style="text-decoration:none;text-align:center" href="/api/print-file/${encodeURIComponent(f.file)}">${esc(L[0])}</a><div style="font-size:13px;color:var(--muted)">${esc(L[1])}　${mb(f.size)}</div></div>`; };
+  const btn=(f,navy)=>{ const L=f.label?[f.label,f.desc]:(PRT_FILE[f.key]||[f.file,'']); return `<div style="display:grid;grid-template-columns:190px 1fr;gap:14px;align-items:center;padding:9px 0;border-top:1px solid var(--line)"><a class="btn${navy?' navy':''}" style="text-decoration:none;text-align:center" href="/api/print-file/${encodeURIComponent(f.file)}">${esc(L[0])}</a><div style="font-size:13px;color:var(--muted)">${esc(L[1])}　${mb(f.size)}</div></div>`; };
   const spec=PRT_SPEC.map(([k,v])=>k+'：'+v).join('\n');
   $('#main').innerHTML=`${dlHead()}<div class="crumb">社内用（Webには公開されません）</div>
-    <div style="display:grid;gap:12px;max-width:900px">${items.map(m=>{ const by=k=>m.files.filter(f=>f.key===k); return `<div class="tablewrap" style="padding:16px 18px">
+    <div style="display:grid;gap:12px;max-width:900px">${items.map(m=>{ const by=k=>m.files.filter(f=>f.key===k);
+      if(m.kind==='flyer') return `<div class="tablewrap" style="padding:16px 18px">
+      <div style="display:grid;grid-template-columns:260px 1fr;gap:22px;align-items:start">
+        <img src="/api/print-file/${encodeURIComponent(m.thumb)}" alt="" style="display:block;width:100%;border:1px solid var(--line);border-radius:4px">
+        <div><div style="font-size:17px;font-weight:700">${esc(m.name)}</div><div style="font-size:13px;color:var(--muted);margin:3px 0 0">${esc(m.meta)}　更新 ${esc(m.updated)}</div><div style="font-size:13px;margin:10px 0 0;line-height:1.7">${esc(m.note)}</div></div>
+      </div>
+      <div style="font-size:14px;font-weight:700;margin:18px 0 8px">業種を選んでダウンロード</div>
+      ${m.files.map(f=>btn(f,true)).join('')}
+    </div>`;
+      return `<div class="tablewrap" style="padding:16px 18px">
       <div style="display:grid;grid-template-columns:260px 1fr;gap:22px;align-items:start">
         <img src="/api/print-file/${encodeURIComponent(m.thumb)}" alt="" style="display:block;width:100%;border:1px solid var(--line);border-radius:4px">
         <div><div style="font-size:17px;font-weight:700">${esc(m.name)}</div><div style="font-size:13px;color:var(--muted);margin:3px 0 0">${esc(m.meta)}　更新 ${esc(m.updated)}</div></div>
