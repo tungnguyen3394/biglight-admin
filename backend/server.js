@@ -659,18 +659,64 @@ app.get('/api/shiryo-list', requireAuth, async (_q, res) => {
    配るのは print/manifest.json に 載っている ファイルだけ。PDF の ダウンロードは 監査ログに 残す */
 const PRINT_DIR = path.join(__dirname, 'print');
 function printManifest() { try { const m = JSON.parse(fs.readFileSync(path.join(PRINT_DIR, 'manifest.json'), 'utf8')); return Array.isArray(m.items) ? m.items : []; } catch (e) { return []; } }
-app.get('/api/print-list', requireAuth, (_q, res) => {
+/* 2026-11-21 Đợt 3: CRM の 資料ライブラリ（sales の 営業資料 › 社内資料 と 同じ もの）を 正 に する。
+   ・鍵 CRM_LIBRARY_KEY（CRM の setup-library-key.yml が 書く）が 無い／CRM が 答えない 間は 手元の print/ を 出す（止まらない）
+   ・同じ id の 資料: key が 同じ ファイル は CRM を 出す（名前・説明は admin の まま）。入稿用 など CRM に 無い key は 手元 */
+const CRM_LIB_BASE = String(process.env.CRM_LIBRARY_URL || 'https://api-crm.biglight.jp').replace(/\/+$/, '');
+let CRM_LIB = { at: 0, items: null };
+async function crmLibrary() {
+  const k = String(process.env.CRM_LIBRARY_KEY || ''); if (k.length < 32) return null;
+  if (Date.now() - CRM_LIB.at < 60000) return CRM_LIB.items;
+  try {
+    const r = await fetch(CRM_LIB_BASE + '/library', { headers: { 'X-Library-Key': k }, signal: AbortSignal.timeout(8000) });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const j = await r.json(); CRM_LIB = { at: Date.now(), items: Array.isArray(j.items) ? j.items : [] };
+  } catch (e) { console.warn('crm library:', e.message); CRM_LIB.at = Date.now(); }
+  return CRM_LIB.items;
+}
+async function printItems() {
   const size = f => { try { return fs.statSync(path.join(PRINT_DIR, f)).size; } catch (e) { return 0; } };
-  res.json({ items: printManifest().map(it => ({ id: it.id, kind: it.kind || 'booklet', name: it.name, meta: it.meta, note: it.note || '', pick: it.pick || '', updated: it.updated, thumb: it.thumb, files: (it.files || []).map(f => ({ key: f.key, file: f.file, label: f.label || '', desc: f.desc || '', size: size(f.file) })) })) });
+  const out = printManifest().map(it => ({ id: it.id, kind: it.kind || 'booklet', name: it.name, meta: it.meta, note: it.note || '', pick: it.pick || '', updated: it.updated, thumb: it.thumb, src: 'local',
+    files: (it.files || []).map(f => ({ key: f.key, file: f.file, save: f.save || f.file, label: f.label || '', desc: f.desc || '', size: size(f.file) })) }));
+  const crm = await crmLibrary();
+  for (const c of (crm || [])) {
+    const day = String(c.updated || '').slice(0, 10);
+    const cf = (c.files || []).map(f => ({ key: f.key, file: 'crm:' + f.id, save: f.save || f.id, label: f.label || '', desc: f.desc || '', size: Number(f.size) || 0 }));
+    let it = out.find(x => x.id === c.id);
+    if (!it) { out.push({ id: c.id, kind: 'flyer', name: c.name, meta: c.meta || '', note: c.note || '', pick: c.pick || 'ダウンロード', updated: day, thumb: c.thumb ? 'crm:' + c.thumb : '', src: 'crm', files: cf }); continue; }
+    it.src = 'crm';
+    if (c.thumb) it.thumb = 'crm:' + c.thumb;
+    if (day && day > String(it.updated || '')) it.updated = day;
+    for (const f of cf) { const l = it.files.find(x => x.key === f.key); if (l) { l.file = f.file; l.size = f.size; } else it.files.push(f); }
+  }
+  return out;
+}
+app.get('/api/print-list', requireAuth, async (_q, res) => {
+  const items = await printItems();
+  res.json({ items: items.map(it => ({ id: it.id, kind: it.kind, name: it.name, meta: it.meta, note: it.note, pick: it.pick, updated: it.updated, thumb: it.thumb, src: it.src, files: it.files.map(f => ({ key: f.key, file: f.file, label: f.label, desc: f.desc, size: f.size })) })) });
 });
 app.get('/api/print-file/:name', requireAuth, async (req, res) => {
-  const items = printManifest(); const name = String(req.params.name || '');
+  const items = await printItems(); const name = String(req.params.name || '');
   res.set('Cache-Control', 'private, no-store');
-  if (items.some(it => it.thumb === name)) return res.sendFile(path.join(PRINT_DIR, name));
-  const f = items.flatMap(it => it.files || []).find(x => x.file === name);
-  if (!f || !fs.existsSync(path.join(PRINT_DIR, f.file))) return res.status(404).json({ error: 'ファイルがありません' });
-  await audit(req, 'export', 'print', f.file, '印刷データをダウンロード: ' + (f.save || f.file));
-  res.download(path.join(PRINT_DIR, f.file), f.save || f.file);
+  const isThumb = items.some(it => it.thumb === name);
+  const f = isThumb ? null : items.flatMap(it => it.files || []).find(x => x.file === name);
+  if (!isThumb && !f) return res.status(404).json({ error: 'ファイルがありません' });
+  if (name.startsWith('crm:')) {
+    try {
+      const u = (req.session && req.session.user) || {};
+      const r = await fetch(CRM_LIB_BASE + '/library/file/' + encodeURIComponent(name.slice(4)), { headers: { 'X-Library-Key': String(process.env.CRM_LIBRARY_KEY || ''), 'X-Acting-User': String(u.email || '') }, signal: AbortSignal.timeout(60000) });
+      if (!r.ok) return res.status(502).json({ error: 'CRM からファイルを読めませんでした' });
+      const buf = Buffer.from(await r.arrayBuffer());
+      if (!isThumb) await audit(req, 'export', 'print', name, '印刷データをダウンロード: ' + f.save);
+      res.type(r.headers.get('content-type') || 'application/octet-stream');
+      if (isThumb) return res.send(buf);
+      res.attachment(f.save); return res.send(buf);
+    } catch (e) { return res.status(502).json({ error: 'CRM からファイルを読めませんでした' }); }
+  }
+  if (isThumb) return res.sendFile(path.join(PRINT_DIR, path.basename(name)));
+  if (!fs.existsSync(path.join(PRINT_DIR, f.file))) return res.status(404).json({ error: 'ファイルがありません' });
+  await audit(req, 'export', 'print', f.file, '印刷データをダウンロード: ' + f.save);
+  res.download(path.join(PRINT_DIR, f.file), f.save);
 });
 
 /* 2026-11-01 資料請求の設定: 差出人・返信先・通知先・テンプレート・リンクの期限。CRM が 公開 API で 読む（通知先は 出さない）。
