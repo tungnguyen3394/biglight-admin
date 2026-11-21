@@ -734,7 +734,7 @@ async function renderPrint(){
         <img src="/api/print-file/${encodeURIComponent(m.thumb)}" alt="" style="display:block;width:100%;border:1px solid var(--line);border-radius:4px">
         <div><div style="font-size:17px;font-weight:700">${esc(m.name)}</div><div style="font-size:13px;color:var(--muted);margin:3px 0 0">${esc(m.meta)}　更新 ${esc(m.updated)}</div><div style="font-size:13px;margin:10px 0 0;line-height:1.7">${esc(m.note)}</div></div>
       </div>
-      <div style="font-size:14px;font-weight:700;margin:18px 0 8px">業種を選んでダウンロード</div>
+      <div style="font-size:14px;font-weight:700;margin:18px 0 8px">${esc(m.pick||'業種を選んでダウンロード')}</div>
       ${m.files.map(f=>btn(f,true)).join('')}
     </div>`;
       return `<div class="tablewrap" style="padding:16px 18px">

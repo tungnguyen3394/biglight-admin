@@ -661,7 +661,7 @@ const PRINT_DIR = path.join(__dirname, 'print');
 function printManifest() { try { const m = JSON.parse(fs.readFileSync(path.join(PRINT_DIR, 'manifest.json'), 'utf8')); return Array.isArray(m.items) ? m.items : []; } catch (e) { return []; } }
 app.get('/api/print-list', requireAuth, (_q, res) => {
   const size = f => { try { return fs.statSync(path.join(PRINT_DIR, f)).size; } catch (e) { return 0; } };
-  res.json({ items: printManifest().map(it => ({ id: it.id, kind: it.kind || 'booklet', name: it.name, meta: it.meta, note: it.note || '', updated: it.updated, thumb: it.thumb, files: (it.files || []).map(f => ({ key: f.key, file: f.file, label: f.label || '', desc: f.desc || '', size: size(f.file) })) })) });
+  res.json({ items: printManifest().map(it => ({ id: it.id, kind: it.kind || 'booklet', name: it.name, meta: it.meta, note: it.note || '', pick: it.pick || '', updated: it.updated, thumb: it.thumb, files: (it.files || []).map(f => ({ key: f.key, file: f.file, label: f.label || '', desc: f.desc || '', size: size(f.file) })) })) });
 });
 app.get('/api/print-file/:name', requireAuth, async (req, res) => {
   const items = printManifest(); const name = String(req.params.name || '');
