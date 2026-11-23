@@ -719,7 +719,7 @@ async function renderMaterials(){
 }
 /* ===== 印刷データ（2026-11-20）: 会社案内の 冊子と 飛び込み営業用 チラシ（kind=flyer）を 印刷会社へ 渡す／社内で 刷る。社外には 出ない ===== */
 const PRT_SPEC=[['仕上がりサイズ','A4 縦（210×297mm）'],['ページ数','16ページ（表紙込み）'],['製本','中綴じ・左綴じ'],['印刷','両面フルカラー'],['データ','単ページPDF・塗り足し 各辺3mm（216×303mm）・トンボなし'],['色','RGB']];
-const PRT_FILE={nyuko:['入稿用PDF','塗り足し3mm・単ページ'],book:['ページ順PDF','複合機の 小冊子（中とじ）機能で。用紙 A3・左とじ'],a3:['面付け済み A3','A3・両面・短辺とじ・実際のサイズ（100%）'],a4:['面付け済み A4','A4・両面・短辺とじ・100%。仕上がりは A5']};
+const PRT_FILE={nyuko:['入稿用PDF','塗り足し3mm・単ページ'],book:['ページ順PDF','複合機の 小冊子（中とじ）機能で。用紙 A3・左とじ'],sra3:['白フチなし（断裁）','SRA3（320×450）か A3ノビ・両面・短辺とじ・100%。ホチキス後、トンボで断裁 → A4 ぴったり'],a3full:['A3 フチなし','A3・両面・短辺とじ・100%・プリンタの「フチなし」オン'],a3:['面付け済み A3','A3・両面・短辺とじ・100%。周囲 約6mm 白'],a4:['面付け済み A4','A4・両面・短辺とじ・100%。仕上がりは A5']};
 async function renderPrint(){
   $('#main').innerHTML=dlHead()+'<div class="crumb">読み込み中…</div>'; bindDlHead();
   let items=null; try{ const r=await api('/api/print-list'); if(r.ok) items=(await r.json()).items; }catch(e){}
@@ -747,7 +747,7 @@ async function renderPrint(){
       <div style="display:grid;grid-template-columns:190px 1fr;gap:14px;align-items:start;padding:10px 0;border-top:1px solid var(--line)"><button class="btn" id="prtCopy">入稿仕様をコピー</button>
         <table style="border-collapse:collapse;font-size:13px">${PRT_SPEC.map(([k,v])=>`<tr><td style="color:var(--muted);padding:2px 16px 2px 0;white-space:nowrap">${k}</td><td style="padding:2px 0">${v}</td></tr>`).join('')}</table></div>
       <div style="font-size:14px;font-weight:700;margin:18px 0 8px">社内の複合機で刷る</div>
-      ${['book','a3','a4'].map(k=>by(k).map(f=>btn(f)).join('')).join('')}
+      ${['sra3','a3full','book','a3','a4'].map(k=>by(k).map(f=>btn(f)).join('')).join('')}
     </div>`; }).join('')}</div>`; bindDlHead();
   { const b=$('#prtCopy'); if(b) b.onclick=async()=>{ try{ await navigator.clipboard.writeText(spec); b.textContent='コピーしました'; setTimeout(()=>{ b.textContent='入稿仕様をコピー'; },1600); }catch(e){ prompt('コピーしてください',spec); } }; }
 }

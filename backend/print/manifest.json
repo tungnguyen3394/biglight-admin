@@ -4,7 +4,7 @@
       "id": "kaisha-annai",
       "name": "会社案内",
       "meta": "中綴じ冊子・16ページ・A4縦",
-      "updated": "2026-11-20",
+      "updated": "2026-11-23",
       "thumb": "kaisha-annai-cover.jpg",
       "files": [
         {
@@ -16,6 +16,16 @@
           "key": "book",
           "file": "kaisha-annai-book.pdf",
           "save": "BIGLIGHT_会社案内_A4_ページ順.pdf"
+        },
+        {
+          "key": "sra3",
+          "file": "kaisha-annai-sra3.pdf",
+          "save": "BIGLIGHT_会社案内_面付け済み_SRA3用紙_断裁用.pdf"
+        },
+        {
+          "key": "a3full",
+          "file": "kaisha-annai-a3-full.pdf",
+          "save": "BIGLIGHT_会社案内_面付け済み_A3用紙_フチなし.pdf"
         },
         {
           "key": "a3",
