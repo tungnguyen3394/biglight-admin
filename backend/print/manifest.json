@@ -98,6 +98,53 @@
       ]
     },
     {
+      "id": "chirashi-nyuko",
+      "kind": "flyer",
+      "name": "チラシ　入稿用（印刷会社へ送るデータ）",
+      "meta": "A4縦・両面・塗り足し3mm（216×303mm）・文字はアウトライン化済み",
+      "updated": "2026-11-25",
+      "thumb": "chirashi-thumb.jpg",
+      "pick": "入稿データを選ぶ",
+      "note": "印刷会社に そのまま 送るPDFです。仕上がりA4（210×297mm）、周囲3mmは断裁で落ちます（トンボなし）。両面・長辺とじ。色はRGBで作っているので、注文時に「RGB入稿」を選ぶか、印刷会社のCMYK変換に任せてください。名刺スタンドは厚紙160〜180g/m²。",
+      "files": [
+        {
+          "key": "yosetsu",
+          "file": "chirashi-yosetsu-nyuko.pdf",
+          "save": "BIGLIGHT_チラシ_溶接_入稿用.pdf",
+          "label": "溶接",
+          "desc": "2ページ（表・裏）216×303mm"
+        },
+        {
+          "key": "kensetsu",
+          "file": "chirashi-kensetsu-nyuko.pdf",
+          "save": "BIGLIGHT_チラシ_建設_入稿用.pdf",
+          "label": "建設",
+          "desc": "2ページ（表・裏）216×303mm"
+        },
+        {
+          "key": "kikai",
+          "file": "chirashi-kikai-nyuko.pdf",
+          "save": "BIGLIGHT_チラシ_機械加工_入稿用.pdf",
+          "label": "機械加工",
+          "desc": "2ページ（表・裏）216×303mm"
+        },
+        {
+          "key": "zengyoshu",
+          "file": "chirashi-zengyoshu-nyuko.pdf",
+          "save": "BIGLIGHT_チラシ_全業種_入稿用.pdf",
+          "label": "全業種",
+          "desc": "2ページ（表・裏）216×303mm"
+        },
+        {
+          "key": "meishi-stand",
+          "file": "chirashi-meishi-stand-nyuko.pdf",
+          "save": "BIGLIGHT_チラシ_名刺スタンド_入稿用.pdf",
+          "label": "名刺スタンド",
+          "desc": "2ページ（表・裏）216×303mm"
+        }
+      ]
+    },
+    {
       "id": "teian-yosetsu",
       "kind": "flyer",
       "name": "営業資料　溶接人材のご提案（御提案書）",
