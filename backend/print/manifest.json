@@ -162,6 +162,60 @@
           "desc": "16ページ（表紙・目次・課題・お約束・しくみ・人材・腕前の確認・制度・導入事例・保証・流れ）"
         }
       ]
+    },
+    {
+      "id": "poster-gaikokujin",
+      "kind": "flyer",
+      "name": "ポスター（外国人向け・お店に貼る）",
+      "meta": "A2／A3縦・片面・ベトナム語／インドネシア語／ミャンマー語・アプリのQR 4つ（JOB・Academy × iPhone・Android）",
+      "updated": "2026-11-27",
+      "thumb": "poster-gaikokujin-thumb.jpg",
+      "pick": "入稿データを選ぶ",
+      "note": "ベトナム・インドネシア・ミャンマーの方が来るお店（食材店・レストランなど）に貼ってもらうポスターです。印刷会社にそのまま送るPDF（塗り足し3mm付き・文字はアウトライン化済み・トンボなし、仕上がり線 TrimBox 入り・RGB）。おすすめはA2（QR 60mm、約0.6m離れて読める）。A3はQR 43mmで、近くで見る場所用。注文は「A2ポスター・片面カラー・マットコート135kg以上」。QRはApp Store／Google Playに直接つながります。まず1枚刷って、iPhoneとAndroidで4つのQRを読めるか確かめてから枚数を刷ってください。",
+      "files": [
+        {
+          "key": "vi-a2",
+          "file": "poster-vi-a2-nyuko.pdf",
+          "save": "BIGLIGHT_ポスター_ベトナム語_A2_入稿用_塗り足し3mm.pdf",
+          "label": "ベトナム語 A2",
+          "desc": "Tiếng Việt・仕上がり 420×594mm（おすすめ）"
+        },
+        {
+          "key": "vi-a3",
+          "file": "poster-vi-a3-nyuko.pdf",
+          "save": "BIGLIGHT_ポスター_ベトナム語_A3_入稿用_塗り足し3mm.pdf",
+          "label": "ベトナム語 A3",
+          "desc": "Tiếng Việt・仕上がり 297×420mm（レジ横など近くで見る場所）"
+        },
+        {
+          "key": "id-a2",
+          "file": "poster-id-a2-nyuko.pdf",
+          "save": "BIGLIGHT_ポスター_インドネシア語_A2_入稿用_塗り足し3mm.pdf",
+          "label": "インドネシア語 A2",
+          "desc": "Bahasa Indonesia・仕上がり 420×594mm（おすすめ）"
+        },
+        {
+          "key": "id-a3",
+          "file": "poster-id-a3-nyuko.pdf",
+          "save": "BIGLIGHT_ポスター_インドネシア語_A3_入稿用_塗り足し3mm.pdf",
+          "label": "インドネシア語 A3",
+          "desc": "Bahasa Indonesia・仕上がり 297×420mm（レジ横など近くで見る場所）"
+        },
+        {
+          "key": "my-a2",
+          "file": "poster-my-a2-nyuko.pdf",
+          "save": "BIGLIGHT_ポスター_ミャンマー語_A2_入稿用_塗り足し3mm.pdf",
+          "label": "ミャンマー語 A2",
+          "desc": "မြန်မာ・仕上がり 420×594mm（おすすめ）"
+        },
+        {
+          "key": "my-a3",
+          "file": "poster-my-a3-nyuko.pdf",
+          "save": "BIGLIGHT_ポスター_ミャンマー語_A3_入稿用_塗り足し3mm.pdf",
+          "label": "ミャンマー語 A3",
+          "desc": "မြန်မာ・仕上がり 297×420mm（レジ横など近くで見る場所）"
+        }
+      ]
     }
   ]
 }
