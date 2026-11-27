@@ -127,7 +127,9 @@ async function call(p, opt) {
     assert.strictEqual((await call('/api/print-file/kaisha-annai-nyuko.pdf')).status, 401);
     const l = await call('/api/print-list', { cookie: S2 }); assert.strictEqual(l.status, 200);
     const it = l.json.items.find(x => x.id === 'kaisha-annai'); assert.ok(it, 'thiếu kaisha-annai');
-    assert.deepStrictEqual(it.files.map(f => f.key), ['nyuko', 'book', 'a3', 'a4']); assert.ok(it.files.every(f => f.size > 1e6), 'PDF phải có trong backend/print');
+    assert.deepStrictEqual(it.files.map(f => f.key), ['nyuko', 'book', 'sra3', 'a3full', 'a3', 'a4']); assert.ok(it.files.every(f => f.size > 1e6), 'PDF phải có trong backend/print');
+    const po = l.json.items.find(x => x.id === 'poster-gaikokujin'); assert.ok(po, 'thiếu poster-gaikokujin');
+    assert.deepStrictEqual(po.files.map(f => f.key), ['vi-a2', 'vi-a3', 'id-a2', 'id-a3', 'my-a2', 'my-a3']); assert.ok(po.files.every(f => f.size > 1e5), 'PDF poster phải có trong backend/print');
     const r = await fetch(BASE + '/api/print-file/kaisha-annai-nyuko.pdf', { headers: { Cookie: S2 } }); assert.strictEqual(r.status, 200);
     assert.ok(/attachment/.test(r.headers.get('content-disposition') || '')); const b = Buffer.from(await r.arrayBuffer()); assert.strictEqual(b.subarray(0, 5).toString(), '%PDF-');
     const fl = l.json.items.find(x => x.id === 'chirashi-tobikomi'); assert.ok(fl && fl.kind === 'flyer', 'thiếu チラシ'); assert.deepStrictEqual(fl.files.map(f => f.label), ['溶接', '建設', '全業種']); assert.ok(fl.files.every(f => f.size > 1e5));
